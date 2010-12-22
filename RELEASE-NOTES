@@ -1,0 +1,7 @@
+***********
+version 1.0
+***********
+
+Initial release of the json module
+Requires qore 0.8.1+ to build and run
+see README and docs for more information

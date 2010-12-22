@@ -1,0 +1,33 @@
+Qore json module
+
+INTRODUCTION
+------------
+The Qore json module provides JSON functionality to Qore.  This was previously
+part of the main qore library but moved to this module in qore v0.8.1 
+
+see docs for more information
+
+
+BUILDING
+--------
+Requires qore 0.8.1+ to build and run
+
+to configure the build, execute
+   	configure --disable-debug
+
+if the qore library cannot be found, then you can use:
+   	configure --disable-debug --with-qore=<dir>
+
+The qore binary also needs to be in the path so configure can determine the module directory
+
+Then execute
+
+make && make install
+
+(or 'make && sudo make install' as needed)
+
+please direct any questions to:
+david@qore.org
+
+or you can post in the qore forums at
+        http://qore.org/forums
