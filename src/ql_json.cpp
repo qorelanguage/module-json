@@ -438,7 +438,7 @@ static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int for
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
+    @see @ref serialization
 */
 //# string makeJSONString(any $data, *string $encoding) {}
 static AbstractQoreNode *f_makeJSONString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -465,7 +465,7 @@ static AbstractQoreNode *f_makeJSONString(const QoreListNode *params, ExceptionS
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
+    @see @ref serialization
 */
 //# string makeFormattedJSONString(any $data, *string $encoding) {}
 static AbstractQoreNode *f_makeFormattedJSONString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -490,7 +490,7 @@ static AbstractQoreNode *f_makeFormattedJSONString(const QoreListNode *params, E
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
+    @see @ref serialization
  */
 //# any parseJSON(string $json_string) {}
 AbstractQoreNode *parseJSONValue(const QoreString *str, ExceptionSink *xsink) {
@@ -595,8 +595,8 @@ QoreStringNode *makeJSONRPC11RequestString(const QoreListNode *params, Exception
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
-    @see JSONRPC
+    @see @ref serialization
+    @see @ref JSONRPC
  */
 //# string makeJSONRPCRequestString(string $method_name, any $version, any $id, any $request_msg) {}
 static AbstractQoreNode *f_makeJSONRPCRequestString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -658,8 +658,8 @@ static AbstractQoreNode *f_makeJSONRPCRequestString(const QoreListNode *params, 
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
-    @see JSONRPC
+    @see @ref serialization
+    @see @ref JSONRPC
  */
 //# string makeFormattedJSONRPCRequestString(string $method_name, any $version, any $id, any $request_msg) {}
 static AbstractQoreNode *f_makeFormattedJSONRPCRequestString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -716,8 +716,8 @@ static AbstractQoreNode *f_makeFormattedJSONRPCRequestString(const QoreListNode 
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
-    @see JSONRPC
+    @see @ref serialization
+    @see @ref JSONRPC
  */
 //# string makeJSONRPCResponseString(any $version, any $id, any $response_msg) {}
 static AbstractQoreNode *f_makeJSONRPCResponseString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -772,8 +772,8 @@ static AbstractQoreNode *f_makeJSONRPCResponseString(const QoreListNode *params,
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
-    @see JSONRPC
+    @see @ref serialization
+    @see @ref JSONRPC
  */
 //# string makeFormattedJSONRPCResponseString(any $version, any $id, any $response_msg) {}
 static AbstractQoreNode *f_makeFormattedJSONRPCResponseString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -824,8 +824,8 @@ static AbstractQoreNode *f_makeFormattedJSONRPCResponseString(const QoreListNode
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
-    @see JSONRPC
+    @see @ref serialization
+    @see @ref JSONRPC
  */
 //# string makeJSONRPCErrorString(any $version, any $id, any $error_msg) {}
 static AbstractQoreNode *f_makeJSONRPCErrorString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -877,8 +877,8 @@ static AbstractQoreNode *f_makeJSONRPCErrorString(const QoreListNode *params, Ex
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
-    @see JSONRPC
+    @see @ref serialization
+    @see @ref JSONRPC
  */
 //# string makeFormattedJSONRPCErrorString(any $version, any $id, any $error_msg) {}
 static AbstractQoreNode *f_makeFormattedJSONRPCErrorString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -932,8 +932,8 @@ static AbstractQoreNode *f_makeFormattedJSONRPCErrorString(const QoreListNode *p
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
-    @see JSONRPC
+    @see @ref serialization
+    @see @ref JSONRPC
  */
 //# string makeJSONRPC11ErrorString(softint $code, string $error, any $id, any $error_msg) {}
 static AbstractQoreNode *f_makeJSONRPC11ErrorString(const QoreListNode *params, ExceptionSink *xsink) {
@@ -998,8 +998,8 @@ static AbstractQoreNode *f_makeJSONRPC11ErrorString(const QoreListNode *params, 
     @par Tags:
     @ref RET_VALUE_ONLY
 
-    @see serialization
-    @see JSONRPC
+    @see @ref serialization
+    @see @ref JSONRPC
  */
 //# string makeFormattedJSONRPC11ErrorString(softint $code, string $error, any $id, any $error_msg) {}
 static AbstractQoreNode *f_makeFormattedJSONRPC11ErrorString(const QoreListNode *params, ExceptionSink *xsink) {
