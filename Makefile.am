@@ -17,6 +17,7 @@ noinst_HEADERS = src/QC_JsonRpcClient.h \
 EXTRA_DIST = COPYING ChangeLog AUTHORS README \
 	RELEASE-NOTES \
 	test/json-test.q \
+	examples \
 	qore-json-module.spec
 
 ACLOCAL_AMFLAGS=-I m4

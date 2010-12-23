@@ -46,7 +46,6 @@ Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
 BuildRequires: qore-devel >= 0.8
-BuildRequires: libjson2-devel
 BuildRequires: qore
 
 %description
@@ -76,7 +75,22 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %{module_dir}
-%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/json-test.q docs/json-module-doc.html
+%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS
+
+%package doc
+Summary: JSON module for Qore
+Group: Development/Languages
+
+%description doc
+JSON module for the Qore Programming Language.
+
+This RPM provides API documentation, test and example programs
+
+
+%files doc
+%defattr(-,root,root,-)
+%doc docs/json/html examples/ test/ 
+
 
 %changelog
 * Wed Dec 22 2010 David Nichols <david@qore.org>
