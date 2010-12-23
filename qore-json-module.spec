@@ -45,7 +45,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.8
+BuildRequires: qore-devel >= 0.8.1
 BuildRequires: qore
 
 %description
