@@ -4,7 +4,7 @@
 AC_INIT([qore-json-module], [1.0],
         [David Nichols <david@qore.org>],
         [qore-json-module])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2])
 AC_CONFIG_HEADER([config.h])
 
 AC_LANG(C++)
@@ -378,6 +378,121 @@ else
          AC_MSG_WARN([warning, installed qore's module dir is $qlibdir, this module will be installed in $libdir])
       fi
    fi
+fi
+
+set_openssl_cppflags() {
+    if test "$1" != "/usr/include"; then
+        OPENSSL_CPPFLAGS=-I$1
+    fi
+}
+
+find_openssl() {
+    dir="$1"
+    if test -z "$dir" -o "$dir" = "/"; then
+        dir="/"
+	lib=/lib
+	inc=/usr/include
+    else
+        lib="$dir/lib${LIBSUFFIX}"
+        inc="$dir/include"
+    fi
+    # if we only want the static openssl libraries
+    if test -n "$openssl_static"; then
+    	if test -f "$lib/libssl.a" -a -f "$lib/libcrypto.a"; then
+	    OPENSSL_LDFLAGS="$lib/libssl.a $lib/libcrypto.a"
+       	    AC_MSG_RESULT([$lib (forced static)])
+    	elif test "$bits" = 64 -a -f "$lib/64/libssl.a" -a -f "$lib/64/libcrypto.a"; then
+	    OPENSSL_LDFLAGS="$lib/64/libssl.a $lib/64/libcrypto.a"
+       	    AC_MSG_RESULT([$lib/64 (forced static)])
+    	fi
+    else
+        if test -f "$lib/libssl.${SHLIB_SUFFIX}" -a -f "$lib/libcrypto.${SHLIB_SUFFIX}"; then
+	    if test "$lib" != "/lib" -a "$lib" != "/usr/lib"; then
+       	        OPENSSL_LDFLAGS="-L$lib"
+    	    fi
+	    OPENSSL_LDFLAGS="$OPENSSL_LDFLAGS -lssl -lcrypto"
+       	    AC_MSG_RESULT([$lib (shared)])
+    	elif test -f "$lib/libssl.a" -a -f "$lib/libcrypto.a"; then
+	    if test "$lib" != "/lib" -a "$lib" != "/usr/lib"; then
+       	        OPENSSL_LDFLAGS="-L$lib"
+    	    fi
+	    OPENSSL_LDFLAGS="$OPENSSL_LDFLAGS -lssl -lcrypto"
+       	    AC_MSG_RESULT([$lib (static)])
+        elif test "$bits" = 64 -a -f "$lib/64/libssl.${SHLIB_SUFFIX}" -a -f "$lib/64/libcrypto.${SHLIB_SUFFIX}"; then
+	    OPENSSL_LDFLAGS="-L$lib/64 -lssl -lcrypto"
+       	    AC_MSG_RESULT([$lib/64 (shared)])
+    	elif test "$bits" = 64 -a -f "$lib/64/libssl.a" -a -f "$lib/64/libcrypto.a"; then
+	    OPENSSL_LDFLAGS="-L$lib -lssl -lcrypto"
+       	    AC_MSG_RESULT([$lib (static)])
+    	fi
+    fi
+    if test -z "$OPENSSL_LDFLAGS"; then
+        return
+    fi
+    AC_MSG_CHECKING([for openssl include files])
+    # try to find include files
+    if test -f "$inc/openssl/ssl.h"; then
+        AC_MSG_RESULT([found: $inc/openssl])
+        set_openssl_cppflags $inc
+    else
+	AC_MSG_ERROR([not found])
+    fi
+
+    QORE_LIB_LDFLAGS="$QORE_LIB_LDFLAGS $OPENSSL_LDFLAGS"
+    QORE_LIB_CPPFLAGS="$QORE_LIB_CPPFLAGS $OPENSSL_CPPFLAGS"
+}
+
+# see if we can figure out where the openssl library is
+AC_ARG_WITH([openssl-dir],
+  [AS_HELP_STRING([--with-openssl-dir@<:@=DIR@:>@],
+                  [openssl directory])],
+  [if test ! -d "${with_openssl_dir}"; then AC_MSG_ERROR(bad value ${with_openssl_dir} for --with-openssl-dir); unset with_openssl_dir; fi], 
+  [with_openssl_dir="$OPENSSL_DIR"])
+
+AC_MSG_CHECKING([for openssl libraries and header files])
+for dir in "${with_openssl_dir}" "${find_prefix}" /usr / /usr/local /opt/gnu /opt/openssl /usr/local/openssl /opt/local /sw /usr/sfw /opt/sfw; do
+    find_openssl $dir
+    if test -n "$OPENSSL_LDFLAGS"; then
+        break
+    fi
+done
+if test -z "$OPENSSL_LDFLAGS"; then
+    AC_MSG_ERROR([no openssl library found])
+else
+    SAVE_CPPFLAGS="$CPPFLAGS"
+    SAVE_LDFLAGS="$LDFLAGS"
+    CPPFLAGS="$CPPFLAGS $QORE_LIB_CPPFLAGS $OPENSSL_CPPFLAGS"
+    LDFLAGS="$LDFLAGS $QORE_LIB_LDFLAGS $OPENSSL_LDFLAGS"
+
+    # check for SHA512 algorithm
+    AC_MSG_CHECKING([for SHA224, SHA256, SHA384, SHA512 in openssl])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM(
+    [[#include <openssl/evp.h>]],
+    [[const EVP_MD *evp = EVP_sha512();]])],
+       [AC_MSG_RESULT([found])
+        AC_DEFINE([HAVE_OPENSSL_SHA512], 1, [define if the sha512 algorithm is available in openssl])],
+       [AC_MSG_RESULT([not found])])
+
+    # check for openssl const correctness (later versions have it)
+    AC_MSG_CHECKING([const correctness in openssl headers])
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+    [[#include <openssl/x509.h>]],
+    [[const unsigned char *p; d2i_X509(0, &p, 0l);]])],
+       [AC_MSG_RESULT([ok])
+        AC_DEFINE([HAVE_OPENSSL_CONST], 1, [Define if openssl headers correctly use const])],
+       [AC_MSG_RESULT([old style, not const correct])])
+
+    # check for const required with SSL_CTX_new
+    AC_MSG_CHECKING([const required with SSL_CTX_new in openssl headers])
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+    [[#include <openssl/ssl.h>]],
+    [[const SSL_METHOD *meth; SSL_CTX_new(meth);]])],
+       [AC_MSG_RESULT([ok])
+        AC_DEFINE([NEED_SSL_CTX_NEW_CONST], 1, [Define if SSL_CTX_new() requires a const argument])],
+       [AC_MSG_RESULT([no const required])])
+
+    CPPFLAGS="$SAVE_CPPFLAGS"
+    LDFLAGS="$SAVE_LDFLAGS"
 fi
 
 AC_ARG_ENABLE([profile],
