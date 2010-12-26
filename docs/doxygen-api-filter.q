@@ -227,20 +227,25 @@ class filter {
 		    $of.print($line + "\n");
 		    continue;
 		}
-		$comment = $.getComment($line, $if);
-                my *string $sig = $if.readLine();
-                if ($sig =~ /\/\*\*#/) {
-                    $sig = $.getCodeComment($sig, $if);
+                my bool $continue;
+                $comment = $.getComment($line, $if, \$continue);
+                if ($continue) {
+                    my *string $sig = $if.readLine();
+                    if ($sig =~ /\/\*\*#/) {
+                        $sig = $.getCodeComment($sig, $if);
+                    }
+                    else if ($sig !~ /^\/\/#/) {
+                        printf("ERROR: signature line has wrong format: %n\n", $sig);
+                        exit(1);
+                    }
+                    else {
+                        splice $sig, 0, 4;
+                        $sig =~ s/\$/__6_/g;
+                    }
+                    $of.printf("%s%s\n", $comment, $sig);
                 }
-                else if ($sig !~ /^\/\/#/) {
-                    printf("ERROR: signature line has wrong format: %n\n", $sig);
-                    exit(1);
-                }
-                else {
-                    splice $sig, 0, 4;
-                    $sig =~ s/\$/__6_/g;
-                }
-                $of.printf("%s%s\n", $comment, $sig);
+                else
+                    $of.printf("%s\n", $comment);
 		continue;
 	    }
             if ($line =~ /\/\*\*#/) {
@@ -278,12 +283,6 @@ class filter {
     }
 
     static fixAPIRef(reference $line) {
-	while (exists (my *string $api = ($line =~ x/((omq|arch|datasource|info|omqmap|prop|queue|status|tibco|tibrv-api-gateway)\.[-a-zA-Z0-9_\.\[\]]+)\(/)[0])) {
-	    my string $na = filter::fixAPI($api);
-	    $line = replace($line, $api + "(", $na + "(");
-            #printf("replace %n -> %n\n", $api, $na);
-	}
-
 	$line =~ s/\$\.//g;
 	$line =~ s/\$/__6_/g;
     }
@@ -301,21 +300,26 @@ class filter {
 	}
     }
 
-    string getComment(string $comment, File $if, bool $fix_param = False) {
+    string getComment(string $comment, File $if, reference $continue) {
 	$comment =~ s/^[ \t]+//g;
-	if ($fix_param)
-	    $.fixParam(\$comment);
 
 	my DocumentTableHelper $dth();
 
+        my bool $first = True;
 	while (exists (my *string $line = $if.readLine())) {
+            if ($first) {
+                $first = False;
+                if ($line =~ /^\/\*\*#/) {
+                    $continue = False;
+                    return $.getCodeComment($comment + $line, $if);
+                }
+                $continue = True;
+            }
+
 	    $line =~ s/^[ \t]+//g;
 	    $line =~ s/\$/__6_/g;
 
-	    if ($fix_param)
-		$.fixParam(\$line);
-
-	    filter::fixAPIRef(\$line);
+            filter::fixAPIRef(\$line);
 
 	    $line = $dth.process($line);
 
