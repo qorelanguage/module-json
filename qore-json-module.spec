@@ -34,7 +34,7 @@
 
 Summary: JSON module for Qore
 Name: qore-json-module
-Version: 1.0
+Version: 1.1
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
@@ -94,5 +94,8 @@ This RPM provides API documentation, test and example programs
 
 
 %changelog
+* Tue Dec 28 2010 David Nichols <david@qore.org>
+- updated to version 1.1
+
 * Wed Dec 22 2010 David Nichols <david@qore.org>
 - initial spec file for json module
