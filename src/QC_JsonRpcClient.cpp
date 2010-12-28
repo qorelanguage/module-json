@@ -78,10 +78,9 @@ static void set_jrc_defaults(QoreHTTPClient &client) {
    client.addProtocol("jsonrpcs", 443, true);
 }
 
-//! main Qore Programming Language namespace
-/** main Qore Programming Language namespace
+//! main %Qore Programming Language namespace
+/**# namespace Qore {
  */
-//# namespace Qore {
 //! The JsonRpcClient class provides easy access to JSON-RPC web services
 /** This class inherits all public methods of the HTTPClient class. The inherited HTTPClient methods are not listed in this section, see the documentation for the HTTPClient class for more information on methods provided by the parent class.  For a list of low-level JSON-RPC functions, see @ref JSONRPC.
 
@@ -105,17 +104,6 @@ static void set_jrc_defaults(QoreHTTPClient &client) {
 */
 /**# class JsonRpcClient : Qore::HTTPClient {
 public:
-   constructor();
-   constructor(hash $opts, softbool $no_connect = False);
-   JsonRpcClient copy();
-   hash callArgs(string $method, any $args);
-   hash call(string $method, ...);
-   hash callArgsWithInfo(reference $info, string $method, any $args);
-   hash callWithInfo(reference $info, string $method, ...);
-   nothing setEventQueue();
-   nothing setEventQueue(Queue $queue);
-};
-};
 */
 
 //! Creates the JsonRpcClient object based on the parameters passed
@@ -125,7 +113,7 @@ public:
 my JsonRpcClient $jrc();
 $jrc.setURL("http://localhost:8080");@endcode
 */
-//# Qore::JsonRpcClient::constructor() {}
+//# constructor() {}
 static void JRC_constructor(QoreObject *self, const QoreListNode *params, ExceptionSink *xsink) {
    // get HTTPClient object
    ReferenceHolder<QoreHTTPClient> client((QoreHTTPClient *)self->getReferencedPrivateData(CID_HTTPCLIENT, xsink), xsink);
@@ -152,7 +140,7 @@ static void JRC_constructor(QoreObject *self, const QoreListNode *params, Except
     @par Example:
     @code my JsonRpcClient $jrc(("url": "http://authuser:authpass@otherhost:8080/JSONRPC"));@endcode
 */
-//# Qore::JsonRpcClient::constructor(hash $opts, softbool $no_connect = False) {}
+//# constructor(hash $opts, softbool $no_connect = False) {}
 static void JRC_constructor_hash_bool(QoreObject *self, const QoreListNode *params, ExceptionSink *xsink) {
    // get HTTPClient object
    ReferenceHolder<QoreHTTPClient> client((QoreHTTPClient *)self->getReferencedPrivateData(CID_HTTPCLIENT, xsink), xsink);
@@ -173,7 +161,7 @@ static void JRC_constructor_hash_bool(QoreObject *self, const QoreListNode *para
 //! Throws an exception; copying JsonRpcClient objects is currently not supported
 /** @throw JSONRPCCLIENT-COPY-ERROR copying JsonRpcClient objects is currently not supported
 */
-//# Qore::JsonRpcClient Qore::JsonRpcClient::copy() {}
+//# Qore::JsonRpcClient copy() {}
 static void JRC_copy(QoreObject *self, QoreObject *old, QoreHTTPClient* client, ExceptionSink *xsink) {
    xsink->raiseException("JSONRPCCLIENT-COPY-ERROR", "copying JsonRpcClient objects is not yet supported.");
 }
@@ -228,7 +216,7 @@ static AbstractQoreNode *JRC_callArgs(QoreObject *self, QoreHTTPClient *client, 
     @par Example:
     @code my hash $result = $jrc.callArgs("method.name", $arg_list); @endcode
 */
-//# hash Qore::JsonRpcClient::callArgs(string $method, any $args) {}
+//# hash callArgs(string $method, any $args) {}
 static AbstractQoreNode *JRC_call(QoreObject *self, QoreHTTPClient *client, const QoreListNode *params, ExceptionSink *xsink) {
    // create the outgoing message in JSON-RPC call format
    SimpleRefHolder<QoreStringNode> msg(makeJSONRPC11RequestString(params, xsink));
@@ -263,7 +251,7 @@ static AbstractQoreNode *JRC_call(QoreObject *self, QoreHTTPClient *client, cons
 my hash $info;
 my hash $result = $jrc.callArgsWithInfo(\$info, "method.name", $arg_list);@endcode
 */
-//# hash Qore::JsonRpcClient::callArgsWithInfo(reference $info, string $method, any $args) {}
+//# hash callArgsWithInfo(reference $info, string $method, any $args) {}
 static AbstractQoreNode *JRC_callArgsWithInfo(QoreObject *self, QoreHTTPClient *client, const QoreListNode *params, ExceptionSink *xsink) {
    // get info reference
    const ReferenceNode *ref = HARD_QORE_REF(params, 0);
@@ -308,7 +296,7 @@ static AbstractQoreNode *JRC_callArgsWithInfo(QoreObject *self, QoreHTTPClient *
 my hash $info;
 my hash $result = $jrc.callWithInfo(\$info, "method.name", $arg1, $arg2);@endcode
 */
-//# hash Qore::JsonRpcClient::callWithInfo(reference $info, string $method, ...) {}
+//# hash callWithInfo(reference $info, string $method, ...) {}
 static AbstractQoreNode *JRC_callWithInfo(QoreObject *self, QoreHTTPClient *client, const QoreListNode *params, ExceptionSink *xsink) {
    // get info reference
    const ReferenceNode *ref = HARD_QORE_REF(params, 0);
@@ -333,7 +321,7 @@ static AbstractQoreNode *JRC_callWithInfo(QoreObject *self, QoreHTTPClient *clie
 /** @par Example:
     @code $jrc.setEventQueue(); @endcode
  */
-//# nothing Qore::JsonRpcClient::setEventQueue() {}
+//# nothing setEventQueue() {}
 static AbstractQoreNode *JRC_setEventQueue_nothing(QoreObject *self, QoreHTTPClient *client, const QoreListNode *params, ExceptionSink *xsink) {
    client->setEventQueue(0, xsink);
    return 0;
@@ -344,9 +332,9 @@ static AbstractQoreNode *JRC_setEventQueue_nothing(QoreObject *self, QoreHTTPCli
     @par Example:
     @code
 my Queue $queue();
-$jrc.setEventQueue($queue);@endcode
+$jrc.setEventQueue($queue); @endcode
  */
-//# nothing Qore::JsonRpcClient::setEventQueue(Queue $queue) {}
+//# nothing setEventQueue(Queue $queue) {}
 static AbstractQoreNode *JRC_setEventQueue_queue(QoreObject *self, QoreHTTPClient *client, const QoreListNode *params, ExceptionSink *xsink) {
    HARD_QORE_OBJ_DATA(q, Queue, params, 0, CID_QUEUE, "Queue", "JsonRpcClient::setEventQueue", xsink);
    if (*xsink)
@@ -355,6 +343,11 @@ static AbstractQoreNode *JRC_setEventQueue_queue(QoreObject *self, QoreHTTPClien
    client->setEventQueue(q, xsink);
    return 0;
 }
+
+/**#
+};
+};
+*/
 
 QoreClass *initJsonRpcClientClass(QoreClass *http_client) {
    assert(QC_QUEUE);
