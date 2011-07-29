@@ -1,4 +1,6 @@
 
+MNAME=json
+
 if COND_SINGLE_COMPILATION_UNIT
 JSON_SOURCES = single-compilation-unit.cpp
 else
@@ -10,7 +12,7 @@ endif
 
 lib_LTLIBRARIES = json.la
 json_la_SOURCES = $(JSON_SOURCES)
-json_la_LDFLAGS = -module -avoid-version
+json_la_LDFLAGS = -module -avoid-version ${MODULE_LDFLAGS}
 
 INCLUDES = -I$(top_srcdir)/include
 
@@ -24,6 +26,10 @@ AM_CXXFLAGS=-g
 endif
 endif
 
+if COND_MINGW
+RM_OTHER=$(DESTDIR)$(libdir)/$(MNAME).dll.a
+endif
+
 install-exec-hook:
-	mv $(DESTDIR)$(libdir)/json.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/json-api-$(MODULE_API).qmod
-	rm -f $(DESTDIR)$(libdir)/json.la
+	mv $(DESTDIR)$(libdir)/$(MNAME).$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/$(MNAME)-api-$(MODULE_API).qmod
+	$(RM) $(DESTDIR)$(libdir)/$(MNAME).la $(RM_OTHER)
