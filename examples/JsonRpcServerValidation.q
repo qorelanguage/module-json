@@ -6,10 +6,14 @@
 %require-our
 %enable-all-warnings
 
+# require qore >= 0.8.5 for the JsonRpcHandler user module
+%requires qore >= 0.8.5
+
 %requires json
 
-%include HttpServer.qc
-%include JsonRpcHandler.qc
+%requires JsonRpcHandler >= 1.0
+%requires HttpServer >= 0.3.4
+%requires Mime >= 1.0
 
 # default port for server
 const DefaultPort = 8081;
@@ -18,42 +22,42 @@ const ApiMethods =
     (
      ( "name"     : "^sys\\.shutdown\$",
        "text"     : "sys.shutdown",
-       "function" : "shutdown",
+       "function" : \shutdown(),
        "help"     : "shuts down this server",
        "logopt"   : 0 ),
      ( "name"     : "^validator1\\.arrayOfStructsTest\$",
        "text"     : "validator1.arrayOfStructsTest",
-       "function" : "arrayOfStructsTest",
+       "function" : \arrayOfStructsTest(),
        "help"     : "the 'arrayOfStructsTest' method",
        "logopt"   : 0 ),
      ( "name"     : "^validator1\\.countTheEntities\$",
        "text"     : "validator1.countTheEntities",
-       "function" : "countTheEntities",
+       "function" : \countTheEntities(),
        "help"     : "the 'countTheEntities' method",
        "logopt"   : 0 ),
      ( "name"     : "^validator1\\.easyStructTest\$",
        "text"     : "validator1.easyStructTest",
-       "function" : "easyStructTest",
+       "function" : \easyStructTest(),
        "help"     : "the 'easyStructTest' method",
        "logopt"   : 0 ),
      ( "name"     : "^validator1\\.echoStructTest\$",
        "text"     : "validator1.echoStructTest",
-       "function" : "echoStructTest",
+       "function" : \echoStructTest(),
        "help"     : "the 'echoStructTest' method",
        "logopt"   : 0 ),
      ( "name"     : "^validator1\\.manyTypesTest\$",
        "text"     : "validator1.manyTypesTest",
-       "function" : "manyTypesTest",
+       "function" : \manyTypesTest(),
        "help"     : "the 'manyTypesTest' method",
        "logopt"   : 0 ),
      ( "name"     : "^validator1\\.nestedStructTest\$",
        "text"     : "validator1.nestedStructTest",
-       "function" : "nestedStructTest",
+       "function" : \nestedStructTest(),
        "help"     : "the 'nestedStructTest' method",
        "logopt"   : 0 ),
      ( "name"     : "^validator1\\.simpleStructReturnTest\$",
        "text"     : "validator1.simpleStructReturnTest",
-       "function" : "simpleStructReturnTest",
+       "function" : \simpleStructReturnTest(),
        "help"     : "the 'simpleStructReturnTest' method",
        "logopt"   : 0 )
  );
@@ -174,14 +178,16 @@ sub main() {
     process_command_line();
 
     # start HTTP server
-    $http_server = new HttpServer("log", "log");
+    $http_server = new HttpServer(\log(), \log());
     $http_server.addListener($o.port);
 
     # add JSON-RPC handler to HTTP server - will handle all requests with
-    # URL RPC2* or content-type = "text/json"
-    $http_server.setHandler("jsonrpc", "^JSON", "application/json", new JsonRpcHandler(new AbstractAuthenticator(), ApiMethods));
+    # URL RPC2* or content-type = "application/json"
+    $http_server.setHandler("jsonrpc", "^JSON", MimeTypeJsonRpc, new JsonRpcHandler(new AbstractAuthenticator(), ApiMethods));
 
     printf("HTTP Server listening on port '%s' for JSON-RPC requests\n", $o.port);
+    # wait for the server to stop
+    $http_server.waitStop();
 }
 
 main();
