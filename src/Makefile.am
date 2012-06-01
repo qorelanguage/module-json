@@ -1,13 +1,17 @@
-
 MNAME=json
 
+.qpp.cpp:
+	qpp $<
+
+GENERATED_SOURCES = QC_JsonRpcClient.cpp ql_json.cpp
+CLEANFILES = $(GENERATED_SOURCES)
+
 if COND_SINGLE_COMPILATION_UNIT
+single-compilation-unit.cpp: $(GENERATED_SOURCES)
 JSON_SOURCES = single-compilation-unit.cpp
 else
-JSON_SOURCES = json-module.cpp \
-	QC_JsonRpcClient.cpp \
-	ql_json.cpp
-
+JSON_SOURCES = json-module.cpp
+nodist_json_la_SOURCES = $(GENERATED_SOURCES)
 endif
 
 lib_LTLIBRARIES = json.la

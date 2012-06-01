@@ -26,9 +26,9 @@
 
 #include <stdarg.h>
 
-QoreStringNode *json_module_init();
-void json_module_ns_init(QoreNamespace *rns, QoreNamespace *qns);
-void json_module_delete();
+static QoreStringNode *json_module_init();
+static void json_module_ns_init(QoreNamespace *rns, QoreNamespace *qns);
+static void json_module_delete();
 
 // qore module symbols
 DLLEXPORT char qore_module_name[] = "json";
@@ -43,16 +43,17 @@ DLLEXPORT qore_module_ns_init_t qore_module_ns_init = json_module_ns_init;
 DLLEXPORT qore_module_delete_t qore_module_delete = json_module_delete;
 DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
 
-QoreStringNode *json_module_init() {
-   initJsonRpcClientClass(QC_HTTPCLIENT);
+QoreNamespace JNS("Json");
 
-   init_json_functions();
+QoreStringNode *json_module_init() {
+   JNS.addSystemClass(initJsonRpcClientClass(JNS));
+   init_json_functions(JNS);
 
    return 0;
 }
 
-void json_module_ns_init(QoreNamespace *rns, QoreNamespace *qns) {
-   qns->addSystemClass(QC_JSONRPCCLIENT);
+void json_module_ns_init(QoreNamespace* rns, QoreNamespace* qns) {
+   qns->addNamespace(JNS.copy());
 }
 
 void json_module_delete() {

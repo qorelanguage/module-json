@@ -8,12 +8,15 @@
 
     @section intro Introduction
 
-    The json module allows for easy serialization and deserialization between JSON strings and %Qore data structures.  The module also provides functions for @ref JSONRPC support as well as a Qore::JsonRpcClient class for easier integration with JavaScript clients.
+    The json module allows for easy serialization and deserialization between <a href="http://www.json.org/"JSON</a> strings and %Qore data structures.  The module also provides functions for @ref JSONRPC support as well as a @ref Qore::Json::JsonRpcClient "JsonRpcClient" class for easier integration with JavaScript clients.
 
     This module is released under the <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a> and is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).
 
     To use the module in a %Qore script, use the \c %%requires directive as follows:
     @code %requires json @endcode
+
+    Also included with the binary json module:
+    - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler user module</a>
 
     @note JSON functionality was included in the main %Qore shared library until version 0.8.1, at which time the code was removed to make this module.
 
@@ -28,6 +31,7 @@
     |\c date|\c string|date/time values are serialized to strings like: \c "2010-12-22 16:35:36.372996 Wed +01:00 (CET)"
     |\c list|\c array|direct conversion
     |\c hash|\c struct|direct conversion
+    |\c NOTHING or \c NULL|\c null|directo conversion
     |all others|n/a|All other types will cause an \c JSON-RPC-SERIALIZATION-ERROR to be raised.
 
     <b>JSON Deserialization</b>
@@ -37,13 +41,14 @@
     |\c boolean|\c bool|direct conversion
     |\c array|\c list|direct conversion
     |\c struct|\c hash|direct conversion
+    |\c null|\c NOTHING|direct conversion
 
     This following functions provide automatic JSON serialization and deserialization:
     <b>Functions For JSON Serialization and Deserialization</b>
     |!Function Name|!Description
-    |makeFormattedJSONString()|Serializes qore data into a JSON string, formatted with line breaks for easier readability
-    |makeJSONString()|Serializes qore data into a JSON string, without any line breaks
-    |parseJSON()|Parses a JSON string and returns the corresponding qore data structure
+    |@ref makeFormattedJSONString()|Serializes qore data into a JSON string, formatted with line breaks for easier readability
+    |@ref makeJSONString()|Serializes qore data into a JSON string, without any line breaks
+    |@ref parseJSON()|Parses a JSON string and returns the corresponding qore data structure
 
     @section JSONRPC JSON-RPC
 
@@ -53,18 +58,18 @@
 
     <b>Classes Providing JSON-RPC Functionality</b>
     |!Class|!Description
-    |Qore::JsonRpcClient|For communicating with JSON-RPC servers
+    |@ref Qore::Json::JsonRpcClient "JsonRpcClient"|For communicating with JSON-RPC servers
 
     <b>Functions Providing JSON-RPC Functionality</b>
     |!Function Name|!Description
-    |makeFormattedJSONRPC11ErrorString()|Creates a JSON-RPC 1.1 error response string from the parameters passed, formatted with line breaks for easier readability
-    |makeFormattedJSONRPCErrorString()|Creates a generic JSON-RPC error response string from the parameters passed, formatted with line breaks for easier readability
-    |makeFormattedJSONRPCRequestString()|Creates a JSON-RPC request string from the parameters passed, formatted with line breaks for easier readability
-    |makeFormattedJSONRPCResponseString()|Creates a JSON-RPC response string from the parameters passed, formatted with line breaks for easier readability
-    |makeJSONRPC11ErrorString()|Creates a JSON-RPC 1.1 error response string from the parameters passed, without any line breaks
-    |makeJSONRPCErrorString()|a generic JSON-RPC error response string from the parameters passed, without any line breaks
-    |makeJSONRPCRequestString()|Creates a JSON-RPC request string from the parameters passed, without any line breaks
-    |makeJSONRPCResponseString()|Creates a JSON-RPC response string from the parameters passed, without any line breaks
+    |@ref makeFormattedJSONRPC11ErrorString()|Creates a JSON-RPC 1.1 error response string from the parameters passed, formatted with line breaks for easier readability
+    |@ref makeFormattedJSONRPCErrorString()|Creates a generic JSON-RPC error response string from the parameters passed, formatted with line breaks for easier readability
+    |@ref makeFormattedJSONRPCRequestString()|Creates a JSON-RPC request string from the parameters passed, formatted with line breaks for easier readability
+    |@ref makeFormattedJSONRPCResponseString()|Creates a JSON-RPC response string from the parameters passed, formatted with line breaks for easier readability
+    |@ref makeJSONRPC11ErrorString()|Creates a JSON-RPC 1.1 error response string from the parameters passed, without any line breaks
+    |@ref makeJSONRPCErrorString()|a generic JSON-RPC error response string from the parameters passed, without any line breaks
+    |@ref makeJSONRPCRequestString()|Creates a JSON-RPC request string from the parameters passed, without any line breaks
+    |@ref makeJSONRPCResponseString()|Creates a JSON-RPC response string from the parameters passed, without any line breaks
 
     @section codetags Function and Method Tags
 

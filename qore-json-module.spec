@@ -1,3 +1,4 @@
+%define mod_ver 1.1
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -34,7 +35,7 @@
 
 Summary: JSON module for Qore
 Name: qore-json-module
-Version: 1.1
+Version: %{mod_ver}
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
@@ -45,13 +46,14 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.8.1
+BuildRequires: qore-devel >= 0.8.5
 BuildRequires: openssl-devel
 BuildRequires: qore
 
 %description
-JSON module for the Qore Programming Language.
+This package contains the json module for the Qore Programming Language.
 
+JSON is a concise human-readable data serialization format.
 
 %if 0%{?suse_version}
 %debug_package
@@ -83,18 +85,18 @@ Summary: JSON module for Qore
 Group: Development/Languages
 
 %description doc
-JSON module for the Qore Programming Language.
-
-This RPM provides API documentation, test and example programs
-
+This package contains the HTML documentation and example programs for the Qore
+json module.
 
 %files doc
 %defattr(-,root,root,-)
-%doc docs/json/html examples/ test/ 
-
+%doc docs/json/html docs/JsonRpcHandler/html examples/ test/ 
 
 %changelog
-* Tue Dec 28 2010 David Nichols <david@qore.org>
+* Fri Jun 1 2012 David Nichols <david@qore.org> - 1.1
+- updated to qpp build and new docs
+
+* Tue Dec 28 2010 David Nichols <david@qore.org> - 1.1
 - updated to version 1.1
 
 * Wed Dec 22 2010 David Nichols <david@qore.org>

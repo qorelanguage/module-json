@@ -27,6 +27,6 @@
 DLLEXPORT extern qore_classid_t CID_JSONRPCCLIENT;
 DLLEXPORT extern QoreClass *QC_JSONRPCCLIENT;
 
-DLLLOCAL QoreClass *initJsonRpcClientClass(QoreClass *http_client);
+DLLLOCAL QoreClass *initJsonRpcClientClass(QoreNamespace& ns);
 
 #endif

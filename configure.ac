@@ -667,6 +667,10 @@ MODULE_VERSION_MINOR=`echo $PACKAGE_VERSION | cut -f3 -d\  | sed s/\"//g | cut -
 MODULE_VERSION_SUB=`echo $PACKAGE_VERSION | cut -f3 -d\  | sed s/\"//g | cut -f3 -d.`
 QORE_MODULE_PACKAGE_VERSION="$PACKAGE_VERSION"
 
+# set user module directory
+mymodverdir=${qore_version}
+AC_SUBST([mymodverdir])
+
 # set version information
 AC_DEFINE_UNQUOTED([MODULE_VERSION_MAJOR], $MODULE_VERSION_MAJOR, [major version number])
 AC_DEFINE_UNQUOTED([MODULE_VERSION_MINOR], $MODULE_VERSION_MINOR, [minor version number])
