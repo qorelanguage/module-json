@@ -75,13 +75,13 @@ clean-local:
 uninstall-local:
 	$(RM) -rf $(DESTDIR)$(datadir)/$(PACKAGE)/docs
 
+mostlyclean-local:
+	rm -rf ${DOXYGEN_OUTPUT} ${DX_CLEANFILES}
+
 else
 doxygen-doc:
 	echo no doxygen support
 endif
-
-mostlyclean-local:
-	rm -rf ${DOXYGEN_OUTPUT} ${DX_CLEANFILES}
 
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status --recheck

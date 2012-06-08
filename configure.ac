@@ -403,8 +403,8 @@ else
       AC_DEFINE_UNQUOTED([QORE_VERSION_CODE], $qvc, [define when missing in Qore headers])
    fi
 
-   if test $qvc -lt 800; then
-      AC_MSG_ERROR([found $qore_version; this module requires at least version 0.8.0])
+   if test $qvc -lt 805; then
+      AC_MSG_ERROR([found $qore_version; this module requires at least version 0.8.5])
    fi
 
    AC_MSG_RESULT([${qore_version} OK])
@@ -696,8 +696,7 @@ else
    printf " (32-bit)\n"
 fi
 
-show_library_feature()
-{
+show_library_feature() {
    printf "%-24s: " "$1"
    if test "$2" = "yes"; then
       printf "%-8s" yes
@@ -714,19 +713,12 @@ show_library_feature optimizations $enable_optimization
 show_library_feature debug $enable_debug
 show_library_feature profiling $enable_profile
 
-# hack to use our libtool if on HP-UX and mingw to enable static libs to be linked in to modules
-# on HP-UX, also to allow 64-bit libraries to be linked to modules
-if test "$OS" = "HP-UX" -o "$mingw" = yes; then
+# hack to use our libtool if on mingw to enable static libs to be linked in to the module
+if test "$mingw" = yes; then
    # backup generated libtool
    if test ! -e libtool.orig ; then
       cp libtool libtool.orig
    fi
-   # remove references to -ldl in libtool
-   sed "s/-ldl//g" libtool > libtool.tmp
-   # ensure static libs can be linked to modules
-   sed "s/valid_a_lib=no/valid_a_lib=yes/g" libtool.tmp > libtool.tmp.1
-   # ensure static libs can be linked to modules and ensure that valid 64-bit libraries are not recognized as invalid
-   sed "s/deplibs_check_method=.*/deplibs_check_method=pass_all/g" libtool.tmp.1 > libtool
-   # delete temporary files
-   rm -f libtool.tmp libtool.tmp.1
+   sed -e 's/deplibs_check_method=.*/deplibs_check_method=pass_all/g' -e 's/allow_undefined_flag=.*/allow_undefined_flag=yes/g' libtool > libtool.tmp
+   mv libtool.tmp libtool
 fi
