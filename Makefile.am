@@ -15,9 +15,7 @@ EXTRA_DIST = COPYING ChangeLog AUTHORS README \
 	src/QC_JsonRpcClient.qpp \
 	src/ql_json.qpp \
 	test/json-test.q \
-	examples/HttpServer.qc \
 	examples/json-rpc-client.q \
-	examples/JsonRpcHandler.qc \
 	examples/JsonRpcServerValidation.q \
 	qore-json-module.spec
 
