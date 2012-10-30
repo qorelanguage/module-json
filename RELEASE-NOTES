@@ -2,7 +2,8 @@
 version 1.1
 ***********
 
-in progress
+* added support for the new arbitrary-precision numeric type introduced in qore
+  0.8.6
 
 
 ***********

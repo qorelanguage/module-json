@@ -405,8 +405,15 @@ static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int for
       return 0;
    }
 
+#ifdef _QORE_HAS_NUMBER_TYPE
+   if (vtype == NT_NUMBER) {
+      reinterpret_cast<const QoreNumberNode*>(v)->getStringRepresentation(*str);
+      return 0;
+   }
+#endif
+
    if (vtype == NT_BOOLEAN) {
-      str->concat(reinterpret_cast<const QoreBoolNode *>(v)->getValue() ? "true" : "false");
+      str->concat(reinterpret_cast<const QoreBoolNode*>(v)->getValue() ? "true" : "false");
       return 0;
    }
 
