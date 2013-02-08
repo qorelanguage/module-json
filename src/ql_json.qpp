@@ -391,6 +391,13 @@ static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int for
       if (*xsink)
 	 return -1;
       str->concat('"');
+
+      // json spec is silent in this area - but most json
+      // libraries expect strings in this format.
+      // see parseJSONValue for backward conversion too.
+      str->replaceAll("\n", "\\\\n");
+      str->replaceAll("\t", "\\\\t");
+
       return 0;
    }
 
@@ -489,9 +496,15 @@ QoreStringNode *makeJSONRPC11RequestString(const QoreListNode *params, Exception
 }
 
 AbstractQoreNode *parseJSONValue(const QoreString *str, ExceptionSink *xsink) {
+
+   TempString tmp(new QoreString(str->getBuffer()));
+   // keep these synchronized with doJSONValue
+   tmp->replaceAll("\\\\n", "\n");
+   tmp->replaceAll("\\\\t", "\t");
+
    int line_number = 1;
-   const char *buf = str->getBuffer();
-   AbstractQoreNode *rv = getJSONValue(buf, line_number, str->getEncoding(), xsink);
+   const char *buf = tmp->getBuffer(); //str->getBuffer();
+   AbstractQoreNode *rv = getJSONValue(buf, line_number, /*str*/tmp->getEncoding(), xsink);
    if (rv && *buf) {
       // check for excess text after JSON data
       skip_whitespace(buf, line_number);

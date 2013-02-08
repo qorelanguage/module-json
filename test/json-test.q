@@ -78,7 +78,10 @@ sub json_tests() {
 		   "hash" : ( "howdy" : 123, "partner" : 456 ),
 		   "bool" : True,
 		   "time" : format_date("YYYY-MM-DD HH:mm:SS", now()),
-		   "key"  : "this & that" );
+		   "key"  : "this & that",
+                   "newline" : "lorem ipsum\ndolor\tsir amet",
+                 );
+
     my string $jstr = makeJSONString($h);
     test_value($h == parseJSON($jstr), True, "first JSON");
 
