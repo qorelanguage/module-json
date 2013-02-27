@@ -5,6 +5,7 @@
     - @ref serialization
     - @ref JSONRPC
     - @ref codetags
+    - @ref releasenotes
 
     @section intro Introduction
 
@@ -104,4 +105,17 @@
     @subsection DEPRECATED
 	
     Code with this flag is deprecated and may be removed in a future version of this module; if a variant with this flag is resolved at parse time, a \c "deprecated" warning is raised (assuming this warning is enabled).
+
+    @section releasenotes Release Notes
+
+    @subsection v0_1_1 Version 1.1
+
+    - added support for the new arbitrary-precision numeric type introduced in qore 0.8.6
+    - serialize control characters with escape codes to be compatible with common Javascript JSON libraries (also corresponding deserialization support)
+
+    @subsection v0_1_0 Version 1.0
+
+    - Initial release of the json module
+    - Requires qore 0.8.1+ to build and run
+
 */

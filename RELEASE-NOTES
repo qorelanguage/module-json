@@ -4,6 +4,8 @@ version 1.1
 
 * added support for the new arbitrary-precision numeric type introduced in qore
   0.8.6
+* serialize control characters with escape codes to be compatible with common
+  Javascript JSON libraries
 
 
 ***********
