@@ -80,7 +80,9 @@ static int getJSONStringToken(QoreString &str, const char *&buf, int &line_numbe
 	    buf++;
 	    continue;
 	 }
-	 if (*buf == 'b')
+	 if (*buf == 'a')
+	    str.concat('\a');
+	 else if (*buf == 'b')
 	    str.concat('\b');
 	 else if (*buf == 'f')
 	    str.concat('\f');
@@ -90,6 +92,8 @@ static int getJSONStringToken(QoreString &str, const char *&buf, int &line_numbe
 	    str.concat('\r');
 	 else if (*buf == 't')
 	    str.concat('\t');
+	 else if (*buf == 'v')
+	    str.concat('\v');
 	 else if (*buf == 'u') { // expect a unicode character specification
 	    ++buf;
 	    // check for 4 hex digits
@@ -381,7 +385,7 @@ static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int for
    }
 
    if (vtype == NT_STRING) {
-      const QoreStringNode *vstr = reinterpret_cast<const QoreStringNode *>(v);
+      const QoreStringNode *vstr = reinterpret_cast<const QoreStringNode*>(v);
       TempEncodingHelper t(vstr, str->getEncoding(), xsink);
       if (*xsink)
 	 return -1;
@@ -392,11 +396,32 @@ static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int for
 	 return -1;
       str->concat('"');
 
-      // json spec is silent in this area - but most json
-      // libraries expect strings in this format.
+      // http://tools.ietf.org/html/rfc4627
+      // encode all control characters
+      qore_size_t i = 0;
+      while (i < str->size()) {
+         if ((*str)[i] < 32) {
+            switch ((*str)[i]) {
+               case 7: str->replace(i, 1, "\\a"); ++i; break; // BEL
+               case 8: str->replace(i, 1, "\\b"); ++i; break; // BS
+               case 9: str->replace(i, 1, "\\t"); ++i; break; // HT
+               case 10: str->replace(i, 1, "\\n"); ++i; break; // LF
+               case 11: str->replace(i, 1, "\\v"); ++i; break; // VT
+               case 12: str->replace(i, 1, "\\f"); ++i; break; // FF
+               case 13: str->replace(i, 1, "\\r"); ++i; break; // CR
+               default: {
+                  char buf[7];
+                  sprintf(buf, "\\u%04x", (*str)[i]);
+                  str->replace(i, 1, buf); i += 5; break;
+               }
+            }
+         }
+         ++i;
+      }
+
       // see parseJSONValue for backward conversion too.
-      str->replaceAll("\n", "\\\\n");
-      str->replaceAll("\t", "\\\\t");
+      //str->replaceAll("\n", "\\\\n");
+      //str->replaceAll("\t", "\\\\t");
 
       return 0;
    }
@@ -496,15 +521,9 @@ QoreStringNode *makeJSONRPC11RequestString(const QoreListNode *params, Exception
 }
 
 AbstractQoreNode *parseJSONValue(const QoreString *str, ExceptionSink *xsink) {
-
-   TempString tmp(new QoreString(str->getBuffer()));
-   // keep these synchronized with doJSONValue
-   tmp->replaceAll("\\\\n", "\n");
-   tmp->replaceAll("\\\\t", "\t");
-
    int line_number = 1;
-   const char *buf = tmp->getBuffer(); //str->getBuffer();
-   AbstractQoreNode *rv = getJSONValue(buf, line_number, /*str*/tmp->getEncoding(), xsink);
+   const char *buf = str->getBuffer();
+   AbstractQoreNode *rv = getJSONValue(buf, line_number, str->getEncoding(), xsink);
    if (rv && *buf) {
       // check for excess text after JSON data
       skip_whitespace(buf, line_number);

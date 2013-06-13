@@ -1,4 +1,11 @@
 ***********
+version 1.2
+***********
+
+* fixes for quoting control characters - serialization/deserialization
+
+
+***********
 version 1.1
 ***********
 

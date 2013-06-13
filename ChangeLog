@@ -1,0 +1,122 @@
+2013-02-08 15:40  subik
+
+	* src/ql_json.qpp, test/json-test.q: json: escape new line and tabs
+	  (I'm not sure in its correctness but it seems it's working...)
+
+2012-10-30 22:01  david_nichols
+
+	* RELEASE-NOTES, src/ql_json.qpp: added support for serializing the
+	  "number" type
+
+2012-09-28 16:19  david_nichols
+
+	* configure.ac: applied reini urban's multi-arch patches for debian
+	  to all modules
+
+2012-08-28 07:24  david_nichols
+
+	* Makefile.am: removed old files from Makefile
+
+2012-06-25 08:51  david_nichols
+
+	* configure.ac: updated configure.ac logic to deal with /lib ->
+	  /usr/lib and /lib64 -> /usr/lib64 as with Fedora 17 - the
+	  previous logic was too clever for its own good
+
+2012-06-08 12:59  david_nichols
+
+	* Makefile.am, configure.ac: minor updates
+
+2012-06-01 08:47  david_nichols
+
+	* examples/HttpServer.qc, examples/JsonRpcServerValidation.q:
+	  updated JsonRpcServerValidation.q to use user modules; removed
+	  HttpServer class (supplied as a user module with qore 0.8.4+)
+
+2012-06-01 08:18  david_nichols
+
+	* Makefile.am, configure.ac, docs/doxyfile.tmpl,
+	  docs/mainpage.doxygen.tmpl, docs/qlib, docs/qlib/Doxyfile.tmpl,
+	  examples/JsonRpcHandler.qc, qlib, qlib/JsonRpcHandler.qm,
+	  qore-json-module.spec, src/Makefile.am, src/QC_JsonRpcClient.cpp,
+	  src/QC_JsonRpcClient.h, src/QC_JsonRpcClient.qpp,
+	  src/json-module.cpp, src/ql_json.cpp, src/ql_json.h,
+	  src/ql_json.qpp: updated json module to qpp
+
+2012-01-16 13:07  david_nichols
+
+	* configure.ac: updated configure scripts to only set LIBSUFFIX=64
+	  on 64-bit platfiorms if /usr/lib64 exists
+
+2011-09-12 16:26  david_nichols
+
+	* configure.ac: added -mt to compile and link lines when building
+	  on solaris with CC
+
+2011-09-05 14:49  subik
+
+	* ChangeLog: missing file for make dist
+
+2011-07-29 11:00  david_nichols
+
+	* configure.ac, src/Makefile.am: patches to the json module to
+	  allow for building under mingw32 cross-compile
+	  environment; updated xml module to delete temporary files in
+	  module directory
+	  when building for windows under mingw32
+
+2010-12-28 08:31  david_nichols
+
+	* RELEASE-NOTES: updated xml module to 1.1, updated release notes,
+	  updated ssh2 changelog
+
+2010-12-28 08:29  david_nichols
+
+	* configure.ac, qore-json-module.spec: updated to version 1.1
+
+2010-12-28 08:26  david_nichols
+
+	* src/QC_JsonRpcClient.cpp: doc updates
+
+2010-12-26 20:44  david_nichols
+
+	* docs/doxygen-api-filter.q, examples/json-rpc-client.q: doc and
+	  example updates
+
+2010-12-23 21:03  david_nichols
+
+	* Makefile.am, README, configure.ac, qore-json-module.spec:
+	  packaging fixes - use bz2, do not include .svn dirs
+
+2010-12-23 20:20  david_nichols
+
+	* qore-json-module.spec: spec file fixes
+
+2010-12-23 07:59  david_nichols
+
+	* Makefile.am, qore-json-module.spec: fixed rpm building -
+	  including doc rpms for the xml and json modules
+
+2010-12-22 20:03  david_nichols
+
+	* src/ql_json.cpp: documentation updates
+
+2010-12-22 18:37  david_nichols
+
+	* docs/mainpage.doxygen.tmpl: minor doc updates
+
+2010-12-22 18:17  david_nichols
+
+	* ., AUTHORS, COPYING, Makefile.am, README, README-BINARIES,
+	  RELEASE-NOTES, configure.ac, docs, docs/doxyfile.tmpl,
+	  docs/doxygen-api-filter.q, docs/footer_template.html,
+	  docs/mainpage.doxygen.tmpl, examples, examples/HttpServer.qc,
+	  examples/JsonRpcHandler.qc, examples/JsonRpcServerValidation.q,
+	  examples/json-rpc-client.q, m4, m4/acx_pthread.m4,
+	  qore-json-module.spec, reconf.sh, src, src/Makefile.am,
+	  src/QC_JsonRpcClient.cpp, src/QC_JsonRpcClient.h,
+	  src/json-module.cpp, src/ql_json.cpp, src/ql_json.h,
+	  src/qore-json-module.h, src/single-compilation-unit.cpp, test,
+	  test/json-test.q: xml module updates, separated json
+	  functionality out to json module
+
