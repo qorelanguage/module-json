@@ -417,10 +417,6 @@ static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int for
          ++i;
       }
 
-      // see parseJSONValue for backward conversion too.
-      //str->replaceAll("\n", "\\\\n");
-      //str->replaceAll("\t", "\\\\t");
-
       return 0;
    }
 
