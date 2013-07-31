@@ -1,3 +1,29 @@
+2013-06-14 04:51  david_nichols
+
+	* src/ql_json.qpp: removed commented-out code
+
+2013-06-13 12:08  david_nichols
+
+	* src/ql_json.qpp: non-functional changes for efficiency
+
+2013-06-13 11:52  david_nichols
+
+	* ChangeLog, RELEASE-NOTES, configure.ac,
+	  docs/mainpage.doxygen.tmpl, qore-json-module.spec,
+	  src/ql_json.qpp: corrected json encoding/decoding of
+	  escape/control characters according to
+	  http://tools.ietf.org/html/rfc4627
+
+2013-02-27 10:23  david_nichols
+
+	* RELEASE-NOTES, docs/mainpage.doxygen.tmpl: updated release notes
+	  for 1.1 release
+
+2013-02-27 10:10  david_nichols
+
+	* README-BINARIES: updated binary location (and changelog for
+	  pgsql)
+
 2013-02-08 15:40  subik
 
 	* src/ql_json.qpp, test/json-test.q: json: escape new line and tabs
