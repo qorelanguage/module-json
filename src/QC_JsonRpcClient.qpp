@@ -69,7 +69,7 @@ static void set_jrc_defaults(QoreHTTPClient &client) {
 
    // set options for JSON-RPC communication
    client.setDefaultPath("JSON");
-   client.setDefaultHeaderValue("Content-Type", "application/json");
+   client.setDefaultHeaderValue("Content-Type", "application/json;charset=utf-8");
    client.setDefaultHeaderValue("Accept", "application/json");
    client.setDefaultHeaderValue("User-Agent", "Qore-JSON-RPC-Client/" PACKAGE_VERSION);
 
