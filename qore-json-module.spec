@@ -1,4 +1,4 @@
-%define mod_ver 1.3
+%define mod_ver 1.4
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -93,6 +93,9 @@ json module.
 %doc docs/json/html docs/JsonRpcHandler/html examples/ test/ 
 
 %changelog
+* Thu Sep 5 2013 David Nichols <david@qore.org> - 1.4
+- updated to version 1.4
+
 * Fri Aug 2 2013 David Nichols <david@qore.org> - 1.3
 - updated to version 1.3
 

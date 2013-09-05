@@ -1,4 +1,11 @@
 ***********
+version 1.4
+***********
+
+* fixed a crashing bug in the JSON control-character encoding algorithm
+
+
+***********
 version 1.3
 ***********
 

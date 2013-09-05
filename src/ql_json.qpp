@@ -384,20 +384,29 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
 
    if (vtype == NT_STRING) {
       const QoreStringNode *vstr = reinterpret_cast<const QoreStringNode*>(v);
+
       TempEncodingHelper t(vstr, str->getEncoding(), xsink);
       if (*xsink)
 	 return -1;
       
       str->concat('"');
+      qore_size_t i = str->size();
       str->concatEscape(*t, '"', '\\', xsink);
       if (*xsink)
 	 return -1;
-      str->concat('"');
 
       // http://tools.ietf.org/html/rfc4627
-      // encode all control characters
-      qore_size_t i = 0;
+      // encode all control characters in the string concatenated
       while (i < str->size()) {
+         // see if we have a single-byte character; do not try to look at bytes within multi-byte characters
+         qore_size_t cl = q_get_char_len(str->getEncoding(), str->getBuffer() + i, str->size() - i, xsink);
+         if (*xsink)
+            return -1;
+         if (cl > 1) {
+            i += cl;
+            continue;
+         }
+
          unsigned char c = (*str)[i];         
          if (c < 32) {
             switch (c) {
@@ -418,6 +427,12 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
          }
          ++i;
       }
+
+
+
+      str->concat('"');
+
+
 
       return 0;
    }
