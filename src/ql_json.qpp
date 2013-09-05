@@ -327,7 +327,7 @@ static AbstractQoreNode *getJSONValue(const char *&buf, int &line_number, const 
 
 #define JSF_THRESHOLD 20
 
-static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int format, ExceptionSink *xsink) {
+static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, ExceptionSink *xsink) {
    if (is_nothing(v) || is_null(v)) {
       str->concat("null");
       return 0;
@@ -398,8 +398,9 @@ static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int for
       // encode all control characters
       qore_size_t i = 0;
       while (i < str->size()) {
-         if ((*str)[i] < 32) {
-            switch ((*str)[i]) {
+         unsigned char c = (*str)[i];         
+         if (c < 32) {
+            switch (c) {
                case 7: str->replace(i, 1, "\\a"); ++i; break; // BEL
                case 8: str->replace(i, 1, "\\b"); ++i; break; // BS
                case 9: str->replace(i, 1, "\\t"); ++i; break; // HT
@@ -409,8 +410,9 @@ static int doJSONValue(class QoreString *str, const AbstractQoreNode *v, int for
                case 13: str->replace(i, 1, "\\r"); ++i; break; // CR
                default: {
                   char buf[7];
-                  sprintf(buf, "\\u%04x", (*str)[i]);
-                  str->replace(i, 1, buf); i += 5; break;
+                  sprintf(buf, "\\u%04x", (int)c);
+                  str->replace(i, 1, buf); i += 5;
+                  break;
                }
             }
          }
