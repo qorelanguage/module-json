@@ -26,7 +26,13 @@
 
 #include "QC_JsonRpcClient.h"
 
+#ifdef _QORE_HAS_QOREHTTPCLIENTOBJECT
+#include <qore/QoreHttpClientObject.h>
+#define QORE_HTTP_CLIENT QoreHttpClientObject
+#else
 #include <qore/QoreHTTPClient.h>
+#define QORE_HTTP_CLIENT QoreHTTPClient
+#endif
 #include <qore/ReferenceHolder.h>
 
 #include "ql_json.h"
@@ -63,7 +69,7 @@ public:
    }
 };
 
-static void set_jrc_defaults(QoreHTTPClient &client) {
+static void set_jrc_defaults(QORE_HTTP_CLIENT& client) {
    // set encoding to UTF-8
    client.setEncoding(QCS_UTF8);
 
@@ -77,7 +83,7 @@ static void set_jrc_defaults(QoreHTTPClient &client) {
    client.addProtocol("jsonrpcs", 443, true);
 }
 
-static AbstractQoreNode *make_jsonrpc_call(QoreHTTPClient *client, QoreStringNode *msg, QoreHashNode *info, ExceptionSink *xsink) {
+static AbstractQoreNode *make_jsonrpc_call(QORE_HTTP_CLIENT* client, QoreStringNode *msg, QoreHashNode *info, ExceptionSink *xsink) {
    ReferenceHolder<QoreHashNode> response(client->send("POST", 0, 0, msg->getBuffer(), msg->strlen(), true, info, xsink), xsink);
    if (!response)
       return 0;
@@ -123,7 +129,7 @@ static AbstractQoreNode *make_jsonrpc_call(QoreHTTPClient *client, QoreStringNod
 
     @note This class is not available with the \c PO_NO_NETWORK parse option.
 */
-qclass JsonRpcClient [arg=QoreHTTPClient* client; ns=Qore::Json; default_base=QC_HTTPCLIENT];
+qclass JsonRpcClient [arg=QORE_HTTP_CLIENT* client; ns=Qore::Json; default_base=QC_HTTPCLIENT];
 
 //! Creates the JsonRpcClient object with no arguments
 /** No connection is made because no connection parameters are set with this call; connection parameters must be set afterwards using the appropriate HTTPClient methods.
@@ -134,7 +140,7 @@ $jrc.setURL("http://localhost:8080");@endcode
 */
 JsonRpcClient::constructor() {
    // get HTTPClient object
-   ReferenceHolder<QoreHTTPClient> client((QoreHTTPClient *)self->getReferencedPrivateData(CID_HTTPCLIENT, xsink), xsink);
+   ReferenceHolder<QORE_HTTP_CLIENT> client((QORE_HTTP_CLIENT*)self->getReferencedPrivateData(CID_HTTPCLIENT, xsink), xsink);
    if (!client)
       return;
 
@@ -162,7 +168,7 @@ JsonRpcClient::constructor() {
 */
 JsonRpcClient::constructor(hash opts, softbool no_connect = False) {
    // get HTTPClient object
-   ReferenceHolder<QoreHTTPClient> client((QoreHTTPClient *)self->getReferencedPrivateData(CID_HTTPCLIENT, xsink), xsink);
+   ReferenceHolder<QORE_HTTP_CLIENT> client((QORE_HTTP_CLIENT*)self->getReferencedPrivateData(CID_HTTPCLIENT, xsink), xsink);
    if (!client)
       return;
 
