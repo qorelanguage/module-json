@@ -35,7 +35,7 @@
 %requires HttpServer >= 0.3.3
 
 module JsonRpcHandler {
-    version = "1.0";
+    version = "1.1";
     desc = "JsonRpcHandler module for use with the HttpServer module";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -43,6 +43,7 @@ module JsonRpcHandler {
 
 /*  Version History
     * 2012-06-01 v1.0: David Nichols <david@qore.org>: updated to a user module
+    * 2013-09-24 v1.1: David Nichols <david@qore.org>: added optional log closure to constructor
 */
 
 /** @mainpage JsonRpcHandler Module
@@ -145,6 +146,7 @@ be called with the following arguments: a context hash (see HttpServer::Abstract
 ash), the method definition as passed in the methods argument to this constructor, and a reference to the arguments in this call
             @param dbg this parameter is set to @ref Qore::True "True", then additional information will be logged when errors occur
             @param get_prefix prefix to add to derived methods with GET requests if no "." characters are in the path
+            @param log an optional closure or call reference to be called when logging
 
             @throw JSON-RPC-CONSTRUCTOR-ERROR missing \c "name", \c "function", or \"text" key in method hash, \c "function" key not assigned to a callable value
          */
@@ -153,6 +155,7 @@ ash), the method definition as passed in the methods argument to this constructo
             $.debug = $dbg;
             $.get_prefix = $get_prefix;
             $.log = $log;
+            $.cx = $cx;
 
             # add internal methods
             foreach my hash $im in (JsonRpcHandler::InternalMethods)
