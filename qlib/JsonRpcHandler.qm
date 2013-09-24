@@ -155,7 +155,6 @@ ash), the method definition as passed in the methods argument to this constructo
             $.debug = $dbg;
             $.get_prefix = $get_prefix;
             $.log = $log;
-            $.cx = $cx;
 
             # add internal methods
             foreach my hash $im in (JsonRpcHandler::InternalMethods)
