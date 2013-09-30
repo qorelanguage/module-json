@@ -461,10 +461,45 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
    }
 
    if (vtype == NT_DATE) {
-      const DateTimeNode *date = reinterpret_cast<const DateTimeNode *>(v);
+      const DateTimeNode *date = reinterpret_cast<const DateTimeNode*>(v);
       // this will be serialized as a string
       str->concat('"');
+#ifdef _QORE_HAS_TIME_ZONES
+
+#ifndef SECS_PER_MINUTE
+#define SECS_PER_MINUTE          60
+#endif
+#ifndef SECS_PER_HOUR
+#define SECS_PER_HOUR            (SECS_PER_MINUTE * 60)
+#endif
+
+      // ensure that all date/time values are reported in the current time zone
+      // for simplicity's sake (particularly because json does not have a native date/time format)
+      qore_tm info;
+      date->getInfo(currentTZ(), info);
+      str->sprintf("%04d-%02d-%02d %02d:%02d:%02d.%06d", info.year, info.month, info.day, info.hour, info.minute, info.second, info.us);
+      if (!info.utc_secs_east)
+         str->concat('Z');
+      else {
+         str->concat(' ');
+         str->concat(info.utc_secs_east < 0 ? '-' : '+');
+         if (info.utc_secs_east < 0)
+            info.utc_secs_east = -info.utc_secs_east;
+         int h = info.utc_secs_east / SECS_PER_HOUR;
+         // the remaining seconds after hours
+         int r = info.utc_secs_east % SECS_PER_HOUR;
+         // minutes
+         int m = r / SECS_PER_MINUTE;
+         // we have already output the hour sign above
+         str->sprintf("%02d:%02d", h < 0 ? -h : h, m);
+         // see if there are any seconds
+         int s = info.utc_secs_east - h * SECS_PER_HOUR - m * SECS_PER_MINUTE;
+         if (s)
+            str->sprintf(":%02d", s);
+      }
+#else
       date->DateTimeNode::getAsString(*str, 0, 0);
+#endif
       str->concat('"');
       return 0;
    }
