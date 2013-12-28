@@ -10,7 +10,7 @@ noinst_HEADERS = src/QC_JsonRpcClient.h \
 
 USER_MODULES = qlib/JsonRpcHandler.qm
 
-EXTRA_DIST = COPYING ChangeLog AUTHORS README \
+EXTRA_DIST = COPYING.LGPL COPYING.MIT ChangeLog AUTHORS README \
 	RELEASE-NOTES \
 	src/QC_JsonRpcClient.qpp \
 	src/ql_json.qpp \
@@ -33,13 +33,13 @@ QDX = qdx
 DX_CLEANFILES = ${DOXYFILES} $(QLIB_TMP_DOXYFILES)
 
 docs/qlib/Doxyfile.JsonRpcHandler: docs/qlib/Doxyfile.tmpl
-	$(QDX) -M=qlib/JsonRpcHandler.qm:docs/qlib/JsonRpcHandler.qm.dox.h $< $@
+	$(QDX) -M=qlib/JsonRpcHandler.qm:qlib/JsonRpcHandler.qm.dox.h $< $@
 
 docs/qlib/JsonRpcHandler.qm.dox.h: qlib/JsonRpcHandler.qm
 	$(QDX) $< $@
 
 docs/JsonRpcHandler/html: docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler
-	$(DOXYGEN_CMD) docs/qlib/Doxyfile.JsonRpcHandler
+	cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.JsonRpcHandler
 	$(QDX) --post docs/JsonRpcHandler/html/*html
 	$(QDX) --post docs/JsonRpcHandler/html/search/*html
 

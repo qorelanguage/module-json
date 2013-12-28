@@ -1,17 +1,16 @@
 /** @mainpage %Qore JSON Module
 
-    Contents of this documentation:
-    - @ref intro
-    - @ref serialization
-    - @ref JSONRPC
-    - @ref codetags
-    - @ref releasenotes
+    @tableofcontents
 
     @section intro Introduction
 
     The json module allows for easy serialization and deserialization between <a href="http://www.json.org/"JSON</a> strings and %Qore data structures.  The module also provides functions for @ref JSONRPC support as well as a @ref Qore::Json::JsonRpcClient "JsonRpcClient" class for easier integration with JavaScript clients.
 
-    This module is released under the <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a> and is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).
+    This module is released under a choice of two licenses:
+    - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
+    - MIT (see COPYING.MIT in the source distribution for more information)
+    .
+    The module is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).  
 
     To use the module in a %Qore script, use the \c %%requires directive as follows:
     @code %requires json @endcode
@@ -74,7 +73,7 @@
 
     @section codetags Function and Method Tags
 
-    @subsection NOOP
+    @subsection NOOP NOOP
 
     Code with this flag makes no calculations, but rather returns a constant value. This flag is given to function and method variants that return a default value depending on the type of argument(s).  When variants with this flag are resolved at parse time, a \c "call-with-type-errors" warning is raised (assuming this warning is enabled), unless \c PO_REQUIRE_TYPES or \c PO_STRICT_ARGS is set.  If \c PO_REQUIRE_TYPES or \c PO_STRICT_ARGS is set, then these variants are inaccessible at parse time; resolving to a variant with this flag set at parse time causes an exception to be thrown.
 
@@ -82,7 +81,7 @@
 
     This tag is equal to @ref RUNTIME_NOOP, except no runtime effect is caused by resolving a function or method tagged with \c NOOP at runtime; this tag only affects parse time resolution.
 
-    @subsection RUNTIME_NOOP
+    @subsection RUNTIME_NOOP RUNTIME_NOOP
 
     Code with this flag makes no calculations, but rather returns a constant value.  This flag is given to function and method variants that return a default value depending on the type of argument(s).  When variants with this flag are resolved at parse time, a \c "call-with-type-errors" warning is raised (assuming this warning is enabled), unless \c PO_REQUIRE_TYPES or \c PO_STRICT_ARGS is set.  If \c PO_REQUIRE_TYPES or \c PO_STRICT_ARGS is set, then these variants are inaccessible; resolving to a variant with this flag set at parse time or run time causes an exception to be thrown.
 
@@ -90,20 +89,20 @@
 
     This tag is equal to @ref NOOP, except that \c RUNTIME_NOOP is also enforced at runtime.
 
-    @subsection RET_VALUE_ONLY
+    @subsection RET_VALUE_ONLY RET_VALUE_ONLY
 	
     This flag indicates that the function or method has no side effects; it only returns a value, for example.
 
     This tag is identical to @ref CONSTANT except that functions or methods tagged with \c RET_VALUE_ONLY could throw exceptions.
 
-    @subsection CONSTANT
+    @subsection CONSTANT CONSTANT
 	
     This flag indicates that the function or method has no side effects and does not throw any exceptions.
 
     This tag is identical to @ref RET_VALUE_ONLY except that functions or methods tagged with \c CONSTANT do not throw exceptions.
 
-    @subsection DEPRECATED
-	
+    @subsection DEPRECATED DEPRECATED
+
     Code with this flag is deprecated and may be removed in a future version of this module; if a variant with this flag is resolved at parse time, a \c "deprecated" warning is raised (assuming this warning is enabled).
 
     @section releasenotes Release Notes
@@ -113,6 +112,7 @@
     - date/time values are always serialized with microseconds and in the local time zone for consistency's sake
     - fixed a crashing bug in the JSON control-character encoding algorithm
     - updated the XmlRpcHandler module for enhanced logging
+    - source released under the MIT license as well as LGPL 2.1
 
     @subsection v0_1_3 Version 1.3
 

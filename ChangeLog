@@ -1,3 +1,53 @@
+2013-09-30 15:37  david_nichols
+
+	* RELEASE-NOTES, docs/mainpage.doxygen.tmpl, src/ql_json.qpp:
+	  date/time values are always serialized with microseconds and in
+	  the local time zone for consistency's sake
+
+2013-09-24 15:30  david_nichols
+
+	* qlib/JsonRpcHandler.qm: fixed typo in last commit
+
+2013-09-24 14:56  david_nichols
+
+	* qlib/JsonRpcHandler.qm: cosmetic/doc updates
+
+2013-09-18 15:30  david_nichols
+
+	* RELEASE-NOTES, docs/mainpage.doxygen.tmpl,
+	  qlib/JsonRpcHandler.qm: updated the XmlRpcHandler module for
+	  enhanced logging
+
+2013-09-08 19:04  david_nichols
+
+	* src/QC_JsonRpcClient.qpp: fixed to compile with new
+	  QoreHttpClientObject class if available
+
+2013-09-05 14:26  david_nichols
+
+	* RELEASE-NOTES, configure.ac, docs/mainpage.doxygen.tmpl,
+	  qore-json-module.spec, src/ql_json.qpp: updated module to v1.4 -
+	  fixed JSON control character escaping so that only the string
+	  being concatenated is processed and also that only ASCII control
+	  characters are processed (and not bytes inside a multi-byte
+	  character that may look like ASCII control characters)
+
+2013-09-05 13:54  david_nichols
+
+	* src/ql_json.qpp: fixed json encoding of control chars
+
+2013-08-02 06:06  david_nichols
+
+	* RELEASE-NOTES, configure.ac, docs/mainpage.doxygen.tmpl,
+	  qore-json-module.spec, src/QC_JsonRpcClient.qpp: include
+	  charset=utf-8 in Content-Type header JsonRpcClient; JSON messages
+	  are always serialized with UTF-8 encoding
+	  updated to v1.3
+
+2013-07-31 11:06  david_nichols
+
+	* ChangeLog: updated changelog for 1.2 release
+
 2013-06-14 04:51  david_nichols
 
 	* src/ql_json.qpp: removed commented-out code

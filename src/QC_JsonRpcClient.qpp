@@ -123,7 +123,7 @@ static AbstractQoreNode *make_jsonrpc_call(QORE_HTTP_CLIENT* client, QoreStringN
     <b>JsonRpcClient Default, but Overridable Headers</b>
     |!Header|!Default Value
     |\c Accept|\c text/json
-    |\c Content-Type|\c text/json
+    |\c Content-Type|\c application/json;charset=utf-8
     |\c User-Agent|\c Qore-JSON-RPC-Client/1.1
     |\c Connection|\c Keep-Alive
 
