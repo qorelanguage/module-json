@@ -48,7 +48,7 @@ module JsonRpcHandler {
 
 /** @mainpage JsonRpcHandler Module
 
-    @section intro Introduction
+    @section jsonrpchandlerintro Introduction to the JsonRpcHandler Module
 
     This module implements server-side support for the <a href="http://en.wikipedia.org/wiki/JSON-RPC">JSON-RPC protocol</a> for serialization/deserialization of message data.
 
