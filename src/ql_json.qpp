@@ -500,7 +500,9 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
    }
 
    if (vtype == NT_BINARY) {
+      str->concat('\"');
       str->concatBase64(reinterpret_cast<const BinaryNode*>(v));
+      str->concat('\"');
       return 0;
    }
    
