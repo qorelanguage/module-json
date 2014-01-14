@@ -29,9 +29,10 @@
     |\c float|\c number|direct conversion
     |\c bool|\c boolean|direct conversion
     |\c date|\c string|date/time values are serialized to strings like: \c "2010-12-22 16:35:36.372996 Wed +01:00 (CET)"
+    |\c binary|\c string|binary values are serialized as base64 encoded strings
     |\c list|\c array|direct conversion
     |\c hash|\c struct|direct conversion
-    |\c NOTHING or \c NULL|\c null|directo conversion
+    |\c NOTHING or \c NULL|\c null|direct conversion
     |all others|n/a|All other types will cause an \c JSON-RPC-SERIALIZATION-ERROR to be raised.
 
     <b>JSON Deserialization</b>
@@ -106,6 +107,9 @@
     Code with this flag is deprecated and may be removed in a future version of this module; if a variant with this flag is resolved at parse time, a \c "deprecated" warning is raised (assuming this warning is enabled).
 
     @section releasenotes Release Notes
+
+    @subsection v0_1_5 Version 1.5
+    - serialize binary values as base64-encoded strings
 
     @subsection v0_1_4 Version 1.4
 

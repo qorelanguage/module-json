@@ -1,4 +1,11 @@
 ***********
+version 1.5
+***********
+
+* binary values are serialized as base64-encoded strings
+
+
+***********
 version 1.4
 ***********
 
