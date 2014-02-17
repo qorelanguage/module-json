@@ -36,4 +36,4 @@ endif
 
 install-exec-hook:
 	mv $(DESTDIR)$(libdir)/$(MNAME).$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/$(MNAME)-api-$(MODULE_API).qmod
-	$(RM) $(DESTDIR)$(libdir)/$(MNAME).la $(RM_OTHER)
+	$(RM) $(DESTDIR)$(libdir)/$(MNAME).la $(DESTDIR)$(libdir)/$(MNAME).a $(RM_OTHER)
