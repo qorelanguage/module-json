@@ -8,6 +8,12 @@ part of the main qore library but moved to this module in qore v0.8.1
 see docs for more information
 
 
+LICENSE
+-------
+This module is released under a choice of two licenses: LGPL 2.1 and MIT, see
+COPYING.LGPL and COPYING.MIT for more information
+
+
 BUILDING
 --------
 Requires qore 0.8.1+ and openssl headers and libraries to build and run
