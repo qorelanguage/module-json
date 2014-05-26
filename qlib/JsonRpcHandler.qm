@@ -23,7 +23,7 @@
 */
 
 # minimum qore version
-%requires qore >= 0.8.4
+%requires qore >= 0.8.10
 
 # requires the binary json module
 %requires json >= 1.1
