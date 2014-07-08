@@ -1,6 +1,11 @@
 %define mod_ver 1.5
+
+%{?_datarootdir: %global mydatarootdir %_datarootdir}
+%{!?_datarootdir: %global mydatarootdir /usr/share}
+
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
+%global user_module_dir %{mydatarootdir}/qore-modules/
 
 %if 0%{?sles_version}
 
@@ -69,6 +74,7 @@ JSON is a concise human-readable data serialization format.
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{module_dir}
+mkdir -p $RPM_BUILD_ROOT/%{user_module_dir}
 mkdir -p $RPM_BUILD_ROOT/usr/share/doc/qore-json-module
 make install DESTDIR=$RPM_BUILD_ROOT
 
@@ -78,6 +84,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %{module_dir}
+%{user_module_dir}
 %doc COPYING.LGPL COPYING.MIT README RELEASE-NOTES ChangeLog AUTHORS
 
 %package doc
