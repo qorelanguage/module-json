@@ -145,9 +145,7 @@ public namespace JsonRpcHandler {
             - \c help: help text for the method
             - \c logopt: (optional - by convention) log options which can be used by a custom logger (see the getLogMessage parameter)
             - \c cmark: (optional) a data structure to be added to the context argument when the request method is called
-            @param getLogMessage an optional closure or call reference to be called when an incoming request is received; if this is set then it will 
-be called with the following arguments: a context hash (see HttpServer::AbstractHttpRequestHandler::handleRequest() for a description of the context h
-ash), the method definition as passed in the methods argument to this constructor, and a reference to the arguments in this call
+            @param getLogMessage an optional closure or call reference to be called when an incoming request is received; if this is set then it will be called with the following arguments: a context hash (see HttpServerUtil::AbstractHttpRequestHandler::handleRequest() for a description of the context hash), the method definition as passed in the methods argument to this constructor, and a reference to the arguments in this call
             @param dbg this parameter is set to @ref Qore::True "True", then additional information will be logged when errors occur
             @param get_prefix prefix to add to derived methods with GET requests if no "." characters are in the path
             @param log an optional closure or call reference to be called when logging
