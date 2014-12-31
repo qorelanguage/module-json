@@ -31,8 +31,11 @@
 # need mime definitions
 %requires Mime >= 1.0
 
-# need HttpServer definitions
-%requires HttpServer >= 0.3.3
+# need Util functions
+%requires Util
+
+# need HttpServerUtil definitions
+%requires HttpServerUtil >= 0.3.11
 
 module JsonRpcHandler {
     version = "1.1";
@@ -348,7 +351,7 @@ ash), the method definition as passed in the methods argument to this constructo
                 # show complete exception trace if system debug option is enabled
                 my string $str = !$.debug
                     ? sprintf("%s: %s", $ex.err, $ex.desc)
-                    : HttpServer::get_exception_string($ex);
+                    : get_exception_string($ex);
 
                 return (
                     "code": 200,
