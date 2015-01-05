@@ -292,7 +292,7 @@ public namespace JsonRpcHandler {
 
             #printf("DEBUG: about to call function '%s' (method=%s params=%y)\n", $found.function, $method, $params);
 
-            my any $rv = $found.internal ? callObjectMethodArgs($self, $found.function, $params) : call_function_args($found.function, $params);
+            my any $rv = $found.internal ? call_object_method_args($self, $found.function, $params) : call_function_args($found.function, $params);
             my hash $h.body = makeJSONRPCResponseString("1.1", $cx.jsonid, $rv);
             return $h;
         }
