@@ -442,6 +442,14 @@ else
 
    AC_MSG_RESULT([${qore_version} OK])
 
+   AC_MSG_CHECKING([QoreNumberNode::nan()])
+   if test $qvc -ge 812; then
+      AC_DEFINE([QORE_HAS_NUMBER_NAN], 1, [define if Qore has the QoreNumberNode::inf(), ::nan(), and ::ordinary() APIs])
+      AC_MSG_RESULT([found])
+   else
+      AC_MSG_RESULT([not found])
+   fi
+
    MODULE_API=`qore --latest-module-api`
    mapi_major=`qore --latest-module-api|cut -f1 -d.`
    mapi_minor=`qore --latest-module-api|cut -f2 -d.`

@@ -7,7 +7,7 @@
 
   Qore Programming Language
 
-  Copyright 2003 - 2014 David Nichols
+  Copyright 2003 - 2015 David Nichols
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -30,12 +30,13 @@
 
 #include <ctype.h>
 #include <stdlib.h>
+#include <math.h>
 
 // RFC 4627 JSON specification
 // qore only supports JSON with UTF-8 
 
 // returns 0 for OK
-static int cmp_rest_token(const char *&p, const char *tok) {
+static int cmp_rest_token(const char*& p, const char* tok) {
    p++;
    while (*tok)
       if ((*(p++)) != (*(tok++)))
@@ -49,7 +50,7 @@ static int cmp_rest_token(const char *&p, const char *tok) {
    return -1;
 } 
 
-static void skip_whitespace(const char *&buf, int &line_number) {
+static void skip_whitespace(const char*& buf, int& line_number) {
    while (*buf) {
       if (isblank(*buf) || (*buf) == '\r') {
 	 ++buf;
@@ -65,7 +66,7 @@ static void skip_whitespace(const char *&buf, int &line_number) {
 }
 
 // '"' has already been read and the buffer is set to this character
-static int getJSONStringToken(QoreString &str, const char *&buf, int &line_number, ExceptionSink *xsink) {
+static int getJSONStringToken(QoreString& str, const char*& buf, int& line_number, ExceptionSink* xsink) {
    // increment buffer to first character of string
    buf++;
    while (*buf) {
@@ -125,13 +126,13 @@ static int getJSONStringToken(QoreString &str, const char *&buf, int &line_numbe
    return -1;
 }
 
-static AbstractQoreNode *getJSONValue(const char *&buf, int &line_number, const QoreEncoding *enc, ExceptionSink *xsink);
+static AbstractQoreNode* getJSONValue(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink);
 
 // '{' has already been read and the buffer is set to this character
-static QoreHashNode *getJSONObject(const char *&buf, int &line_number, const QoreEncoding *enc, ExceptionSink *xsink) {
+static QoreHashNode* getJSONObject(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
    // increment buffer to first character of object description
    buf++;
-   ReferenceHolder<QoreHashNode> h(new QoreHashNode(), xsink);
+   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
 
    // get either string or '}'
    skip_whitespace(buf, line_number);
@@ -168,7 +169,7 @@ static QoreHashNode *getJSONObject(const char *&buf, int &line_number, const Qor
       skip_whitespace(buf, line_number);
 
       // get value
-      AbstractQoreNode *val = getJSONValue(buf, line_number, enc, xsink);
+      AbstractQoreNode* val = getJSONValue(buf, line_number, enc, xsink);
       if (!val) {
 	 if (!xsink->isException())
 	    xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON object (expecting JSON value for key '%s')", line_number, str.getBuffer());
@@ -195,10 +196,10 @@ static QoreHashNode *getJSONObject(const char *&buf, int &line_number, const Qor
 }
 
 // '[' has already been read and the buffer is set to this character
-static AbstractQoreNode *getJSONArray(const char *&buf, int &line_number, const QoreEncoding *enc, ExceptionSink *xsink) {
+static AbstractQoreNode* getJSONArray(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
    // increment buffer to first character of array description
    buf++;
-   ReferenceHolder<QoreListNode> l(new QoreListNode(), xsink);
+   ReferenceHolder<QoreListNode> l(new QoreListNode, xsink);
 
    skip_whitespace(buf, line_number);
    if (*buf == ']') {
@@ -208,7 +209,7 @@ static AbstractQoreNode *getJSONArray(const char *&buf, int &line_number, const 
 
    while (*buf) {
       //printd(5, "before getJSONValue() buf=%s\n", buf);
-      AbstractQoreNode *val = getJSONValue(buf, line_number, enc, xsink);
+      AbstractQoreNode* val = getJSONValue(buf, line_number, enc, xsink);
       if (!val) {
 	 if (!xsink->isException())
 	    xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON array (expecting JSON value)", line_number);
@@ -235,7 +236,7 @@ static AbstractQoreNode *getJSONArray(const char *&buf, int &line_number, const 
    return 0;
 }
 
-static AbstractQoreNode *getJSONValue(const char *&buf, int &line_number, const QoreEncoding *enc, ExceptionSink *xsink) {
+static AbstractQoreNode* getJSONValue(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
    // skip whitespace
    skip_whitespace(buf, line_number);
    if (!*buf)
@@ -327,7 +328,7 @@ static AbstractQoreNode *getJSONValue(const char *&buf, int &line_number, const 
 
 #define JSF_THRESHOLD 20
 
-static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, ExceptionSink *xsink) {
+static int doJSONValue(QoreString* str, const AbstractQoreNode* v, int format, ExceptionSink* xsink) {
    if (is_nothing(v) || is_null(v)) {
       str->concat("null");
       return 0;
@@ -336,7 +337,7 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
    qore_type_t vtype = v->getType();
 
    if (vtype == NT_LIST) {
-      const QoreListNode *l = reinterpret_cast<const QoreListNode *>(v);
+      const QoreListNode* l = reinterpret_cast<const QoreListNode*>(v);
       str->concat("[ ");
       ConstListIterator li(l);
       QoreString tmp(str->getEncoding());
@@ -360,7 +361,7 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
    }
 
    if (vtype == NT_HASH) {
-      const QoreHashNode *h = reinterpret_cast<const QoreHashNode *>(v);
+      const QoreHashNode* h = reinterpret_cast<const QoreHashNode*>(v);
       str->concat("{ ");
       ConstHashIterator hi(h);
       QoreString tmp(str->getEncoding());
@@ -383,7 +384,7 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
    }
 
    if (vtype == NT_STRING) {
-      const QoreStringNode *vstr = reinterpret_cast<const QoreStringNode*>(v);
+      const QoreStringNode* vstr = reinterpret_cast<const QoreStringNode*>(v);
 
       TempEncodingHelper t(vstr, str->getEncoding(), xsink);
       if (*xsink)
@@ -433,19 +434,30 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
    }
 
    if (vtype == NT_INT) {
-      const QoreBigIntNode *b = reinterpret_cast<const QoreBigIntNode *>(v);
+      const QoreBigIntNode* b = reinterpret_cast<const QoreBigIntNode*>(v);
       str->sprintf("%lld", b->val);
       return 0;
    }
 
    if (vtype == NT_FLOAT) {
-      str->sprintf("%.20g", reinterpret_cast<const QoreFloatNode *>(v)->f);
+      const QoreFloatNode* f = reinterpret_cast<const QoreFloatNode*>(v);
+      // check for nan, +/-inf and serialize as null
+      if (isnan(f->f) || isinf(f->f))
+         str->concat("null");
+      else
+         str->sprintf("%.20g", reinterpret_cast<const QoreFloatNode*>(v)->f);
       return 0;
    }
 
 #ifdef _QORE_HAS_NUMBER_TYPE
    if (vtype == NT_NUMBER) {
-      reinterpret_cast<const QoreNumberNode*>(v)->getStringRepresentation(*str);
+      const QoreNumberNode* n = reinterpret_cast<const QoreNumberNode*>(v);
+#ifdef QORE_HAS_NUMBER_NAN
+      if (!n->ordinary())
+         str->concat("null");
+      else
+#endif
+         n->getStringRepresentation(*str);
       return 0;
    }
 #endif
@@ -456,7 +468,7 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
    }
 
    if (vtype == NT_DATE) {
-      const DateTimeNode *date = reinterpret_cast<const DateTimeNode*>(v);
+      const DateTimeNode* date = reinterpret_cast<const DateTimeNode*>(v);
       // this will be serialized as a string
       str->concat('"');
 #ifdef _QORE_HAS_TIME_ZONES
@@ -510,14 +522,14 @@ static int doJSONValue(QoreString *str, const AbstractQoreNode *v, int format, E
    return -1;
 }
 
-QoreStringNode *makeJSONRPC11RequestStringArgs(const QoreListNode *params, ExceptionSink *xsink) {
-   const QoreStringNode *p0;
+QoreStringNode* makeJSONRPC11RequestStringArgs(const QoreListNode* params, ExceptionSink* xsink) {
+   const QoreStringNode* p0;
    if (!(p0 = test_string_param(params, 0))) {
       xsink->raiseException("MAKE-JSONRPC11-REQUEST-STRING-ERROR", "expecting method name as first parameter");
       return 0;
    }
 
-   const AbstractQoreNode *p1 = get_param(params, 1);
+   const AbstractQoreNode* p1 = get_param(params, 1);
 
    QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
@@ -538,8 +550,8 @@ QoreStringNode *makeJSONRPC11RequestStringArgs(const QoreListNode *params, Excep
    return str.release();
 }
 
-QoreStringNode *makeJSONRPC11RequestString(const QoreListNode *params, ExceptionSink *xsink) {
-   const QoreStringNode *p0;
+QoreStringNode* makeJSONRPC11RequestString(const QoreListNode* params, ExceptionSink* xsink) {
+   const QoreStringNode* p0;
    if (!(p0 = test_string_param(params, 0))) {
       xsink->raiseException("MAKE-JSONRPC11-REQUEST-STRING-ERROR", "expecting method name as first parameter");
       return 0;
@@ -568,10 +580,10 @@ QoreStringNode *makeJSONRPC11RequestString(const QoreListNode *params, Exception
    return str.release();
 }
 
-AbstractQoreNode *parseJSONValue(const QoreString *str, ExceptionSink *xsink) {
+AbstractQoreNode* parseJSONValue(const QoreString* str, ExceptionSink* xsink) {
    int line_number = 1;
-   const char *buf = str->getBuffer();
-   AbstractQoreNode *rv = getJSONValue(buf, line_number, str->getEncoding(), xsink);
+   const char* buf = str->getBuffer();
+   AbstractQoreNode* rv = getJSONValue(buf, line_number, str->getEncoding(), xsink);
    if (rv && *buf) {
       // check for excess text after JSON data
       skip_whitespace(buf, line_number);
@@ -604,7 +616,7 @@ namespace Qore::Json;
     @see @ref serialization
 */
 string makeJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
-   const QoreEncoding *qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
+   const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
    return doJSONValue(*str, data, -1, xsink) ? 0 : str.release();
 }
@@ -624,7 +636,7 @@ string makeJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
     @see @ref serialization
 */
 string makeFormattedJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
-   const QoreEncoding *qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
+   const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
    return doJSONValue(*str, data, 0, xsink) ? 0 : str.release();
 }

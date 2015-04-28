@@ -5,6 +5,7 @@ version 1.5
 * binary values are serialized as base64-encoded strings
 * user modules moved to top-level qore module directory from version-specific                                                                                         
   module directory since they are valid for multiple versions of qore
+* serialize nan, +/-inf as null according to the JSON spec
 
 
 ***********
