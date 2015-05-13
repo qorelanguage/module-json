@@ -132,7 +132,7 @@ sub do_tests() {
 sub main() {
     parse_command_line();
     printf("QORE v%s JSON Module v%s Test Script (%d thread%s, %d iteration%s per thread)\n",
-           Qore::VersionString, getModuleHash().json.version,
+           Qore::VersionString, get_module_hash().json.version,
 	   $o.threads, $o.threads == 1 ? "" : "s", $o.iters, $o.iters == 1 ? "" : "s");
 
     our Counter $counter = new Counter();
