@@ -25,6 +25,7 @@ src/.deps/
 src/.libs/
 src/Makefile
 src/Makefile.in
-src/QC_JsonRpcClient.cpp
-src/ql_json.cpp
 src/*.dox.h
+src/qc_*.cpp
+src/ql_*.cpp
+src/QC_*.cpp
