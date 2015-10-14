@@ -20,7 +20,7 @@ json_la_LDFLAGS = -module -avoid-version ${MODULE_LDFLAGS}
 
 INCLUDES = -I$(top_srcdir)/include
 
-AM_CPPFLAGS=$(QORE_CPPFLAGS)
+AM_CPPFLAGS=$(QORE_CPPFLAGS) $(OPENSSL_CPPFLAGS)
 
 if COND_PROFILE
 AM_CXXFLAGS=-g -pg
