@@ -29,3 +29,12 @@ src/*.dox.h
 src/qc_*.cpp
 src/ql_*.cpp
 src/QC_*.cpp
+
+# ignore temporary doxygen files
+docs/*.tag
+docs/JsonRpcHandler/
+docs/doxyfile
+docs/json/
+docs/*.doxygen
+docs/qlib/Doxyfile.*
+docs/qlib/*.dox.h

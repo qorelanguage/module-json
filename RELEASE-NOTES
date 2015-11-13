@@ -3,9 +3,11 @@ version 1.5
 ***********
 
 * binary values are serialized as base64-encoded strings
-* user modules moved to top-level qore module directory from version-specific                                                                                         
+* user modules moved to top-level qore module directory from version-specific
   module directory since they are valid for multiple versions of qore
 * serialize nan, +/-inf as null according to the JSON spec
+* added detection for invalid JSON-RPC calls and added a more user-friendly
+  error message in the JsonRpcHandler module
 
 
 ***********

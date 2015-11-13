@@ -10,7 +10,7 @@
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
     - MIT (see COPYING.MIT in the source distribution for more information)
     .
-    The module is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).  
+    The module is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).
 
     To use the module in a %Qore script, use the \c %%requires directive as follows:
     @code %requires json @endcode
@@ -91,13 +91,13 @@
     This tag is equal to @ref NOOP, except that \c RUNTIME_NOOP is also enforced at runtime.
 
     @subsection RET_VALUE_ONLY RET_VALUE_ONLY
-	
+
     This flag indicates that the function or method has no side effects; it only returns a value, for example.
 
     This tag is identical to @ref CONSTANT except that functions or methods tagged with \c RET_VALUE_ONLY could throw exceptions.
 
     @subsection CONSTANT CONSTANT
-	
+
     This flag indicates that the function or method has no side effects and does not throw any exceptions.
 
     This tag is identical to @ref RET_VALUE_ONLY except that functions or methods tagged with \c CONSTANT do not throw exceptions.
@@ -112,17 +112,18 @@
     - serialize binary values as base64-encoded strings
     - user modules moved to top-level qore module directory from version-specific module directory since they are valid for multiple versions of qore
     - serialize nan, +/-inf as null according to the JSON spec
+    - added detection for invalid JSON-RPC calls and added a more user-friendly error message in the <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> module
 
     @subsection v0_1_4 Version 1.4
 
     - date/time values are always serialized with microseconds and in the local time zone for consistency's sake
     - fixed a crashing bug in the JSON control-character encoding algorithm
-    - updated the XmlRpcHandler module for enhanced logging
+    - updated the <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> module for enhanced logging
     - source released under the MIT license as well as LGPL 2.1
 
     @subsection v0_1_3 Version 1.3
 
-    - always include charset=utf-8 in Content-Type in JsonRpcClient; JSON messages are always serialized with UTF-8 encoding
+    - always include charset=utf-8 in Content-Type in @ref Qore::Json::JsonRpcClient "JsonRpcClient"; JSON messages are always serialized with UTF-8 encoding
 
     @subsection v0_1_2 Version 1.2
 
