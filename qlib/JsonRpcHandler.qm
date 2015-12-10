@@ -242,8 +242,8 @@ public namespace JsonRpcHandler {
 
             foreach hash m in (methods)
                 if (m.text != "service.describe")
-		procs += ( "name" : m.text,
-			    "summary" : m.help );
+                procs += ( "name" : m.text,
+                            "summary" : m.help );
 
             return (
                 "sdversion": "1.0",
@@ -343,7 +343,7 @@ public namespace JsonRpcHandler {
                         throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with \"method\" and \"id\" keys in the JSON-RPC call; got type %y instead", req.type());
                     jsonrpc = req;
                     if (!jsonrpc.method.val())
-                        throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("missing \"jsonrpc\" key in call; got keys: %y", jsonrpc.keys());
+                        throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("missing \"method\" key in call; got keys: %y", jsonrpc.keys());
                 }
                 catch (hash ex) {
                     string estr = sprintf("%s: %s", ex.err, ex.desc);
