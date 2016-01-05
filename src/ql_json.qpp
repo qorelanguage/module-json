@@ -7,7 +7,7 @@
 
   Qore Programming Language
 
-  Copyright 2003 - 2015 David Nichols
+  Copyright 2003 - 2016 David Nichols
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -33,7 +33,7 @@
 #include <math.h>
 
 // RFC 4627 JSON specification
-// qore only supports JSON with UTF-8 
+// qore only supports JSON with UTF-8
 
 // returns 0 for OK
 static int cmp_rest_token(const char*& p, const char* tok) {
@@ -48,7 +48,7 @@ static int cmp_rest_token(const char*& p, const char* tok) {
       return 0;
    }
    return -1;
-} 
+}
 
 static void skip_whitespace(const char*& buf, int& line_number) {
    while (*buf) {
@@ -66,7 +66,7 @@ static void skip_whitespace(const char*& buf, int& line_number) {
 }
 
 // '"' has already been read and the buffer is set to this character
-static int getJSONStringToken(QoreString& str, const char*& buf, int& line_number, ExceptionSink* xsink) {
+static int get_json_string_token(QoreString& str, const char*& buf, int& line_number, ExceptionSink* xsink) {
    // increment buffer to first character of string
    buf++;
    while (*buf) {
@@ -126,17 +126,17 @@ static int getJSONStringToken(QoreString& str, const char*& buf, int& line_numbe
    return -1;
 }
 
-static AbstractQoreNode* getJSONValue(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink);
+static AbstractQoreNode* get_json_value(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink);
 
 // '{' has already been read and the buffer is set to this character
-static QoreHashNode* getJSONObject(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
+static QoreHashNode* get_json_object(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
    // increment buffer to first character of object description
    buf++;
    ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
 
    // get either string or '}'
    skip_whitespace(buf, line_number);
-      
+
    if (*buf == '}') {
       buf++;
       return h.release();
@@ -154,11 +154,11 @@ static QoreHashNode* getJSONObject(const char*& buf, int& line_number, const Qor
 
       // get key
       QoreString str(enc);
-      if (getJSONStringToken(str, buf, line_number, xsink))
+      if (get_json_string_token(str, buf, line_number, xsink))
 	 break;
 
-      //printd(5, "getJSONObject() key=%s\n", str.getBuffer());
-      
+      //printd(5, "get_json_object() key=%s\n", str.getBuffer());
+
       skip_whitespace(buf, line_number);
       if (*buf != ':') {
 	 //printd(5, "*buf='%c'\n", *buf);
@@ -169,7 +169,7 @@ static QoreHashNode* getJSONObject(const char*& buf, int& line_number, const Qor
       skip_whitespace(buf, line_number);
 
       // get value
-      AbstractQoreNode* val = getJSONValue(buf, line_number, enc, xsink);
+      AbstractQoreNode* val = get_json_value(buf, line_number, enc, xsink);
       if (!val) {
 	 if (!xsink->isException())
 	    xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON object (expecting JSON value for key '%s')", line_number, str.getBuffer());
@@ -188,7 +188,7 @@ static QoreHashNode* getJSONObject(const char*& buf, int& line_number, const Qor
 	 break;
       }
       buf++;
-      
+
       skip_whitespace(buf, line_number);
 
    }
@@ -196,7 +196,7 @@ static QoreHashNode* getJSONObject(const char*& buf, int& line_number, const Qor
 }
 
 // '[' has already been read and the buffer is set to this character
-static AbstractQoreNode* getJSONArray(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
+static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
    // increment buffer to first character of array description
    buf++;
    ReferenceHolder<QoreListNode> l(new QoreListNode, xsink);
@@ -208,14 +208,14 @@ static AbstractQoreNode* getJSONArray(const char*& buf, int& line_number, const 
    }
 
    while (*buf) {
-      //printd(5, "before getJSONValue() buf=%s\n", buf);
-      AbstractQoreNode* val = getJSONValue(buf, line_number, enc, xsink);
+      //printd(5, "before get_json_value() buf=%s\n", buf);
+      AbstractQoreNode* val = get_json_value(buf, line_number, enc, xsink);
       if (!val) {
 	 if (!xsink->isException())
 	    xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON array (expecting JSON value)", line_number);
 	 return 0;
       }
-      //printd(5, "after getJSONValue() buf=%s\n", buf);
+      //printd(5, "after get_json_value() buf=%s\n", buf);
       l->push(val);
 
       skip_whitespace(buf, line_number);
@@ -230,13 +230,13 @@ static AbstractQoreNode* getJSONArray(const char*& buf, int& line_number, const 
 	 return 0;
       }
       buf++;
-      
+
       skip_whitespace(buf, line_number);
    }
    return 0;
 }
 
-static AbstractQoreNode* getJSONValue(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
+static AbstractQoreNode* get_json_value(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
    // skip whitespace
    skip_whitespace(buf, line_number);
    if (!*buf)
@@ -244,14 +244,14 @@ static AbstractQoreNode* getJSONValue(const char*& buf, int& line_number, const 
 
    // can expect: 't'rue, 'f'alse, '{', '[', '"'string...", integer, '.'digits
    if (*buf == '{')
-      return getJSONObject(buf, line_number, enc, xsink);
+      return get_json_object(buf, line_number, enc, xsink);
 
    if (*buf == '[')
-      return getJSONArray(buf, line_number, enc, xsink);
+      return get_json_array(buf, line_number, enc, xsink);
 
    if (*buf == '"') {
       QoreStringNodeHolder str(new QoreStringNode(enc));
-      return getJSONStringToken(*(*str), buf, line_number, xsink) ? 0 : str.release();
+      return get_json_string_token(*(*str), buf, line_number, xsink) ? 0 : str.release();
    }
 
    // FIXME: implement parsing of JSON exponents
@@ -302,7 +302,7 @@ static AbstractQoreNode* getJSONValue(const char*& buf, int& line_number, const 
 	 return new QoreFloatNode(strtod(str.getBuffer(), 0));
       return new QoreBigIntNode(strtoll(str.getBuffer(), 0, 10));
    }
-   
+
    if ((*buf) == 't') {
       if (!cmp_rest_token(buf, "rue"))
 	 return boolean_true();
@@ -318,7 +318,7 @@ static AbstractQoreNode* getJSONValue(const char*& buf, int& line_number, const 
 	 return nothing();
       goto error;
    }
-   
+
   error:
    //printd(5, "buf=%s\n", buf);
 
@@ -328,31 +328,31 @@ static AbstractQoreNode* getJSONValue(const char*& buf, int& line_number, const 
 
 #define JSF_THRESHOLD 20
 
-static int doJSONValue(QoreString* str, const AbstractQoreNode* v, int format, ExceptionSink* xsink) {
-   if (is_nothing(v) || is_null(v)) {
+static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink* xsink) {
+   if (v.isNullOrNothing()) {
       str->concat("null");
       return 0;
    }
 
-   qore_type_t vtype = v->getType();
+   qore_type_t vtype = v.getType();
 
    if (vtype == NT_LIST) {
-      const QoreListNode* l = reinterpret_cast<const QoreListNode*>(v);
+      const QoreListNode* l = v.get<const QoreListNode>();
       str->concat("[ ");
       ConstListIterator li(l);
       QoreString tmp(str->getEncoding());
       while (li.next()) {
 	 bool ind = tmp.strlen() > JSF_THRESHOLD;
 	 tmp.clear();
-	 if (doJSONValue(&tmp, li.getValue(), format == -1 ? format : format + 2, xsink))
+	 if (do_json_value(&tmp, li.getValue(), format == -1 ? format : format + 2, xsink))
 	    return -1;
-	 
+
 	 if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
 	    str->concat('\n');
 	    str->addch(' ', format + 2);
 	 }
 	 str->sprintf("%s", tmp.getBuffer());
-	 
+
 	 if (!li.last())
 	    str->concat(", ");
       }
@@ -361,16 +361,16 @@ static int doJSONValue(QoreString* str, const AbstractQoreNode* v, int format, E
    }
 
    if (vtype == NT_HASH) {
-      const QoreHashNode* h = reinterpret_cast<const QoreHashNode*>(v);
+      const QoreHashNode* h = v.get<const QoreHashNode>();
       str->concat("{ ");
       ConstHashIterator hi(h);
       QoreString tmp(str->getEncoding());
       while (hi.next()) {
 	 bool ind = tmp.strlen() > JSF_THRESHOLD;
 	 tmp.clear();
-	 if (doJSONValue(&tmp, hi.getValue(), format == -1 ? format : format + 2, xsink))
+	 if (do_json_value(&tmp, hi.getValue(), format == -1 ? format : format + 2, xsink))
 	    return -1;
-	 
+
 	 if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
 	    str->concat('\n');
 	    str->addch(' ', format + 2);
@@ -384,12 +384,12 @@ static int doJSONValue(QoreString* str, const AbstractQoreNode* v, int format, E
    }
 
    if (vtype == NT_STRING) {
-      const QoreStringNode* vstr = reinterpret_cast<const QoreStringNode*>(v);
+      const QoreStringNode* vstr = v.get<const QoreStringNode>();
 
       TempEncodingHelper t(vstr, str->getEncoding(), xsink);
       if (*xsink)
 	 return -1;
-      
+
       str->concat('"');
       qore_size_t i = str->size();
       str->concatEscape(*t, '"', '\\', xsink);
@@ -408,7 +408,7 @@ static int doJSONValue(QoreString* str, const AbstractQoreNode* v, int format, E
             continue;
          }
 
-         unsigned char c = (*str)[i];         
+         unsigned char c = (*str)[i];
          if (c < 32) {
             switch (c) {
                case 7: str->replace(i, 1, "\\a"); ++i; break; // BEL
@@ -434,52 +434,44 @@ static int doJSONValue(QoreString* str, const AbstractQoreNode* v, int format, E
    }
 
    if (vtype == NT_INT) {
-      const QoreBigIntNode* b = reinterpret_cast<const QoreBigIntNode*>(v);
-      str->sprintf("%lld", b->val);
+      str->sprintf("%lld", v.getAsBigInt());
       return 0;
    }
 
    if (vtype == NT_FLOAT) {
-      const QoreFloatNode* f = reinterpret_cast<const QoreFloatNode*>(v);
+      float f = v.getAsFloat();
       // check for nan, +/-inf and serialize as null
-      if (isnan(f->f) || isinf(f->f))
+      if (isnan(f) || isinf(f))
          str->concat("null");
       else
-         str->sprintf("%.20g", reinterpret_cast<const QoreFloatNode*>(v)->f);
+         str->sprintf("%.20g", f);
       return 0;
    }
 
-#ifdef _QORE_HAS_NUMBER_TYPE
    if (vtype == NT_NUMBER) {
-      const QoreNumberNode* n = reinterpret_cast<const QoreNumberNode*>(v);
-#ifdef QORE_HAS_NUMBER_NAN
+      const QoreNumberNode* n = v.get<const QoreNumberNode>();
       if (!n->ordinary())
          str->concat("null");
       else
-#endif
          n->getStringRepresentation(*str);
       return 0;
    }
-#endif
 
    if (vtype == NT_BOOLEAN) {
-      str->concat(reinterpret_cast<const QoreBoolNode*>(v)->getValue() ? "true" : "false");
+      str->concat(v.getAsBool() ? "true" : "false");
       return 0;
    }
 
    if (vtype == NT_DATE) {
-      const DateTimeNode* date = reinterpret_cast<const DateTimeNode*>(v);
+      const DateTimeNode* date = v.get<const DateTimeNode>();
       // this will be serialized as a string
       str->concat('"');
-#ifdef _QORE_HAS_TIME_ZONES
-
 #ifndef SECS_PER_MINUTE
 #define SECS_PER_MINUTE          60
 #endif
 #ifndef SECS_PER_HOUR
 #define SECS_PER_HOUR            (SECS_PER_MINUTE * 60)
 #endif
-
       // ensure that all date/time values are reported in the current time zone
       // for simplicity's sake (particularly because json does not have a native date/time format)
       qore_tm info;
@@ -504,25 +496,22 @@ static int doJSONValue(QoreString* str, const AbstractQoreNode* v, int format, E
          if (s)
             str->sprintf(":%02d", s);
       }
-#else
-      date->DateTimeNode::getAsString(*str, 0, 0);
-#endif
       str->concat('"');
       return 0;
    }
 
    if (vtype == NT_BINARY) {
       str->concat('\"');
-      str->concatBase64(reinterpret_cast<const BinaryNode*>(v));
+      str->concatBase64(v.get<const BinaryNode>());
       str->concat('\"');
       return 0;
    }
-   
-   xsink->raiseException("JSON-SERIALIZATION-ERROR", "don't know how to serialize type '%s'", v->getTypeName());
+
+   xsink->raiseException("JSON-SERIALIZATION-ERROR", "don't know how to serialize type '%s'", v.getTypeName());
    return -1;
 }
 
-QoreStringNode* makeJSONRPC11RequestStringArgs(const QoreListNode* params, ExceptionSink* xsink) {
+QoreStringNode* make_jsonrpc11_request_args(const QoreListNode* params, ExceptionSink* xsink) {
    const QoreStringNode* p0;
    if (!(p0 = test_string_param(params, 0))) {
       xsink->raiseException("MAKE-JSONRPC11-REQUEST-STRING-ERROR", "expecting method name as first parameter");
@@ -535,13 +524,13 @@ QoreStringNode* makeJSONRPC11RequestStringArgs(const QoreListNode* params, Excep
 
    // write version key first
    str->concat("{ \"version\" : \"1.1\", \"method\" : ");
-   if (doJSONValue(*str, p0, -1, xsink))
+   if (do_json_value(*str, p0, -1, xsink))
       return 0;
 
    // params key should come last
    str->concat(", \"params\" : ");
    if (!is_nothing(p1)) {
-      if (doJSONValue(*str, p1, -1, xsink))
+      if (do_json_value(*str, p1, -1, xsink))
 	 return 0;
    }
    else
@@ -550,7 +539,7 @@ QoreStringNode* makeJSONRPC11RequestStringArgs(const QoreListNode* params, Excep
    return str.release();
 }
 
-QoreStringNode* makeJSONRPC11RequestString(const QoreListNode* params, ExceptionSink* xsink) {
+QoreStringNode* make_jsonrpc11_request(const QoreListNode* params, ExceptionSink* xsink) {
    const QoreStringNode* p0;
    if (!(p0 = test_string_param(params, 0))) {
       xsink->raiseException("MAKE-JSONRPC11-REQUEST-STRING-ERROR", "expecting method name as first parameter");
@@ -562,7 +551,7 @@ QoreStringNode* makeJSONRPC11RequestString(const QoreListNode* params, Exception
    // write version key first
    str->concat("{ \"version\" : \"1.1\", \"method\" : ");
 
-   if (doJSONValue(*str, p0, -1, xsink))
+   if (do_json_value(*str, p0, -1, xsink))
       return 0;
 
    // params key should come last
@@ -570,7 +559,7 @@ QoreStringNode* makeJSONRPC11RequestString(const QoreListNode* params, Exception
    if (num_params(params) > 1) {
       ReferenceHolder<QoreListNode> new_params(params->copyListFrom(1), xsink);
 
-      if (doJSONValue(*str, *new_params, -1, xsink))
+      if (do_json_value(*str, *new_params, -1, xsink))
 	 return 0;
    }
    else
@@ -580,10 +569,10 @@ QoreStringNode* makeJSONRPC11RequestString(const QoreListNode* params, Exception
    return str.release();
 }
 
-AbstractQoreNode* parseJSONValue(const QoreString* str, ExceptionSink* xsink) {
+AbstractQoreNode* parse_json(const QoreString* str, ExceptionSink* xsink) {
    int line_number = 1;
    const char* buf = str->getBuffer();
-   AbstractQoreNode* rv = getJSONValue(buf, line_number, str->getEncoding(), xsink);
+   AbstractQoreNode* rv = get_json_value(buf, line_number, str->getEncoding(), xsink);
    if (rv && *buf) {
       // check for excess text after JSON data
       skip_whitespace(buf, line_number);
@@ -596,10 +585,161 @@ AbstractQoreNode* parseJSONValue(const QoreString* str, ExceptionSink* xsink) {
    return rv;
 }
 
+static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, QoreValue version, QoreValue id, QoreValue request_msg, int format, ExceptionSink* xsink) {
+   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
+
+   bool fmt = format & JGF_ADD_FORMATTING;
+
+   // write version key first if present
+   if (!version.isNullOrNothing()) {
+      str->sprintf("{%s \"version\" : ", fmt ? "\n " : "");
+      if (do_json_value(*str, version, fmt ? 2 : -1, xsink))
+	 return 0;
+         str->concat(fmt ? ",\n  " : ", ");
+   }
+   else
+      str->concat(fmt ? " {\n  " : "{ ");
+
+   str->concat("\"method\" : ");
+   if (do_json_value(*str, method_name, fmt ? 2 : -1, xsink))
+      return 0;
+
+   if (!id.isNullOrNothing()) {
+      str->sprintf(",%s \"id\" : ", fmt ? "\n " : "");
+      if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
+	 return 0;
+   }
+
+   // params key should come last
+   str->sprintf(",%s  \"params\" : ", fmt ? "\n " : "");
+   if (do_json_value(*str, request_msg, fmt ? 2 : -1, xsink))
+      return 0;
+
+   str->concat(fmt ? "\n}" : " }");
+   return str.release();
+}
+
+static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, QoreValue version, QoreValue id, QoreValue msg, const char* type = "result", int format = 0) {
+   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
+
+   bool fmt = format & JGF_ADD_FORMATTING;
+
+   // write version key first if present
+   if (!version.isNullOrNothing()) {
+      str->sprintf("{%s \"version\" : ", fmt ? "\n " : "");
+      if (do_json_value(*str, version, fmt ? 2 : -1, xsink))
+	 return 0;
+      str->concat(fmt ? ",\n  " : ", ");
+   }
+   else
+      str->concat(fmt ? " {\n  " : "{ ");
+
+   if (!id.isNullOrNothing()) {
+      str->concat("\"id\" : ");
+      if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
+	 return 0;
+      str->concat(fmt ? ",\n  " : ", ");
+   }
+
+   // result key should come last
+   str->sprintf("\"%s\" : ", type);
+   if (do_json_value(*str, msg, fmt ? 2 : -1, xsink))
+      return 0;
+
+   str->concat(fmt ? "\n}" : " }");
+   return str.release();
+}
+
+static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* error, QoreValue id, QoreValue error_msg, int format, ExceptionSink* xsink) {
+   if (code < 100 || code > 999) {
+      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: "QLLD")", code);
+      return 0;
+   }
+
+   if (error->empty()) {
+      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "empty error message string passed as second argument)");
+      return 0;
+   }
+
+   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
+
+   bool fmt = format & JGF_ADD_FORMATTING;
+
+   str->concat(fmt ? "{\n  \"version\" : \"1.1\",\n  " : "{ \"version\" : \"1.1\", ");
+
+   // get optional "id" value
+   if (!id.isNullOrNothing()) {
+      str->concat("\"id\" : ");
+      if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
+	 return 0;
+      str->concat(fmt ? ",\n  " : ", ");
+   }
+
+   if (fmt)
+      str->sprintf("\"error\" :\n  {\n    \"name\" : \"JSONRPCError\",\n    \"code\" : %d,\n    \"message\" : \"", (int)code);
+   else
+      str->sprintf("\"error\" : { \"name\" : \"JSONRPCError\", \"code\" : %d, \"message\" : \"", (int)code);
+   // concat here so character encodings can be automatically converted if necessary
+   str->concatEscape(error, '"', '\\', xsink);
+   if (*xsink)
+      return 0;
+
+   str->concat('\"');
+
+   // get optional "error" value
+   if (!error_msg.isNullOrNothing()) {
+      str->sprintf(",%s \"error\" : ", fmt ? "\n   " : "");
+      if (do_json_value(*str, error_msg, fmt ? 4 : -1, xsink))
+	 return 0;
+   }
+   str->concat(fmt ? "\n  }\n}" : " } }");
+   return str.release();
+}
+
+/** @defgroup json_generation_constants JSON Generation Constants
+    The constants in this group can be combined with @ref bitwise_or_operator "binary or" to affect the output of generated JSON
+ */
+//@{
+namespace Qore::Json;
+
+//! no flags; standard JSON generation without whitespace formatting
+const JGF_NONE = JGF_NONE;
+
+//! use whitespace formatting including line breaks and indentation to make generated JSON more readable by humans
+const JGF_ADD_FORMATTING = JGF_ADD_FORMATTING;
+//@}
+
 /** @defgroup json_functions JSON Functions
  */
 //@{
 namespace Qore::Json;
+
+//! Serializes qore data into a JSON string with optional whitespace formatting (line breaks and indentation)
+/** @par Example:
+    @code string json = make_json(data); @endcode
+
+    By default the string produced will be in UTF-8 encoding, but this can be overridden by the \a encoding argument
+
+    @param data the data to serialize to a JSON string
+    @param format optional formatting flags; see @ref json_generation_constants for more information
+    @param encoding an optional output encoding for the resulting JSON string; if this argument is not passed, then UTF-8 encoding is used by default
+
+    @return the JSON string corresponding to the arguments passed
+
+    @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if an error occurs converting input strings to the target encoding
+
+    @note According to <a href="https://tools.ietf.org/html/rfc7159">RFC 7159</a> JSON strings can only be in UTF-8, UTF-16, or UTF-32 encoding, but this function will allow any encoding to be used to generate JSON strings
+
+    @see @ref serialization
+
+    @since json as a replacement for deprecated camel-case makeJSONString() and makeFormattedJSONString()
+*/
+string make_json(any data, *int format, *string encoding) [flags=RET_VALUE_ONLY] {
+   const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
+   QoreStringNodeHolder str(new QoreStringNode(qe));
+   return do_json_value(*str, data, format & JGF_ADD_FORMATTING ? 0 : -1, xsink) ? 0 : str.release();
+}
 
 //! Serializes qore data into a JSON string, without any line breaks
 /** By default the string produced will be in UTF-8 encoding, but this can be overridden by the second argument
@@ -618,7 +758,7 @@ namespace Qore::Json;
 string makeJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
    const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
-   return doJSONValue(*str, data, -1, xsink) ? 0 : str.release();
+   return do_json_value(*str, data, -1, xsink) ? 0 : str.release();
 }
 
 //! Serializes qore data into a JSON string, formatted with line breaks for easier readability
@@ -638,11 +778,29 @@ string makeJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
 string makeFormattedJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
    const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
-   return doJSONValue(*str, data, 0, xsink) ? 0 : str.release();
+   return do_json_value(*str, data, 0, xsink) ? 0 : str.release();
+}
+
+//! Parses a JSON string and returns the corresponding %Qore data structure
+/** @param json_str the JSON string to parse
+
+    @return the %Qore data structure corresponding to the input string
+
+    @throw JSON-PARSE-ERROR syntax error parsing JSON string
+
+    @par Example:
+    @code my any $data = parse_json($json); @endcode
+
+    @see @ref serialization
+
+    @since json 1.5 as a replacement for deprecated camel-case parseJSON()
+ */
+any parse_json(string json_str) [flags=RET_VALUE_ONLY] {
+   return parse_json(json_str, xsink);
 }
 
 //! This is a variant that is basically a noop, included for backwards-compatibility for functions that ignored type errors in the calling parameters
-/** 
+/**
  */
 nothing parseJSON() [flags=RUNTIME_NOOP] {
 }
@@ -655,12 +813,14 @@ nothing parseJSON() [flags=RUNTIME_NOOP] {
     @throw JSON-PARSE-ERROR syntax error parsing JSON string
 
     @par Example:
-    @code my any $data = parseJSONValue($json); @endcode
+    @code my any $data = parse_json($json); @endcode
 
     @see @ref serialization
+
+    @deprecated use parse_json(); camel-case function names were deprecated in json 1.5
  */
-any parseJSON(string json_str) [flags=RET_VALUE_ONLY] {
-   return parseJSONValue(json_str, xsink);
+any parseJSON(string json_str) [flags=RET_VALUE_ONLY,DEPRECATED] {
+   return parse_json(json_str, xsink);
 }
 //@}
 
@@ -686,35 +846,7 @@ any parseJSON(string json_str) [flags=RET_VALUE_ONLY] {
     - @ref JSONRPC
  */
 string makeJSONRPCRequestString(string method_name, any version, any id, any request_msg) [flags=RET_VALUE_ONLY] {
-   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
-
-   // write version key first if present
-   if (!is_nothing(version)) {
-      str->concat("{ \"version\" : ");
-      if (doJSONValue(*str, version, -1, xsink))
-	 return 0;
-      str->concat(", ");
-   }
-   else
-      str->concat("{ ");
-
-   str->concat("\"method\" : ");
-   if (doJSONValue(*str, method_name, -1, xsink))
-      return 0;
-
-   if (!is_nothing(id)) {
-      str->concat(", \"id\" : ");
-      if (doJSONValue(*str, id, -1, xsink))
-	 return 0;
-   }
-
-   // params key should come last
-   str->concat(",  \"params\" : ");
-   if (doJSONValue(*str, request_msg, -1, xsink))
-      return 0;
-
-   str->concat(" }");
-   return str.release();
+   return make_jsonrpc_request(method_name, version, id, request_msg, JGF_NONE, xsink);
 }
 
 //! Creates a JSON-RPC request string from the parameters passed, formatted with line breaks for easier readability
@@ -736,35 +868,7 @@ string makeJSONRPCRequestString(string method_name, any version, any id, any req
     - @ref JSONRPC
  */
 string makeFormattedJSONRPCRequestString(string method_name, any version, any id, any request_msg) [flags=RET_VALUE_ONLY] {
-   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
-
-   // write version key first if present
-   if (!is_nothing(version)) {
-      str->concat("{\n  \"version\" : ");
-      if (doJSONValue(*str, version, 2, xsink))
-	 return 0;
-      str->concat(",\n  ");
-   }
-   else
-      str->concat("{\n  ");
-
-   str->concat("\"method\" : ");
-   if (doJSONValue(*str, method_name, 2, xsink))
-      return 0;
-
-   if (!is_nothing(id)) {
-      str->concat(",\n  \"id\" : ");
-      if (doJSONValue(*str, id, 2, xsink))
-	 return 0;
-   }
-
-   // params key should come last
-   str->concat(",\n  \"params\" : ");
-   if (doJSONValue(*str, request_msg, 2, xsink))
-      return 0;
-
-   str->concat("\n}");
-   return str.release();
+   return make_jsonrpc_request(method_name, version, id, request_msg, JGF_ADD_FORMATTING, xsink);
 }
 
 //! Creates a JSON-RPC response string from the parameters passed, without any line breaks
@@ -784,32 +888,7 @@ string makeFormattedJSONRPCRequestString(string method_name, any version, any id
     - @ref JSONRPC
  */
 string makeJSONRPCResponseString(any version, any id, any response_msg) [flags=RET_VALUE_ONLY] {
-   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
-
-   // write version key first if present
-   if (!is_nothing(version)) {
-      str->concat("{ \"version\" : ");
-      if (doJSONValue(*str, version, -1, xsink))
-	 return 0;
-      str->concat(", ");
-   }
-   else
-      str->concat("{ ");
-
-   if (!is_nothing(id)) {
-      str->concat("\"id\" : ");
-      if (doJSONValue(*str, id, -1, xsink))
-	 return 0;
-      str->concat(", ");
-   }
-
-   // result key should come last
-   str->concat("\"result\" : ");
-   if (doJSONValue(*str, response_msg, -1, xsink))
-      return 0;
-
-   str->concat(" }");
-   return str.release();
+   return make_jsonrpc_response(xsink, version, id, response_msg, "result", 0);
 }
 
 //! Creates a JSON-RPC response string from the parameters passed, formatted with line breaks for easier readability
@@ -829,31 +908,7 @@ string makeJSONRPCResponseString(any version, any id, any response_msg) [flags=R
     - @ref JSONRPC
  */
 string makeFormattedJSONRPCResponseString(any version, any id, any response_msg) [flags=RET_VALUE_ONLY] {
-   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
-
-   // write version key first if present
-   if (!is_nothing(version)) {
-      str->concat("{\n  \"version\" : ");
-      if (doJSONValue(*str, version, 2, xsink))
-	 return 0;
-      str->concat(",\n  ");
-   }
-   else
-      str->concat("{\n  ");
-
-   if (!is_nothing(id)) {
-      str->concat("\"id\" : ");
-      if (doJSONValue(*str, id, 2, xsink))
-	 return 0;
-      str->concat(",\n  ");
-   }
-
-   // result key should come last
-   str->concat("\"result\" : ");
-   if (doJSONValue(*str, response_msg, 2, xsink))
-      return 0;
-   str->concat("\n}");
-   return str.release();
+   return make_jsonrpc_response(xsink, version, id, response_msg, "result", JGF_ADD_FORMATTING);
 }
 
 //! Creates a generic JSON-RPC error response string from the parameters passed, without any line breaks
@@ -873,32 +928,7 @@ string makeFormattedJSONRPCResponseString(any version, any id, any response_msg)
     - @ref JSONRPC
  */
 string makeJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VALUE_ONLY] {
-   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
-
-   // write version key first if present
-   if (!is_nothing(version)) {
-      str->concat("{ \"version\" : ");
-      if (doJSONValue(*str, version, -1, xsink))
-	 return 0;
-      str->concat(", ");
-   }
-   else
-      str->concat("{ ");
-
-   if (!is_nothing(id)) {
-      str->concat("\"id\" : ");
-      if (doJSONValue(*str, id, -1, xsink))
-	 return 0;
-      str->concat(", ");
-   }
-
-   // error key should come last
-   str->concat("\"error\" : ");
-   if (doJSONValue(*str, error_msg, -1, xsink))
-      return 0;
-
-   str->concat(" }");
-   return str.release();
+   return make_jsonrpc_response(xsink, version, id, error_msg, "error", 0);
 }
 
 //! Creates a generic JSON-RPC error response string from the parameters passed, formatted with line breaks for easier readability
@@ -918,32 +948,7 @@ string makeJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VAL
     - @ref JSONRPC
  */
 string makeFormattedJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VALUE_ONLY] {
-   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
-
-   // write version key first if present
-   if (!is_nothing(version)) {
-      str->concat("{\n  \"version\" : ");
-      if (doJSONValue(*str, version, 2, xsink))
-	 return 0;
-      str->concat(",\n  ");
-   }
-   else
-      str->concat("{\n  ");
-
-   if (!is_nothing(id)) {
-      str->concat("\"id\" : ");
-      if (doJSONValue(*str, id, 2, xsink))
-	 return 0;
-      str->concat(",\n  ");
-   }
-
-   // error key should come last
-   str->concat("\"error\" : ");
-   if (doJSONValue(*str, error_msg, 2, xsink))
-      return 0;
-
-   str->concat("\n}");
-   return str.release();
+   return make_jsonrpc_response(xsink, version, id, error_msg, "error", JGF_ADD_FORMATTING);
 }
 
 //! Creates a JSON-RPC 1.1 error response string from the parameters passed, without any line breaks
@@ -965,44 +970,7 @@ string makeFormattedJSONRPCErrorString(any version, any id, any error_msg) [flag
     - @ref JSONRPC
  */
 string makeJSONRPC11ErrorString(softint code, string error, any id, any error_msg) [flags=RET_VALUE_ONLY] {
-   if (code < 100 || code > 999) {
-      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: "QLLD")", code);
-      return 0;
-   }
-
-   if (error->empty()) {
-      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "empty error message string passed as second argument)");
-      return 0;
-   }
-
-   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
-
-   str->concat("{ \"version\" : \"1.1\", ");
-
-   // get optional "id" value
-   if (!is_nothing(id)) {
-      str->concat("\"id\" : ");
-      if (doJSONValue(*str, id, -1, xsink))
-	 return 0;
-      str->concat(", ");
-   }
-   
-   str->sprintf("\"error\" : { \"name\" : \"JSONRPCError\", \"code\" : %d, \"message\" : \"", (int)code);
-   // concat here so character encodings can be automatically converted if necessary
-   str->concatEscape(error, '"', '\\', xsink);
-   if (xsink->isException())
-      return 0;
-
-   str->concat('\"');
-
-   // get optional "error" value
-   if (!is_nothing(error_msg)) {
-      str->concat(", \"error\" : ");
-      if (doJSONValue(*str, error_msg, -1, xsink))
-	 return 0;
-   }
-   str->concat(" } }");
-   return str.release();
+   return make_jsonrpc11_error(code, error, id, error_msg, 0, xsink);
 }
 
 //! Creates a JSON-RPC 1.1 error response string from the parameters passed, formatted with line breaks for easier readability
@@ -1024,42 +992,6 @@ string makeJSONRPC11ErrorString(softint code, string error, any id, any error_ms
     - @ref JSONRPC
  */
 string makeFormattedJSONRPC11ErrorString(softint code, string error, any id, any error_msg) [flags=RET_VALUE_ONLY] {
-   if (code < 100 || code > 999) {
-      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: "QLLD")", code);
-      return 0;
-   }
-   
-   if (error->empty()) {
-      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error message string not passed as second argument)");
-      return 0;
-   }
-
-   QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
-   str->sprintf("{\n  \"version\" : \"1.1\",\n  ");
-
-   // get optional "id" value
-   if (!is_nothing(id)) {
-      str->concat("\"id\" : ");
-      if (doJSONValue(*str, id, -1, xsink))
-	 return 0;
-      str->concat(",\n  ");
-   }
-
-   str->sprintf("\"error\" :\n  {\n    \"name\" : \"JSONRPCError\",\n    \"code\" : %d,\n    \"message\" : \"", (int)code);
-   // concat here so character encodings can be automatically converted if necessary
-   str->concatEscape(error, '"', '\\', xsink);
-   if (*xsink)
-      return 0;
-
-   str->concat('\"');
-
-   // get optional "error" value
-   if (!is_nothing(error_msg)) {
-      str->concat(",\n    \"error\" : ");
-      if (doJSONValue(*str, error_msg, 4, xsink))
-	 return 0;
-   }
-   str->concat("\n  }\n}");
-   return str.release();
+   return make_jsonrpc11_error(code, error, id, error_msg, JGF_ADD_FORMATTING, xsink);
 }
 //@}

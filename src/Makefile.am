@@ -1,7 +1,7 @@
 MNAME=json
 
 .qpp.cpp:
-	qpp $<
+	qpp -V $<
 
 GENERATED_SOURCES = QC_JsonRpcClient.cpp ql_json.cpp
 CLEANFILES = $(GENERATED_SOURCES)

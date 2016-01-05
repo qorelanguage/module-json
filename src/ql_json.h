@@ -6,7 +6,7 @@
 
   Qore Programming Language
 
-  Copyright 2003 - 2010 David Nichols
+  Copyright 2003 - 2016 David Nichols
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -27,9 +27,13 @@
 
 #define _QORE_QL_JSON_H
 
-DLLEXPORT QoreStringNode *makeJSONRPC11RequestStringArgs(const QoreListNode *params, ExceptionSink *xsink);
-DLLEXPORT QoreStringNode *makeJSONRPC11RequestString(const QoreListNode *params, ExceptionSink *xsink);
-DLLEXPORT AbstractQoreNode *parseJSONValue(const QoreString *str, class ExceptionSink *xsink);
+// json generation constants
+#define JGF_NONE           0
+#define JGF_ADD_FORMATTING (1<<0)
+
+DLLEXPORT QoreStringNode *make_jsonrpc11_request_args(const QoreListNode *params, ExceptionSink *xsink);
+DLLEXPORT QoreStringNode *make_jsonrpc11_request(const QoreListNode *params, ExceptionSink *xsink);
+DLLEXPORT AbstractQoreNode *parse_json(const QoreString *str, ExceptionSink *xsink);
 
 DLLLOCAL void init_json_functions(QoreNamespace& ns);
 
