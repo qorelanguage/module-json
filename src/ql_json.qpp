@@ -328,6 +328,60 @@ static AbstractQoreNode* get_json_value(const char*& buf, int& line_number, cons
 
 #define JSF_THRESHOLD 20
 
+static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink* xsink);
+
+static int do_json_list(ExceptionSink* xsink, QoreString* str, const QoreValueList* l, int format, unsigned offset = 0) {
+   assert(l);
+   str->concat("[");
+   ConstValueListIterator li(l);
+   QoreString tmp(str->getEncoding());
+   while (li.next()) {
+      if (li.index() < offset)
+         continue;
+      bool ind = tmp.strlen() > JSF_THRESHOLD;
+      tmp.clear();
+      if (do_json_value(&tmp, li.getValue(), format == -1 ? format : format + 2, xsink))
+         return -1;
+
+      if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
+         str->concat('\n');
+         str->addch(' ', format + 2);
+      }
+      str->sprintf("%s", tmp.getBuffer());
+
+      if (!li.last())
+         str->concat(",");
+   }
+   str->concat("]");
+   return 0;
+}
+
+static int do_json_list(ExceptionSink* xsink, QoreString* str, const QoreListNode* l, int format, unsigned offset = 0) {
+   assert(l);
+   str->concat("[");
+   ConstListIterator li(l);
+   QoreString tmp(str->getEncoding());
+   while (li.next()) {
+      if (li.index() < offset)
+         continue;
+      bool ind = tmp.strlen() > JSF_THRESHOLD;
+      tmp.clear();
+      if (do_json_value(&tmp, li.getValue(), format == -1 ? format : format + 2, xsink))
+         return -1;
+
+      if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
+         str->concat('\n');
+         str->addch(' ', format + 2);
+      }
+      str->sprintf("%s", tmp.getBuffer());
+
+      if (!li.last())
+         str->concat(",");
+   }
+   str->concat("]");
+   return 0;
+}
+
 static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink* xsink) {
    if (v.isNullOrNothing()) {
       str->concat("null");
@@ -336,33 +390,12 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
 
    qore_type_t vtype = v.getType();
 
-   if (vtype == NT_LIST) {
-      const QoreListNode* l = v.get<const QoreListNode>();
-      str->concat("[ ");
-      ConstListIterator li(l);
-      QoreString tmp(str->getEncoding());
-      while (li.next()) {
-	 bool ind = tmp.strlen() > JSF_THRESHOLD;
-	 tmp.clear();
-	 if (do_json_value(&tmp, li.getValue(), format == -1 ? format : format + 2, xsink))
-	    return -1;
-
-	 if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
-	    str->concat('\n');
-	    str->addch(' ', format + 2);
-	 }
-	 str->sprintf("%s", tmp.getBuffer());
-
-	 if (!li.last())
-	    str->concat(", ");
-      }
-      str->concat(" ]");
-      return 0;
-   }
+   if (vtype == NT_LIST)
+      return do_json_list(xsink, str, v.get<const QoreListNode>(), format);
 
    if (vtype == NT_HASH) {
       const QoreHashNode* h = v.get<const QoreHashNode>();
-      str->concat("{ ");
+      str->concat("{");
       ConstHashIterator hi(h);
       QoreString tmp(str->getEncoding());
       while (hi.next()) {
@@ -375,11 +408,11 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
 	    str->concat('\n');
 	    str->addch(' ', format + 2);
 	 }
-	 str->sprintf("\"%s\" : %s", hi.getKey(), tmp.getBuffer());
+	 str->sprintf("\"%s\": %s", hi.getKey(), tmp.getBuffer());
 	 if (!hi.last())
-	    str->concat(", ");
+	    str->concat(",");
       }
-      str->concat(" }");
+      str->concat("}");
       return 0;
    }
 
@@ -439,7 +472,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
    }
 
    if (vtype == NT_FLOAT) {
-      float f = v.getAsFloat();
+      double f = v.getAsFloat();
       // check for nan, +/-inf and serialize as null
       if (isnan(f) || isinf(f))
          str->concat("null");
@@ -511,60 +544,50 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
    return -1;
 }
 
-QoreStringNode* make_jsonrpc11_request_args(const QoreListNode* params, ExceptionSink* xsink) {
-   const QoreStringNode* p0;
-   if (!(p0 = test_string_param(params, 0))) {
-      xsink->raiseException("MAKE-JSONRPC11-REQUEST-STRING-ERROR", "expecting method name as first parameter");
-      return 0;
-   }
+QoreStringNode* make_jsonrpc11_request_args(const QoreValueList* args, int offset, ExceptionSink* xsink) {
+   const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
 
-   const AbstractQoreNode* p1 = get_param(params, 1);
+   const QoreValue p1 = get_param_value(args, offset + 1);
 
    QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
    // write version key first
-   str->concat("{ \"version\" : \"1.1\", \"method\" : ");
+   str->concat("{\"version\": \"1.1\",\"method\": ");
    if (do_json_value(*str, p0, -1, xsink))
       return 0;
 
    // params key should come last
-   str->concat(", \"params\" : ");
-   if (!is_nothing(p1)) {
+   str->concat(",\"params\": ");
+   if (!p1.isNullOrNothing()) {
       if (do_json_value(*str, p1, -1, xsink))
 	 return 0;
    }
    else
       str->concat("null");
-   str->concat(" }");
+   str->concat("}");
    return str.release();
 }
 
-QoreStringNode* make_jsonrpc11_request(const QoreListNode* params, ExceptionSink* xsink) {
-   const QoreStringNode* p0;
-   if (!(p0 = test_string_param(params, 0))) {
-      xsink->raiseException("MAKE-JSONRPC11-REQUEST-STRING-ERROR", "expecting method name as first parameter");
-      return 0;
-   }
+QoreStringNode* make_jsonrpc11_request(const QoreValueList* args, int offset, ExceptionSink* xsink) {
+   const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
 
    QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
    // write version key first
-   str->concat("{ \"version\" : \"1.1\", \"method\" : ");
+   str->concat("{\"version\": \"1.1\", \"method\": ");
 
    if (do_json_value(*str, p0, -1, xsink))
       return 0;
 
    // params key should come last
-   str->concat(", \"params\" : ");
-   if (num_params(params) > 1) {
-      ReferenceHolder<QoreListNode> new_params(params->copyListFrom(1), xsink);
-
-      if (do_json_value(*str, *new_params, -1, xsink))
-	 return 0;
+   str->concat(",\"params\" : ");
+   if (num_args(args) > (offset + 1)) {
+      if (do_json_list(xsink, *str, args, 0, offset + 1))
+         return 0;
    }
    else
       str->concat("null");
-   str->concat(" }");
+   str->concat("}");
 
    return str.release();
 }
@@ -592,30 +615,30 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, Q
 
    // write version key first if present
    if (!version.isNullOrNothing()) {
-      str->sprintf("{%s \"version\" : ", fmt ? "\n " : "");
+      str->sprintf("{%s\"version\" : ", fmt ? "\n  " : "");
       if (do_json_value(*str, version, fmt ? 2 : -1, xsink))
 	 return 0;
-         str->concat(fmt ? ",\n  " : ", ");
+         str->concat(fmt ? ",\n  " : ",");
    }
    else
-      str->concat(fmt ? " {\n  " : "{ ");
+      str->concat(fmt ? "{\n  " : "{");
 
-   str->concat("\"method\" : ");
+   str->concat("\"method\": ");
    if (do_json_value(*str, method_name, fmt ? 2 : -1, xsink))
       return 0;
 
    if (!id.isNullOrNothing()) {
-      str->sprintf(",%s \"id\" : ", fmt ? "\n " : "");
+      str->sprintf(",%s\"id\": ", fmt ? "\n  " : "");
       if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
 	 return 0;
    }
 
    // params key should come last
-   str->sprintf(",%s  \"params\" : ", fmt ? "\n " : "");
+   str->sprintf(",%s\"params\": ", fmt ? "\n  " : "");
    if (do_json_value(*str, request_msg, fmt ? 2 : -1, xsink))
       return 0;
 
-   str->concat(fmt ? "\n}" : " }");
+   str->concat(fmt ? "\n}" : "}");
    return str.release();
 }
 
@@ -626,27 +649,27 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, QoreValue ver
 
    // write version key first if present
    if (!version.isNullOrNothing()) {
-      str->sprintf("{%s \"version\" : ", fmt ? "\n " : "");
+      str->sprintf("{%s\"version\": ", fmt ? "\n  " : "");
       if (do_json_value(*str, version, fmt ? 2 : -1, xsink))
 	 return 0;
-      str->concat(fmt ? ",\n  " : ", ");
+      str->concat(fmt ? ",\n  " : ",");
    }
    else
-      str->concat(fmt ? " {\n  " : "{ ");
+      str->concat(fmt ? "{\n  " : "{");
 
    if (!id.isNullOrNothing()) {
-      str->concat("\"id\" : ");
+      str->concat("\"id\": ");
       if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
 	 return 0;
-      str->concat(fmt ? ",\n  " : ", ");
+      str->concat(fmt ? ",\n  " : ",");
    }
 
    // result key should come last
-   str->sprintf("\"%s\" : ", type);
+   str->sprintf("\"%s\": ", type);
    if (do_json_value(*str, msg, fmt ? 2 : -1, xsink))
       return 0;
 
-   str->concat(fmt ? "\n}" : " }");
+   str->concat(fmt ? "\n}" : "}");
    return str.release();
 }
 
@@ -665,20 +688,20 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
 
    bool fmt = format & JGF_ADD_FORMATTING;
 
-   str->concat(fmt ? "{\n  \"version\" : \"1.1\",\n  " : "{ \"version\" : \"1.1\", ");
+   str->concat(fmt ? "{\n  \"version\": \"1.1\",\n  " : "{\"version\": \"1.1\",");
 
    // get optional "id" value
    if (!id.isNullOrNothing()) {
-      str->concat("\"id\" : ");
+      str->concat("\"id\": ");
       if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
 	 return 0;
-      str->concat(fmt ? ",\n  " : ", ");
+      str->concat(fmt ? ",\n  " : ",");
    }
 
    if (fmt)
-      str->sprintf("\"error\" :\n  {\n    \"name\" : \"JSONRPCError\",\n    \"code\" : %d,\n    \"message\" : \"", (int)code);
+      str->sprintf("\"error\":\n  {\n    \"name\": \"JSONRPCError\",\n    \"code\": %d,\n    \"message\": \"", (int)code);
    else
-      str->sprintf("\"error\" : { \"name\" : \"JSONRPCError\", \"code\" : %d, \"message\" : \"", (int)code);
+      str->sprintf("\"error\": {\"name\": \"JSONRPCError\",\"code\": %d,\"message\": \"", (int)code);
    // concat here so character encodings can be automatically converted if necessary
    str->concatEscape(error, '"', '\\', xsink);
    if (*xsink)
@@ -688,11 +711,11 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
 
    // get optional "error" value
    if (!error_msg.isNullOrNothing()) {
-      str->sprintf(",%s \"error\" : ", fmt ? "\n   " : "");
+      str->sprintf(",%s\"error\": ", fmt ? "\n   " : "");
       if (do_json_value(*str, error_msg, fmt ? 4 : -1, xsink))
 	 return 0;
    }
-   str->concat(fmt ? "\n  }\n}" : " } }");
+   str->concat(fmt ? "\n  }\n}" : "}}");
    return str.release();
 }
 

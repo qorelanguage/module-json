@@ -1,0 +1,119 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+# do not use "$" for vars, etc, assume local var scope
+%new-style
+# do not allow access to "noop" function variants
+%strict-args
+# enable all warnings
+%enable-all-warnings
+# child programs do not inherit parent's restrictions
+%no-child-restrictions
+# require types to be declared
+%require-types
+# test deprecated functions as well
+%disable-warning deprecated
+
+# make sure we have the right version of qore
+%requires qore >= 0.8.1
+
+# make sure we have the json module
+%requires json
+
+%requires QUnit
+
+%exec-class JsonTest
+
+class JsonTest inherits QUnit::Test {
+    public {}
+
+    private {
+        const TestHash = (
+            "key1": 1,
+            "key2": "string-\"test-quotes\"",
+            "key3": 1.0391,
+            "list": (1, 2, 3, ("four": 4), 5.0, True, ("key1": "one", "key2": 2.0)),
+            "hash": ("test1": 123, "test2": 456),
+            "bool": True,
+            "time": now().format("YYYY-MM-DD HH:mm:SS"),
+            "key": "this & that",
+            "escapes": "lorem ipsum\ndolor\tsir amet",
+            );
+    }
+
+    constructor() : Test("JsonTest", "1.0", \ARGV) {
+        addTestCase("JsonTestCase", \jsonTestCase());
+        addTestCase("JsonDeprecatedTestCase", \jsonDeprecatedTestCase());
+        set_return_value(main());
+    }
+
+    jsonTestCase() {
+        assertEqSoft(TestHash, parse_json(make_json(TestHash)));
+        assertEqSoft(TestHash, parse_json(make_json(TestHash, JGF_ADD_FORMATTING)));
+
+        string ver = "1.1";
+        int id = 512;
+        string method = "methodname";
+        string mess = "error description test";
+
+        hash jc = (
+            "version": ver,
+            "id": id,
+            "method": method,
+            "params": TestHash,
+            );
+
+        assertEq(True, parse_json(makeJSONRPCRequestString(method, ver, id, TestHash)) == jc);
+        assertEq(True, parse_json(makeFormattedJSONRPCRequestString(method, ver, id, TestHash)) == jc);
+
+        # create result hash by modifying the call hash above: delete "method" and "params" keys and add "result" key
+        hash jr = jc - "method" - "params" + ("result": TestHash);
+        assertEq(True, parse_json(makeJSONRPCResponseString(ver, id, TestHash)) == jr);
+        assertEq(True, parse_json(makeFormattedJSONRPCResponseString(ver, id, TestHash)) == jr);
+
+        # create error hash by modifying the result hash: delete "result" key and add "error" key
+        hash je = jr - "result" + ("error": TestHash);
+        assertEq(True, parse_json(makeJSONRPCErrorString(ver, id, TestHash)) == je);
+        assertEq(True, parse_json(makeFormattedJSONRPCErrorString(ver, id, TestHash)) == je);
+
+        # create JSON-RPC 1.1 error string
+        je = je + ("error": ("name": "JSONRPCError", "code": id, "message": mess, "error": TestHash));
+        assertEq(True, parse_json(makeJSONRPC11ErrorString(id, mess, id, TestHash)) == je);
+        assertEq(True, parse_json(makeFormattedJSONRPC11ErrorString(id, mess, id, TestHash)) == je);
+    }
+
+    jsonDeprecatedTestCase() {
+        string jstr = makeJSONString(TestHash);
+        assertEq(True, TestHash == parseJSON(jstr));
+
+        string ver = "1.1";
+        int id = 512;
+        string method = "methodname";
+        string mess = "error description test";
+
+        hash jc = (
+            "version": ver,
+            "id": id,
+            "method": method,
+            "params": TestHash,
+            );
+
+        assertEq(True, parseJSON(makeJSONRPCRequestString(method, ver, id, TestHash)) == jc);
+        assertEq(True, parseJSON(makeFormattedJSONRPCRequestString(method, ver, id, TestHash)) == jc);
+
+        # create result hash by modifying the call hash above: delete "method" and "params" keys and add "result" key
+        hash jr = jc - "method" - "params" + ("result": TestHash);
+        assertEq(True, parseJSON(makeJSONRPCResponseString(ver, id, TestHash)) == jr);
+        assertEq(True, parseJSON(makeFormattedJSONRPCResponseString(ver, id, TestHash)) == jr);
+
+        # create error hash by modifying the result hash: delete "result" key and add "error" key
+        hash je = jr - "result" + ("error": TestHash);
+        assertEq(True, parseJSON(makeJSONRPCErrorString(ver, id, TestHash)) == je);
+        assertEq(True, parseJSON(makeFormattedJSONRPCErrorString(ver, id, TestHash)) == je);
+
+        # create JSON-RPC 1.1 error string
+        je = je + ("error": ("name": "JSONRPCError", "code": id, "message": mess, "error": TestHash));
+        assertEq(True, parseJSON(makeJSONRPC11ErrorString(id, mess, id, TestHash)) == je);
+        assertEq(True, parseJSON(makeFormattedJSONRPC11ErrorString(id, mess, id, TestHash)) == je);
+    }
+}

@@ -14,7 +14,7 @@ EXTRA_DIST = COPYING.LGPL COPYING.MIT ChangeLog AUTHORS README \
 	RELEASE-NOTES \
 	src/QC_JsonRpcClient.qpp \
 	src/ql_json.qpp \
-	test/json-test.q \
+	test/json,qtest \
 	examples/json-rpc-client.q \
 	examples/JsonRpcServerValidation.q \
 	qore-json-module.spec

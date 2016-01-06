@@ -207,7 +207,7 @@ JsonRpcClient::copy() {
 */
 hash JsonRpcClient::callArgs(string[doc] method, any[doc] args) {
    // create the outgoing message in JSON-RPC call format
-   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc11_request_args(args, xsink));
+   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc11_request_args(args, 0, xsink));
    if (!msg)
       return 0;
 
@@ -232,7 +232,7 @@ hash JsonRpcClient::callArgs(string[doc] method, any[doc] args) {
 */
 hash JsonRpcClient::call(string[doc] method, ...) {
    // create the outgoing message in JSON-RPC call format
-   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc11_request(args, xsink));
+   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc11_request(args, 0, xsink));
    if (!msg)
       return 0;
 
@@ -265,11 +265,8 @@ my hash $info;
 my hash $result = $jrc.callArgsWithInfo(\$info, "method.name", $arg_list);@endcode
 */
 hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc] args) {
-   // get arguments
-   ReferenceHolder<QoreListNode> xargs(args->copyListFrom(1), xsink);
-
    // create the outgoing message in JSON-RPC call format
-   QoreStringNode *msg = make_jsonrpc11_request_args(*xargs, xsink);
+   QoreStringNode *msg = make_jsonrpc11_request_args(args, 1, xsink);
    if (!msg)
       return 0;
 
@@ -304,11 +301,8 @@ my hash $info;
 my hash $result = $jrc.callWithInfo(\$info, "method.name", $arg1, $arg2);@endcode
 */
 hash JsonRpcClient::callWithInfo(reference info, string[doc] method, ...) {
-   // get arguments
-   ReferenceHolder<QoreListNode> xargs(args->copyListFrom(1), xsink);
-
    // create the outgoing message in JSON-RPC call format
-   QoreStringNode *msg = make_jsonrpc11_request(*xargs, xsink);
+   QoreStringNode *msg = make_jsonrpc11_request(args, 1, xsink);
    if (!msg)
       return 0;
 
