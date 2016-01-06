@@ -756,7 +756,7 @@ namespace Qore::Json;
 
     @see @ref serialization
 
-    @since json as a replacement for deprecated camel-case makeJSONString() and makeFormattedJSONString()
+    @since json 1.5 as a replacement for deprecated camel-case makeJSONString() and makeFormattedJSONString()
 */
 string make_json(any data, *int format, *string encoding) [flags=RET_VALUE_ONLY] {
    const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
@@ -773,12 +773,11 @@ string make_json(any data, *int format, *string encoding) [flags=RET_VALUE_ONLY]
 
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeJSONString($data); @endcode
+    @deprecated use make_json(); camel-case function names were deprecated in json 1.5
 
     @see @ref serialization
 */
-string makeJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
+string makeJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY,DEPRECATED] {
    const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
    return do_json_value(*str, data, -1, xsink) ? 0 : str.release();
@@ -793,12 +792,11 @@ string makeJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
 
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeFormattedJSONString($data); @endcode
+    @deprecated use make_json(); camel-case function names were deprecated in json 1.5
 
     @see @ref serialization
 */
-string makeFormattedJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY] {
+string makeFormattedJSONString(any data, *string encoding) [flags=RET_VALUE_ONLY,DEPRECATED] {
    const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
    return do_json_value(*str, data, 0, xsink) ? 0 : str.release();
@@ -825,7 +823,7 @@ any parse_json(string json_str) [flags=RET_VALUE_ONLY] {
 //! This is a variant that is basically a noop, included for backwards-compatibility for functions that ignored type errors in the calling parameters
 /**
  */
-nothing parseJSON() [flags=RUNTIME_NOOP] {
+nothing parseJSON() [flags=RUNTIME_NOOP,DEPRECATED] {
 }
 
 //! Parses a JSON string and returns the corresponding %Qore data structure
@@ -834,9 +832,6 @@ nothing parseJSON() [flags=RUNTIME_NOOP] {
     @return the %Qore data structure corresponding to the input string
 
     @throw JSON-PARSE-ERROR syntax error parsing JSON string
-
-    @par Example:
-    @code my any $data = parse_json($json); @endcode
 
     @see @ref serialization
 
@@ -856,19 +851,43 @@ any parseJSON(string json_str) [flags=RET_VALUE_ONLY,DEPRECATED] {
     @param version the JSON-RPC version to include in the call
     @param id the ID of the call
     @param request_msg the parameters for the message/message payload
+    @param format optional formatting flags; see @ref json_generation_constants for more information
 
     @return a JSON string in UTF-8 encoding representing the JSON-RPC request
 
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
     @par Example:
-    @code my string $json = makeJSONRPCRequestString("omq.system.help", "1.0", $id, $msg); @endcode
+    @code string json = make_jsonrpc_request("omq.system.help", "1.0", id, msg); @endcode
+
+    @since json 1.5 as a replacement for deprecated camel-case makeJSONRPCRequestString() and makeFormattedJSONRPCRequestString()
 
     @see
     - @ref serialization
     - @ref JSONRPC
  */
-string makeJSONRPCRequestString(string method_name, any version, any id, any request_msg) [flags=RET_VALUE_ONLY] {
+string make_jsonrpc_request(string method_name, any version, any id, any request_msg, *int format) [flags=RET_VALUE_ONLY] {
+   return make_jsonrpc_request(method_name, version, id, request_msg, format, xsink);
+}
+
+//! Creates a JSON-RPC request string from the parameters passed, without any line breaks
+/** To follow JSON-RPC specifications, the generated string will always be in UTF-8 encoding
+    @param method_name the name of the JSON-RPC method to call
+    @param version the JSON-RPC version to include in the call
+    @param id the ID of the call
+    @param request_msg the parameters for the message/message payload
+
+    @return a JSON string in UTF-8 encoding representing the JSON-RPC request
+
+    @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
+
+    @deprecated use make_jsonrpc_request(); camel-case function names were deprecated in json 1.5
+
+    @see
+    - @ref serialization
+    - @ref JSONRPC
+ */
+string makeJSONRPCRequestString(string method_name, any version, any id, any request_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
    return make_jsonrpc_request(method_name, version, id, request_msg, JGF_NONE, xsink);
 }
 
@@ -883,15 +902,37 @@ string makeJSONRPCRequestString(string method_name, any version, any id, any req
 
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeFormattedJSONRPCRequestString("omq.system.help", "1.0", $id, $msg); @endcode
+    @deprecated use make_jsonrpc_request(); camel-case function names were deprecated in json 1.5
 
     @see
     - @ref serialization
     - @ref JSONRPC
  */
-string makeFormattedJSONRPCRequestString(string method_name, any version, any id, any request_msg) [flags=RET_VALUE_ONLY] {
+string makeFormattedJSONRPCRequestString(string method_name, any version, any id, any request_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
    return make_jsonrpc_request(method_name, version, id, request_msg, JGF_ADD_FORMATTING, xsink);
+}
+
+//! Creates a JSON-RPC response string from the parameters passed, without any line breaks
+/** @param version the JSON-RPC version to include in the call
+    @param id the ID of the call
+    @param response_msg the parameters for the message/message payload
+    @param format optional formatting flags; see @ref json_generation_constants for more information
+
+    @return a JSON string in UTF-8 encoding representing the JSON-RPC response, without any line breaks
+
+    @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
+
+    @par Example:
+    @code string json = make_jsonrpc_response("1.0", id, msg); @endcode
+
+    @since json 1.5 as a replacement for deprecated camel-case makeJSONRPCResponseString() and makeFormattedJSONRPCResponseString()
+
+    @see
+    - @ref serialization
+    - @ref JSONRPC
+ */
+string make_jsonrpc_response(any version, any id, any response_msg, *int format) [flags=RET_VALUE_ONLY] {
+   return make_jsonrpc_response(xsink, version, id, response_msg, "result", format);
 }
 
 //! Creates a JSON-RPC response string from the parameters passed, without any line breaks
@@ -903,14 +944,13 @@ string makeFormattedJSONRPCRequestString(string method_name, any version, any id
 
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeJSONRPCResponseString("1.0", $id, $msg); @endcode
+    @deprecated use make_jsonrpc_response(); camel-case function names were deprecated in json 1.5
 
     @see
     - @ref serialization
     - @ref JSONRPC
  */
-string makeJSONRPCResponseString(any version, any id, any response_msg) [flags=RET_VALUE_ONLY] {
+string makeJSONRPCResponseString(any version, any id, any response_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
    return make_jsonrpc_response(xsink, version, id, response_msg, "result", 0);
 }
 
@@ -923,15 +963,37 @@ string makeJSONRPCResponseString(any version, any id, any response_msg) [flags=R
 
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeFormattedJSONRPCResponseString("1.0", $id, $msg); @endcode
+    @deprecated use make_jsonrpc_response(); camel-case function names were deprecated in json 1.5
 
     @see
     - @ref serialization
     - @ref JSONRPC
  */
-string makeFormattedJSONRPCResponseString(any version, any id, any response_msg) [flags=RET_VALUE_ONLY] {
+string makeFormattedJSONRPCResponseString(any version, any id, any response_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
    return make_jsonrpc_response(xsink, version, id, response_msg, "result", JGF_ADD_FORMATTING);
+}
+
+//! Creates a generic JSON-RPC error response string from the parameters passed, without any line breaks
+/** @param version the JSON-RPC version to include in the call
+    @param id the ID of the call
+    @param error_msg the parameters for the error response message/message payload
+    @param format optional formatting flags; see @ref json_generation_constants for more information
+
+    @return a JSON string in UTF-8 encoding representing the JSON-RPC error response, without any line breaks
+
+    @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
+
+    @par Example:
+    @code string json = make_jsonrpc_error("1.0", id, error); @endcode
+
+    @since json 1.5 as a replacement for deprecated camel-case makeJSONRPCErrorString() and makeFormattedJSONRPCErrorString()
+
+    @see
+    - @ref serialization
+    - @ref JSONRPC
+ */
+string make_jsonrpc_error(any version, any id, any error_msg, *int format) [flags=RET_VALUE_ONLY] {
+   return make_jsonrpc_response(xsink, version, id, error_msg, "error", format);
 }
 
 //! Creates a generic JSON-RPC error response string from the parameters passed, without any line breaks
@@ -943,14 +1005,13 @@ string makeFormattedJSONRPCResponseString(any version, any id, any response_msg)
 
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeJSONRPCErrorString("1.0", $id, $error); @endcode
+    @deprecated use make_jsonrpc_error(); camel-case function names were deprecated in json 1.5
 
     @see
     - @ref serialization
     - @ref JSONRPC
  */
-string makeJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VALUE_ONLY] {
+string makeJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
    return make_jsonrpc_response(xsink, version, id, error_msg, "error", 0);
 }
 
@@ -963,15 +1024,41 @@ string makeJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VAL
 
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeFormattedJSONRPCErrorString("1.0", $id, $error); @endcode
+    @deprecated use make_jsonrpc_error(); camel-case function names were deprecated in json 1.5
 
     @see
     - @ref serialization
     - @ref JSONRPC
  */
-string makeFormattedJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VALUE_ONLY] {
+string makeFormattedJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
    return make_jsonrpc_response(xsink, version, id, error_msg, "error", JGF_ADD_FORMATTING);
+}
+
+//! Creates a JSON-RPC 1.1 error response string from the parameters passed, without any line breaks
+/** @param code the error code to return
+    @param error a string error message
+    @param id the ID of the call
+    @param error_msg the parameters for the error response message/message payload
+    @param format optional formatting flags; see @ref json_generation_constants for more information
+
+    @return a JSON string in UTF-8 encoding representing the JSON-RPC 1.1 error response, without any line breaks
+
+    @throw MAKE-JSONRPC11-ERROR-STRING-ERROR the error code is not between 100-999 or empty error message string
+    @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
+
+    @par Example:
+    @code string json = make_jsonrpc11_error(200, msg, id, error); @endcode
+
+    @since json 1.5 as a replacement for deprecated camel-case makeJSONRPC11ErrorString() and makeFormattedJSONRPC11ErrorString()
+
+    @deprecated use make_jsonrpc11_error(); camel-case function names were deprecated in json 1.5
+
+    @see
+    - @ref serialization
+    - @ref JSONRPC
+ */
+string make_jsonrpc11_error(softint code, string error, any id, any error_msg, *int format) [flags=RET_VALUE_ONLY] {
+   return make_jsonrpc11_error(code, error, id, error_msg, format, xsink);
 }
 
 //! Creates a JSON-RPC 1.1 error response string from the parameters passed, without any line breaks
@@ -985,14 +1072,11 @@ string makeFormattedJSONRPCErrorString(any version, any id, any error_msg) [flag
     @throw MAKE-JSONRPC11-ERROR-STRING-ERROR the error code is not between 100-999 or empty error message string
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeJSONRPC11ErrorString(200, $msg, $id, $error); @endcode
-
     @see
     - @ref serialization
     - @ref JSONRPC
  */
-string makeJSONRPC11ErrorString(softint code, string error, any id, any error_msg) [flags=RET_VALUE_ONLY] {
+string makeJSONRPC11ErrorString(softint code, string error, any id, any error_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
    return make_jsonrpc11_error(code, error, id, error_msg, 0, xsink);
 }
 
@@ -1007,14 +1091,13 @@ string makeJSONRPC11ErrorString(softint code, string error, any id, any error_ms
     @throw MAKE-JSONRPC11-ERROR-STRING-ERROR the error code is not between 100-999 or empty error message string
     @throw JSON-SERIALIZATION-ERROR cannot serialize value passed (ex: binary, object)
 
-    @par Example:
-    @code my string $json = makeFormattedJSONRPC11ErrorString(200, $msg, $id, $error); @endcode
+    @deprecated use make_jsonrpc11_error(); camel-case function names were deprecated in json 1.5
 
     @see
     - @ref serialization
     - @ref JSONRPC
  */
-string makeFormattedJSONRPC11ErrorString(softint code, string error, any id, any error_msg) [flags=RET_VALUE_ONLY] {
+string makeFormattedJSONRPC11ErrorString(softint code, string error, any id, any error_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
    return make_jsonrpc11_error(code, error, id, error_msg, JGF_ADD_FORMATTING, xsink);
 }
 //@}

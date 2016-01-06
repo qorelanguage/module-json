@@ -63,23 +63,23 @@ class JsonTest inherits QUnit::Test {
             "params": TestHash,
             );
 
-        assertEq(True, parse_json(makeJSONRPCRequestString(method, ver, id, TestHash)) == jc);
-        assertEq(True, parse_json(makeFormattedJSONRPCRequestString(method, ver, id, TestHash)) == jc);
+        assertEq(True, parse_json(make_jsonrpc_request(method, ver, id, TestHash)) == jc);
+        assertEq(True, parse_json(make_jsonrpc_request(method, ver, id, TestHash, JGF_ADD_FORMATTING)) == jc);
 
         # create result hash by modifying the call hash above: delete "method" and "params" keys and add "result" key
         hash jr = jc - "method" - "params" + ("result": TestHash);
-        assertEq(True, parse_json(makeJSONRPCResponseString(ver, id, TestHash)) == jr);
-        assertEq(True, parse_json(makeFormattedJSONRPCResponseString(ver, id, TestHash)) == jr);
+        assertEq(True, parse_json(make_jsonrpc_response(ver, id, TestHash)) == jr);
+        assertEq(True, parse_json(make_jsonrpc_response(ver, id, TestHash, JGF_ADD_FORMATTING)) == jr);
 
         # create error hash by modifying the result hash: delete "result" key and add "error" key
         hash je = jr - "result" + ("error": TestHash);
-        assertEq(True, parse_json(makeJSONRPCErrorString(ver, id, TestHash)) == je);
-        assertEq(True, parse_json(makeFormattedJSONRPCErrorString(ver, id, TestHash)) == je);
+        assertEq(True, parse_json(make_jsonrpc_error(ver, id, TestHash)) == je);
+        assertEq(True, parse_json(make_jsonrpc_error(ver, id, TestHash, JGF_ADD_FORMATTING)) == je);
 
         # create JSON-RPC 1.1 error string
         je = je + ("error": ("name": "JSONRPCError", "code": id, "message": mess, "error": TestHash));
-        assertEq(True, parse_json(makeJSONRPC11ErrorString(id, mess, id, TestHash)) == je);
-        assertEq(True, parse_json(makeFormattedJSONRPC11ErrorString(id, mess, id, TestHash)) == je);
+        assertEq(True, parse_json(make_jsonrpc11_error(id, mess, id, TestHash)) == je);
+        assertEq(True, parse_json(make_jsonrpc11_error(id, mess, id, TestHash, JGF_ADD_FORMATTING)) == je);
     }
 
     jsonDeprecatedTestCase() {

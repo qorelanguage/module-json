@@ -8,6 +8,9 @@ version 1.5
 * serialize nan, +/-inf as null according to the JSON spec
 * added detection for invalid JSON-RPC calls and added a more user-friendly
   error message in the JsonRpcHandler module
+* tests ported to QUnit
+* Qore 0.8.12 required as a minimum to build
+* JSON output is more compact; fewer extransous whitespaces are used
 
 
 ***********
