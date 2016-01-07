@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file JsonRpcHandler.qm @brief JSON-RPC handler class definition for the HttpServer module
 
-/*  JsonRpcHandler.qm Copyright (C) 2012 - 2015 David Nichols
+/*  JsonRpcHandler.qm Copyright (C) 2012 - 2016 David Nichols
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -290,7 +290,7 @@ public namespace JsonRpcHandler {
                 return (
                     "code": 200,
                     "hdr": ( "Content-Type" : MimeTypeJsonRpc ),
-                    "body": makeJSONRPC11ErrorString(105, str, cx.jsonid),
+                    "body": make_jsonrpc11_error(105, str, cx.jsonid),
                     );
             }
 
@@ -305,7 +305,7 @@ public namespace JsonRpcHandler {
             #printf("DEBUG: about to call function '%s' (method=%s params=%y)\n", found.function, method, params);
 
             any rv = found.internal ? call_object_method_args(self, found.function, params) : call_function_args(found.function, params);
-            hash h.body = makeJSONRPCResponseString("1.1", cx.jsonid, rv);
+            hash h.body = make_jsonrpc_response("1.1", cx.jsonid, rv);
             return h;
         }
 
@@ -338,7 +338,7 @@ public namespace JsonRpcHandler {
                     );
 
                 try {
-                    any req = parseJSON(body);
+                    any req = parse_json(body);
                     if (req.typeCode() != NT_HASH)
                         throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with \"method\" and \"id\" keys in the JSON-RPC call; got type %y instead", req.type());
                     jsonrpc = req;
@@ -371,7 +371,7 @@ public namespace JsonRpcHandler {
                     "code": 200,
                     "errlog": str,
                     "hdr": ("Content-Type": MimeTypeJsonRpc),
-                    "body": makeJSONRPC11ErrorString(104, str, jsonrpc.id, ex.arg),
+                    "body": make_jsonrpc11_error(104, str, jsonrpc.id, ex.arg),
                     );
             }
         }
