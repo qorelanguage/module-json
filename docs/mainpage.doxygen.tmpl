@@ -47,9 +47,14 @@
     This following functions provide automatic JSON serialization and deserialization:
     <b>Functions For JSON Serialization and Deserialization</b>
     |!Function Name|!Description
-    |@ref makeFormattedJSONString()|Serializes qore data into a JSON string, formatted with line breaks for easier readability
-    |@ref makeJSONString()|Serializes qore data into a JSON string, without any line breaks
-    |@ref parseJSON()|Parses a JSON string and returns the corresponding qore data structure
+    |@ref make_json()|Serializes qore data into a JSON string with optional verbose whitespace formatting for easier human readability
+    |@ref parseJSON()|Parses a JSON string and returns the corresponding %Qore data structure
+
+    <b>Deprecated JSON-RPC</b>
+    |!Deprecated Function Name|!New Function Name
+    |@ref makeFormattedJSONString()|@ref make_json()
+    |@ref makeJSONString()|@ref make_json()
+    |@ref parseJSON()|@parse_json()
 
     @section JSONRPC JSON-RPC
 
@@ -63,14 +68,21 @@
 
     <b>Functions Providing JSON-RPC Functionality</b>
     |!Function Name|!Description
-    |@ref makeFormattedJSONRPC11ErrorString()|Creates a JSON-RPC 1.1 error response string from the parameters passed, formatted with line breaks for easier readability
-    |@ref makeFormattedJSONRPCErrorString()|Creates a generic JSON-RPC error response string from the parameters passed, formatted with line breaks for easier readability
-    |@ref makeFormattedJSONRPCRequestString()|Creates a JSON-RPC request string from the parameters passed, formatted with line breaks for easier readability
-    |@ref makeFormattedJSONRPCResponseString()|Creates a JSON-RPC response string from the parameters passed, formatted with line breaks for easier readability
-    |@ref makeJSONRPC11ErrorString()|Creates a JSON-RPC 1.1 error response string from the parameters passed, without any line breaks
-    |@ref makeJSONRPCErrorString()|a generic JSON-RPC error response string from the parameters passed, without any line breaks
-    |@ref makeJSONRPCRequestString()|Creates a JSON-RPC request string from the parameters passed, without any line breaks
-    |@ref makeJSONRPCResponseString()|Creates a JSON-RPC response string from the parameters passed, without any line breaks
+    |@ref make_jsonrpc11_error()|Creates a JSON-RPC 1.1 error response string from the parameters passed with optional verbose whitespace formatting for easier human readability
+    |@ref make_jsonrpc_error()|a generic JSON-RPC error response string from the parameters passed with optional verbose whitespace formatting for easier human readability
+    |@ref make_jsonrpc_request()|Creates a JSON-RPC request string from the parameters passed with optional verbose whitespace formatting for easier human readability
+    |@ref make_jsonrpc_response()|Creates a JSON-RPC response string from the parameters passed with optional verbose whitespace formatting for easier human readability
+
+    <b>Deprecated JSON-RPC Functions</b>
+    |!Deprecated Function Name|!New Function Name
+    |@ref makeFormattedJSONRPC11ErrorString()|@ref make_jsonrpc11_error()
+    |@ref makeFormattedJSONRPCErrorString()|@ref make_jsonrpc_error()
+    |@ref makeFormattedJSONRPCRequestString()|@ref make_jsonrpc_request()
+    |@ref makeFormattedJSONRPCResponseString()|@ref make_jsonrpc_response()
+    |@ref makeJSONRPC11ErrorString()|@ref make_jsonrpc11_error()
+    |@ref makeJSONRPCErrorString()|@ref make_jsonrpc_error()
+    |@ref makeJSONRPCRequestString()|@ref make_jsonrpc_request()
+    |@ref makeJSONRPCResponseString()|@ref make_jsonrpc_response()
 
     @section codetags Function and Method Tags
 
@@ -113,6 +125,10 @@
     - user modules moved to top-level qore module directory from version-specific module directory since they are valid for multiple versions of qore
     - serialize nan, +/-inf as null according to the JSON spec
     - added detection for invalid JSON-RPC calls and added a more user-friendly error message in the <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> module
+    - new functions added conforming to Qore's function naming convention, old camel-case functions deprecated
+    - JSON tests ported to QUnit
+    - Qore 0.8.12 required as a minimum to build
+    - JSON output is more compact; fewer extransous whitespaces are used
 
     @subsection v0_1_4 Version 1.4
 

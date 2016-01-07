@@ -51,7 +51,7 @@ public:
       // we have to create a temporary ExceptionSink if there is
       // an active exception, otherwise writing back the reference will fail
       ExceptionSink *txsink = *xsink ? new ExceptionSink : xsink;
-      
+
       // write info hash to reference
       AutoVLock vl(txsink);
       QoreTypeSafeReferenceHelper rh(ref, vl, txsink);
@@ -59,7 +59,7 @@ public:
          return;
 
       if (rh.assign(info.release(), txsink))
-         return;   
+         return;
 
       if (txsink != xsink)
          xsink->assimilate(txsink);
@@ -98,14 +98,14 @@ static AbstractQoreNode *make_jsonrpc_call(QORE_HTTP_CLIENT* client, QoreStringN
       info->setKeyValue("response", ans.release(), xsink);
       info->setKeyValue("response_headers", response.release(), xsink);
    }
-   
+
    if (ah->getType() != NT_STRING) {
       xsink->raiseException("JSONRPCCLIENT-RESPONSE-ERROR", "undecoded binary response received from remote server");
       return 0;
    }
 
-   // parse JSON-RPC response   
-   return parseJSONValue(reinterpret_cast<QoreStringNode *>(ah), xsink);
+   // parse JSON-RPC response
+   return parse_json(reinterpret_cast<QoreStringNode *>(ah), xsink);
 }
 
 //! The JsonRpcClient class provides easy access to JSON-RPC web services
@@ -179,7 +179,7 @@ JsonRpcClient::constructor(hash opts, softbool no_connect = False) {
 
    // do not connect immediately if the second argument is True
    if (!no_connect)
-      client->connect(xsink); 
+      client->connect(xsink);
 }
 
 //! Throws an exception; copying JsonRpcClient objects is currently not supported
@@ -207,7 +207,7 @@ JsonRpcClient::copy() {
 */
 hash JsonRpcClient::callArgs(string[doc] method, any[doc] args) {
    // create the outgoing message in JSON-RPC call format
-   SimpleRefHolder<QoreStringNode> msg(makeJSONRPC11RequestStringArgs(args, xsink));
+   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc11_request_args(args, 0, xsink));
    if (!msg)
       return 0;
 
@@ -232,7 +232,7 @@ hash JsonRpcClient::callArgs(string[doc] method, any[doc] args) {
 */
 hash JsonRpcClient::call(string[doc] method, ...) {
    // create the outgoing message in JSON-RPC call format
-   SimpleRefHolder<QoreStringNode> msg(makeJSONRPC11RequestString(args, xsink));
+   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc11_request(args, 0, xsink));
    if (!msg)
       return 0;
 
@@ -265,11 +265,8 @@ my hash $info;
 my hash $result = $jrc.callArgsWithInfo(\$info, "method.name", $arg_list);@endcode
 */
 hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc] args) {
-   // get arguments
-   ReferenceHolder<QoreListNode> xargs(args->copyListFrom(1), xsink);
-
    // create the outgoing message in JSON-RPC call format
-   QoreStringNode *msg = makeJSONRPC11RequestStringArgs(*xargs, xsink);
+   QoreStringNode *msg = make_jsonrpc11_request_args(args, 1, xsink);
    if (!msg)
       return 0;
 
@@ -304,11 +301,8 @@ my hash $info;
 my hash $result = $jrc.callWithInfo(\$info, "method.name", $arg1, $arg2);@endcode
 */
 hash JsonRpcClient::callWithInfo(reference info, string[doc] method, ...) {
-   // get arguments
-   ReferenceHolder<QoreListNode> xargs(args->copyListFrom(1), xsink);
-
    // create the outgoing message in JSON-RPC call format
-   QoreStringNode *msg = makeJSONRPC11RequestString(*xargs, xsink);
+   QoreStringNode *msg = make_jsonrpc11_request(args, 1, xsink);
    if (!msg)
       return 0;
 
