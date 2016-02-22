@@ -468,18 +468,14 @@ else
       if test "$libdir" != "$qlibdir"; then
          AC_MSG_WARN([warning, installed qore's module dir is $qlibdir, this module will be installed in $libdir])
       fi
-      if test "$windows" = yes; then
-         userlibdir="${qlibdir}"
+      if test -n "echo ${datarootdir}|grep \$"; then
+         userlibdir="`eval echo ${datarootdir}`/qore-modules"
       else
-         if test -n "echo ${datarootdir}|grep \$"; then
-            userlibdir="`eval echo ${datarootdir}`/qore-modules"
-         else
-            userlibdir="${datarootdir}/qore-modules"
-         fi
-         qlibdir=`qore --user-module-dir`
-         if test "$userlibdir" != "$qlibdir"; then
-            AC_MSG_WARN([warning, installed qore's user module dir is $qlibdir, this module will be installed in $userlibdir])
-         fi
+         userlibdir="${datarootdir}/qore-modules"
+      fi
+      qlibdir=`qore --user-module-dir`
+      if test "$userlibdir" != "$qlibdir"; then
+         AC_MSG_WARN([warning, installed qore's user module dir is $qlibdir, this module will be installed in $userlibdir])
       fi
    fi
 fi
