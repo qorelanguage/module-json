@@ -30,6 +30,10 @@ SET (module_name "json")
 
 add_library(${module_name} SHARED ${CPP_SRC} ${QPP_SOURCES} ${CPP_SRC})
 
+if (WIN32 AND MINGW AND MSYS)
+    target_compile_definitions(${module_name} PUBLIC BUILDING_DLL)
+endif (WIN32 AND MINGW AND MSYS)
+
 qore_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 qore_user_modules("${QMOD}")
 
