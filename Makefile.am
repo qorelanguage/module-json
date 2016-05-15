@@ -14,7 +14,7 @@ EXTRA_DIST = COPYING.LGPL COPYING.MIT ChangeLog AUTHORS README \
 	RELEASE-NOTES \
 	src/QC_JsonRpcClient.qpp \
 	src/ql_json.qpp \
-	test/json-test.q \
+	test/json,qtest \
 	examples/json-rpc-client.q \
 	examples/JsonRpcServerValidation.q \
 	qore-json-module.spec
@@ -40,13 +40,11 @@ docs/qlib/JsonRpcHandler.qm.dox.h: qlib/JsonRpcHandler.qm
 
 docs/JsonRpcHandler/html: docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler
 	cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.JsonRpcHandler
-	$(QDX) --post docs/JsonRpcHandler/html/*html
-	$(QDX) --post docs/JsonRpcHandler/html/search/*html
+	$(QDX) --post docs/JsonRpcHandler/html docs/JsonRpcHandler/html/search
 
 docs/json/html: $(DOXYFILES)
 	cd docs; $(DOXYGEN_CMD) doxyfile;
-	$(QDX) --post docs/json/html/*html
-	$(QDX) --post docs/json/html/search/*html
+	$(QDX) --post docs/json/html docs/json/html/search
 
 docs/mainpage.doxygen: docs/mainpage.doxygen.tmpl
 	$(QDX) -d $< $@

@@ -53,6 +53,7 @@ QoreNamespace JNS("Json");
 QoreStringNode *json_module_init() {
    JNS.addSystemClass(initJsonRpcClientClass(JNS));
    init_json_functions(JNS);
+   init_json_constants(JNS);
 
    return 0;
 }
