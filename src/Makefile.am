@@ -1,7 +1,7 @@
 MNAME=json
 
 .qpp.cpp:
-	qpp $<
+	qpp -V $<
 
 GENERATED_SOURCES = QC_JsonRpcClient.cpp ql_json.cpp
 CLEANFILES = $(GENERATED_SOURCES)
@@ -20,7 +20,7 @@ json_la_LDFLAGS = -module -avoid-version ${MODULE_LDFLAGS}
 
 INCLUDES = -I$(top_srcdir)/include
 
-AM_CPPFLAGS=$(QORE_CPPFLAGS)
+AM_CPPFLAGS=$(QORE_CPPFLAGS) $(OPENSSL_CPPFLAGS)
 
 if COND_PROFILE
 AM_CXXFLAGS=-g -pg
