@@ -10,11 +10,11 @@ noinst_HEADERS = src/QC_JsonRpcClient.h \
 
 USER_MODULES = qlib/JsonRpcHandler.qm
 
-EXTRA_DIST = COPYING.LGPL COPYING.MIT ChangeLog AUTHORS README \
+EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
 	RELEASE-NOTES \
 	src/QC_JsonRpcClient.qpp \
 	src/ql_json.qpp \
-	test/json,qtest \
+	test/json.qtest \
 	examples/json-rpc-client.q \
 	examples/JsonRpcServerValidation.q \
 	qore-json-module.spec

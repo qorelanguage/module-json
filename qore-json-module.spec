@@ -85,7 +85,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %{module_dir}
 %{user_module_dir}
-%doc COPYING.LGPL COPYING.MIT README RELEASE-NOTES ChangeLog AUTHORS
+%doc COPYING.LGPL COPYING.MIT README RELEASE-NOTES AUTHORS
 
 %package doc
 Summary: JSON module for Qore
@@ -97,7 +97,7 @@ json module.
 
 %files doc
 %defattr(-,root,root,-)
-%doc docs/json/html docs/JsonRpcHandler/html examples/ test/ 
+%doc docs/json/html docs/JsonRpcHandler/html examples/ test/
 
 %changelog
 * Tue Jan 14 2014 David Nichols <david@qore.org> - 1.5
