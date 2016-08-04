@@ -675,7 +675,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, QoreValue ver
 
 static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* error, QoreValue id, QoreValue error_msg, int format, ExceptionSink* xsink) {
    if (code < 100 || code > 999) {
-      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: "QLLD")", code);
+      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: " QLLD ")", code);
       return 0;
    }
 
