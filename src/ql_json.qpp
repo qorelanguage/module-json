@@ -30,7 +30,7 @@
 
 #include <ctype.h>
 #include <stdlib.h>
-#include <math.h>
+#include <cmath>
 
 // RFC 4627 JSON specification
 // qore only supports JSON with UTF-8
@@ -474,7 +474,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
    if (vtype == NT_FLOAT) {
       double f = v.getAsFloat();
       // check for nan, +/-inf and serialize as null
-      if (isnan(f) || isinf(f))
+      if (std::isnan(f) || std::isinf(f))
          str->concat("null");
       else
          str->sprintf("%.20g", f);
