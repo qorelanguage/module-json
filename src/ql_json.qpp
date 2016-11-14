@@ -595,6 +595,16 @@ QoreStringNode* make_jsonrpc11_request(const QoreValueList* args, unsigned offse
 AbstractQoreNode* parse_json(const QoreString* str, ExceptionSink* xsink) {
    int line_number = 1;
    const char* buf = str->getBuffer();
+   const unsigned char* data = reinterpret_cast<const unsigned char*>(buf);
+   if (str->size() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) { // Skip UTF-8 BOM.
+      buf = reinterpret_cast<const char*>(data+3);
+   }
+   else if (str->size() >= 2) { // Skip Unicode BOM.
+      if ((data[0] == 0xFE && data[1] == 0xFF) || (data[0] == 0xFF && data[1] == 0xFE)) {
+         buf = reinterpret_cast<const char*>(data+2);
+      }
+   }
+
    AbstractQoreNode* rv = get_json_value(buf, line_number, str->getEncoding(), xsink);
    if (rv && *buf) {
       // check for excess text after JSON data
