@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(qore-json-module)
 
 set (VERSION_MAJOR 1)
-set (VERSION_MINOR 5)
+set (VERSION_MINOR 6)
 set (VERSION_PATCH 0)
 
 

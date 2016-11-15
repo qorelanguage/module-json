@@ -44,6 +44,7 @@ class JsonTest inherits QUnit::Test {
     constructor() : Test("JsonTest", "1.0", \ARGV) {
         addTestCase("JsonTestCase", \jsonTestCase());
         addTestCase("JsonDeprecatedTestCase", \jsonDeprecatedTestCase());
+        addTestCase("parse_json UTF-8/Unicode BOM skipping test", \parseJsonBom());
         set_return_value(main());
     }
 
@@ -115,5 +116,20 @@ class JsonTest inherits QUnit::Test {
         je = je + ("error": ("name": "JSONRPCError", "code": id, "message": mess, "error": TestHash));
         assertEq(True, parseJSON(makeJSONRPC11ErrorString(id, mess, id, TestHash)) == je);
         assertEq(True, parseJSON(makeFormattedJSONRPC11ErrorString(id, mess, id, TestHash)) == je);
+    }
+
+    parseJsonBom() {
+        string data = make_json(TestHash);
+        binary b = binary(data);
+        string dataWithUtf8BOM = (<efbbbf> + b).toString("UTF-8");
+        string dataWithFEFFBOM = (<feff> + b).toString("UTF-8");
+        string dataWithFFFEBOM = (<fffe> + b).toString("UTF-8");
+
+        assertEqSoft(TestHash, parse_json(dataWithUtf8BOM));
+        assertEqSoft(TestHash, parse_json(dataWithFEFFBOM));
+        assertEqSoft(TestHash, parse_json(dataWithFFFEBOM));
+        assertEqSoft(TestHash, parseJSON(dataWithUtf8BOM));
+        assertEqSoft(TestHash, parseJSON(dataWithFEFFBOM));
+        assertEqSoft(TestHash, parseJSON(dataWithFFFEBOM));
     }
 }
