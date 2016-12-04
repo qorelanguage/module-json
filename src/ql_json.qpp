@@ -30,7 +30,7 @@
 
 #include <ctype.h>
 #include <stdlib.h>
-#include <math.h>
+#include <cmath>
 
 // RFC 4627 JSON specification
 // qore only supports JSON with UTF-8
@@ -474,7 +474,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
    if (vtype == NT_FLOAT) {
       double f = v.getAsFloat();
       // check for nan, +/-inf and serialize as null
-      if (isnan(f) || isinf(f))
+      if (std::isnan(f) || std::isinf(f))
          str->concat("null");
       else
          str->sprintf("%.20g", f);
@@ -685,7 +685,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, QoreValue ver
 
 static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* error, QoreValue id, QoreValue error_msg, int format, ExceptionSink* xsink) {
    if (code < 100 || code > 999) {
-      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: "QLLD")", code);
+      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: " QLLD ")", code);
       return 0;
    }
 
