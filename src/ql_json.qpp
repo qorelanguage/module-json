@@ -547,7 +547,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
    return -1;
 }
 
-QoreStringNode* make_jsonrpc_request_args(const std::string& version, const QoreValueList* args, unsigned offset, ExceptionSink* xsink) {
+QoreStringNode* make_jsonrpc_request_args(const std::string& version, const QoreValueList* args, QoreValue id, unsigned offset, ExceptionSink* xsink) {
    const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
 
    const QoreValue p1 = get_param_value(args, offset + 1);
@@ -562,6 +562,12 @@ QoreStringNode* make_jsonrpc_request_args(const std::string& version, const Qore
    if (do_json_value(*str, p0, -1, xsink))
       return 0;
 
+   if (!id.isNullOrNothing()) {
+      str->concat(",\"id\": ");
+      if (do_json_value(*str, id, -1, xsink))
+         return 0;
+   }
+
    // params key should come last
    str->concat(",\"params\": ");
    if (!p1.isNullOrNothing()) {
@@ -574,7 +580,7 @@ QoreStringNode* make_jsonrpc_request_args(const std::string& version, const Qore
    return str.release();
 }
 
-QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreValueList* args, unsigned offset, ExceptionSink* xsink) {
+QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreValueList* args, QoreValue id, unsigned offset, ExceptionSink* xsink) {
    const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
 
    QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
@@ -586,6 +592,12 @@ QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreValue
       str->sprintf("{\"%s\": \"%s\",\"method\": ", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
    if (do_json_value(*str, p0, -1, xsink))
       return 0;
+
+   if (!id.isNullOrNothing()) {
+      str->concat(",\"id\": ");
+      if (do_json_value(*str, id, -1, xsink))
+         return 0;
+   }
 
    // params key should come last
    str->concat(",\"params\" : ");
