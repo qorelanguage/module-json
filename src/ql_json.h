@@ -31,8 +31,8 @@
 #define JGF_NONE           0
 #define JGF_ADD_FORMATTING (1<<0)
 
-DLLEXPORT QoreStringNode *make_jsonrpc11_request_args(const QoreValueList *params, unsigned offset, ExceptionSink *xsink);
-DLLEXPORT QoreStringNode *make_jsonrpc11_request(const QoreValueList *params, unsigned offset, ExceptionSink *xsink);
+DLLEXPORT QoreStringNode *make_jsonrpc_request_args(const std::string& version, const QoreValueList *params, unsigned offset, ExceptionSink *xsink);
+DLLEXPORT QoreStringNode *make_jsonrpc_request(const std::string& version, const QoreValueList *params, unsigned offset, ExceptionSink *xsink);
 DLLEXPORT AbstractQoreNode *parse_json(const QoreString *str, ExceptionSink *xsink);
 
 DLLLOCAL void init_json_functions(QoreNamespace& ns);

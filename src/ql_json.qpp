@@ -547,7 +547,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
    return -1;
 }
 
-QoreStringNode* make_jsonrpc11_request_args(const QoreValueList* args, unsigned offset, ExceptionSink* xsink) {
+QoreStringNode* make_jsonrpc_request_args(const std::string& version, const QoreValueList* args, unsigned offset, ExceptionSink* xsink) {
    const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
 
    const QoreValue p1 = get_param_value(args, offset + 1);
@@ -555,7 +555,10 @@ QoreStringNode* make_jsonrpc11_request_args(const QoreValueList* args, unsigned 
    QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
    // write version key first
-   str->concat("{\"version\": \"1.1\",\"method\": ");
+   if (version == "1.0")
+      str->concat("{\"method\": ");
+   else
+      str->sprintf("{\"%s\": \"%s\",\"method\": ", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
    if (do_json_value(*str, p0, -1, xsink))
       return 0;
 
@@ -571,14 +574,16 @@ QoreStringNode* make_jsonrpc11_request_args(const QoreValueList* args, unsigned 
    return str.release();
 }
 
-QoreStringNode* make_jsonrpc11_request(const QoreValueList* args, unsigned offset, ExceptionSink* xsink) {
+QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreValueList* args, unsigned offset, ExceptionSink* xsink) {
    const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
 
    QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
    // write version key first
-   str->concat("{\"version\": \"1.1\", \"method\": ");
-
+   if (version == "1.0")
+      str->concat("{\"method\": ");
+   else
+      str->sprintf("{\"%s\": \"%s\",\"method\": ", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
    if (do_json_value(*str, p0, -1, xsink))
       return 0;
 
@@ -863,7 +868,7 @@ any parseJSON(string json_str) [flags=RET_VALUE_ONLY,DEPRECATED] {
 //! Creates a JSON-RPC request string from the parameters passed, without any line breaks
 /** To follow JSON-RPC specifications, the generated string will always be in UTF-8 encoding
     @param method_name the name of the JSON-RPC method to call
-    @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+    @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"
     @param id the ID of the call
     @param request_msg the parameters for the message/message payload
     @param format optional formatting flags; see @ref json_generation_constants for more information
@@ -875,7 +880,9 @@ any parseJSON(string json_str) [flags=RET_VALUE_ONLY,DEPRECATED] {
     @par Example:
     @code string json = make_jsonrpc_request("omq.system.help", "1.0", id, msg); @endcode
 
-    @since json 1.5 as a replacement for deprecated camel-case makeJSONRPCRequestString() and makeFormattedJSONRPCRequestString()
+    @since
+    - json 1.5 added this function as a replacement for deprecated camel-case makeJSONRPCRequestString() and makeFormattedJSONRPCRequestString()
+    - json 1.7 added support for JSON-RPC 2.0 and corrections for JSON-RPC 1.0 support
 
     @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
 
@@ -888,7 +895,8 @@ string make_jsonrpc_request(string method_name, any version, any id, any request
       QoreStringValueHelper vstr(version, QCS_UTF8, xsink);
       if (*xsink)
          return QoreValue();
-      return make_jsonrpc_request(method_name, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, request_msg, format, xsink);
+      if (**vstr != "1.0")
+         return make_jsonrpc_request(method_name, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, request_msg, format, xsink);
    }
 
    return make_jsonrpc_request(method_name, nullptr, nullptr, id, request_msg, format, xsink);
@@ -897,7 +905,7 @@ string make_jsonrpc_request(string method_name, any version, any id, any request
 //! Creates a JSON-RPC request string from the parameters passed, without any line breaks
 /** To follow JSON-RPC specifications, the generated string will always be in UTF-8 encoding
     @param method_name the name of the JSON-RPC method to call
-    @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+    @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"
     @param id the ID of the call
     @param request_msg the parameters for the message/message payload
 
@@ -919,7 +927,8 @@ string makeJSONRPCRequestString(string method_name, any version, any id, any req
       if (*xsink)
          return QoreValue();
 
-      return make_jsonrpc_request(method_name, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, request_msg, JGF_NONE, xsink);
+      if (**vstr != "1.0")
+         return make_jsonrpc_request(method_name, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, request_msg, JGF_NONE, xsink);
    }
 
    return make_jsonrpc_request(method_name, nullptr, nullptr, id, request_msg, JGF_NONE, xsink);
@@ -928,7 +937,7 @@ string makeJSONRPCRequestString(string method_name, any version, any id, any req
 //! Creates a JSON-RPC request string from the parameters passed, formatted with line breaks for easier readability
 /** To follow JSON-RPC specifications, the generated string will always be in UTF-8 encoding
     @param method_name the name of the JSON-RPC method to call
-    @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+    @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"s
     @param id the ID of the call
     @param request_msg the parameters for the message/message payload
 
@@ -950,14 +959,15 @@ string makeFormattedJSONRPCRequestString(string method_name, any version, any id
       if (*xsink)
          return QoreValue();
 
-      return make_jsonrpc_request(method_name, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, request_msg, JGF_ADD_FORMATTING, xsink);
+      if (**vstr != "1.0")
+         return make_jsonrpc_request(method_name, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, request_msg, JGF_ADD_FORMATTING, xsink);
    }
 
    return make_jsonrpc_request(method_name, nullptr, nullptr, id, request_msg, JGF_ADD_FORMATTING, xsink);
 }
 
 //! Creates a JSON-RPC response string from the parameters passed, without any line breaks
-/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"
     @param id the ID of the call
     @param response_msg the parameters for the message/message payload
     @param format optional formatting flags; see @ref json_generation_constants for more information
@@ -969,7 +979,9 @@ string makeFormattedJSONRPCRequestString(string method_name, any version, any id
     @par Example:
     @code string json = make_jsonrpc_response("1.0", id, msg); @endcode
 
-    @since json 1.5 as a replacement for deprecated camel-case makeJSONRPCResponseString() and makeFormattedJSONRPCResponseString()
+    @since
+    - json 1.5 added this function as a replacement for deprecated camel-case makeJSONRPCResponseString() and makeFormattedJSONRPCResponseString()
+    - json 1.7 added support for JSON-RPC 2.0 and corrections for JSON-RPC 1.0 support
 
     @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
 
@@ -983,14 +995,15 @@ string make_jsonrpc_response(any version, any id, any response_msg, *int format)
       if (*xsink)
          return QoreValue();
 
-      return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, response_msg, "result", format);
+      if (**vstr != "1.0")
+         return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, response_msg, "result", format);
    }
 
    return make_jsonrpc_response(xsink, nullptr, nullptr, id, response_msg, "result", format);
 }
 
 //! Creates a JSON-RPC response string from the parameters passed, without any line breaks
-/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"
     @param id the ID of the call
     @param response_msg the parameters for the message/message payload
 
@@ -1012,14 +1025,15 @@ string makeJSONRPCResponseString(any version, any id, any response_msg) [flags=R
       if (*xsink)
          return QoreValue();
 
-      return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, response_msg, "result", 0);
+      if (**vstr != "1.0")
+         return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, response_msg, "result", 0);
    }
 
    return make_jsonrpc_response(xsink, nullptr, nullptr, id, response_msg, "result", 0);
 }
 
 //! Creates a JSON-RPC response string from the parameters passed, formatted with line breaks for easier readability
-/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"
     @param id the ID of the call
     @param response_msg the parameters for the message/message payload
 
@@ -1041,14 +1055,15 @@ string makeFormattedJSONRPCResponseString(any version, any id, any response_msg)
       if (*xsink)
          return QoreValue();
 
-      return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, response_msg, "result", JGF_ADD_FORMATTING);
+      if (**vstr != "1.0")
+         return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, response_msg, "result", JGF_ADD_FORMATTING);
    }
 
    return make_jsonrpc_response(xsink, nullptr, nullptr, id, response_msg, "result", JGF_ADD_FORMATTING);
 }
 
 //! Creates a generic JSON-RPC error response string from the parameters passed, without any line breaks
-/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"
     @param id the ID of the call
     @param error_msg the parameters for the error response message/message payload
     @param format optional formatting flags; see @ref json_generation_constants for more information
@@ -1060,7 +1075,9 @@ string makeFormattedJSONRPCResponseString(any version, any id, any response_msg)
     @par Example:
     @code string json = make_jsonrpc_error("1.0", id, error); @endcode
 
-    @since json 1.5 as a replacement for deprecated camel-case makeJSONRPCErrorString() and makeFormattedJSONRPCErrorString()
+    @since
+    - json 1.5 added this function as a replacement for deprecated camel-case makeJSONRPCErrorString() and makeFormattedJSONRPCErrorString()
+    - json 1.7 added support for JSON-RPC 2.0 and corrections for JSON-RPC 1.0 support
 
     @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
 
@@ -1074,14 +1091,15 @@ string make_jsonrpc_error(any version, any id, any error_msg, *int format) [flag
       if (*xsink)
          return QoreValue();
 
-      return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, error_msg, "error", format);
+      if (**vstr != "1.0")
+         return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, error_msg, "error", format);
    }
 
    return make_jsonrpc_response(xsink, nullptr, nullptr, id, error_msg, "error", format);
 }
 
 //! Creates a generic JSON-RPC error response string from the parameters passed, without any line breaks
-/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"
     @param id the ID of the call
     @param error_msg the parameters for the error response message/message payload
 
@@ -1103,14 +1121,15 @@ string makeJSONRPCErrorString(any version, any id, any error_msg) [flags=RET_VAL
       if (*xsink)
          return QoreValue();
 
-      return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, error_msg, "error", 0);
+      if (**vstr != "1.0")
+         return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, error_msg, "error", 0);
    }
 
    return make_jsonrpc_response(xsink, nullptr, nullptr, id, error_msg, "error", 0);
 }
 
 //! Creates a generic JSON-RPC error response string from the parameters passed, formatted with line breaks for easier readability
-/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility, this argument should be @ref nothing "NOTHING"
+/** @param version the JSON-RPC version to include in the call under the \c "version" key (for JSON-RPC earlier than 2.0) or the \c "jsonrpc" key (for JSON-RPC equal to or greater than 2.0); will be converted to a string; if the resulting string is empty, the \c "version" key will not be sent; note that for strict JSON-RPC 1.0 compatibility this argument will not be serialized if passed as \c "1.0"
     @param id the ID of the call
     @param error_msg the parameters for the error response message/message payload
 
@@ -1132,7 +1151,8 @@ string makeFormattedJSONRPCErrorString(any version, any id, any error_msg) [flag
       if (*xsink)
          return QoreValue();
 
-      return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, error_msg, "error", JGF_ADD_FORMATTING);
+      if (**vstr != "1.0")
+         return make_jsonrpc_response(xsink, (**vstr)[0] == '1' ? "version" : "jsonrpc", vstr->c_str(), id, error_msg, "error", JGF_ADD_FORMATTING);
    }
 
    return make_jsonrpc_response(xsink, nullptr, nullptr, id, error_msg, "error", JGF_ADD_FORMATTING);
