@@ -45,16 +45,17 @@
     |\c null|\c NOTHING|direct conversion
 
     This following functions provide automatic JSON serialization and deserialization:
+
     <b>Functions For JSON Serialization and Deserialization</b>
     |!Function Name|!Description
     |@ref make_json()|Serializes qore data into a JSON string with optional verbose whitespace formatting for easier human readability
-    |@ref parseJSON()|Parses a JSON string and returns the corresponding %Qore data structure
+    |@ref parse_json()|Parses a JSON string and returns the corresponding %Qore data structure
 
     <b>Deprecated JSON-RPC</b>
     |!Deprecated Function Name|!New Function Name
     |@ref makeFormattedJSONString()|@ref make_json()
     |@ref makeJSONString()|@ref make_json()
-    |@ref parseJSON()|@parse_json()
+    |@ref parseJSON()|@ref parse_json()
 
     @section JSONRPC JSON-RPC
 
@@ -121,16 +122,16 @@
     @section jsonreleasenotes Release Notes
 
     @subsection v0_1_6 Version 1.6
-    - \c parse_json now ignores UTF-8 and Unicode BOMs at the start of passed JSON string
+    - @ref parse_json() now ignores UTF-8 and Unicode BOMs at the start of passed JSON string
 
     @subsection v0_1_5 Version 1.5
     - serialize binary values as base64-encoded strings
     - user modules moved to top-level qore module directory from version-specific module directory since they are valid for multiple versions of qore
-    - serialize nan, +/-inf as null according to the JSON spec
+    - serialize nan, +/-inf as \c null according to the JSON spec
     - added detection for invalid JSON-RPC calls and added a more user-friendly error message in the <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> module
-    - new functions added conforming to Qore's function naming convention, old camel-case functions deprecated
+    - new functions added conforming to %Qore's function naming convention, old camel-case functions deprecated
     - JSON tests ported to QUnit
-    - Qore 0.8.12 required as a minimum to build
+    - %Qore 0.8.12 required as a minimum to build
     - JSON output is more compact; fewer extransous whitespaces are used
 
     @subsection v0_1_4 Version 1.4
@@ -142,7 +143,7 @@
 
     @subsection v0_1_3 Version 1.3
 
-    - always include charset=utf-8 in Content-Type in @ref Qore::Json::JsonRpcClient "JsonRpcClient"; JSON messages are always serialized with UTF-8 encoding
+    - always include \c charset=utf-8 in the \c Content-Type in @ref Qore::Json::JsonRpcClient "JsonRpcClient"; JSON messages are always serialized with UTF-8 encoding
 
     @subsection v0_1_2 Version 1.2
 
