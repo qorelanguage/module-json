@@ -41,7 +41,7 @@
 %new-style
 
 module JsonRpcHandler {
-    version = "1.2";
+    version = "1.3";
     desc = "JsonRpcHandler module for use with the HttpServer module";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -90,6 +90,9 @@ http.waitStop();
 
     @section jsonrpchandler_relnotes JsonRpcHandler Release Notes
 
+    @subsection jsonrpchandler_1_3 JsonRpcHandler v1.3
+    - updated for JSON-RPC 2.0 support, return JSON-RPC messages with the same protocol level as the request
+
     @subsection jsonrpchandler_1_2 JsonRpcHandler v1.2
     - fixed bugs handling invalid JSON-RPC messages to give a user-friendly error response
     - converted to new-style
@@ -108,7 +111,7 @@ public namespace JsonRpcHandler {
      */
     public class JsonRpcHandler inherits public AbstractHttpRequestHandler {
         #! implementation of the handler
-        const Version = "1.0";
+        const Version = "1.2";
 
         #! internal methods of the handler (introspection)
         const InternalMethods = (
