@@ -111,7 +111,7 @@ public namespace JsonRpcHandler {
      */
     public class JsonRpcHandler inherits public AbstractHttpRequestHandler {
         #! implementation of the handler
-        const Version = "1.2";
+        const Version = "1.3";
 
         #! internal methods of the handler (introspection)
         const InternalMethods = (
@@ -174,13 +174,12 @@ public namespace JsonRpcHandler {
             log_code = n_log;
 
             # add internal methods
-            foreach hash im in (JsonRpcHandler::InternalMethods)
-                addMethodInternal(im + ("internal": True));
+            map addMethodInternal($1 + ("internal": True)), JsonRpcHandler::InternalMethods;
 
             foreach hash m in (n_methods) {
                 if (!exists m.name)
                     throw "JSON-RPC-CONSTRUCTOR-ERROR", sprintf("expecting 'name' key in method hash: %y", m);
-                if (m.function.typeCode() != NT_CLOSURE && m.function.typeCode() != NT_CALLREF)
+                if (!m.function.callp())
                     throw "JSON-RPC-CONSTRUCTOR-ERROR", sprintf("expecting 'function' key assigned to code in method hash: %y", m);
                 if (!exists m.text)
                     throw "JSON-RPC-CONSTRUCTOR-ERROR", sprintf("expecting 'text' key in method hash: %y", m);
@@ -199,11 +198,12 @@ public namespace JsonRpcHandler {
           */
         addMethod(string name, code func, string text, string help, any logopt, any cmark) {
             addMethodInternal(("name": name,
-                                 "function": func,
-                                 "text": text,
-                                 "help": help,
-                                 "logopt": logopt,
-                                 "cmark": cmark ));
+                               "function": func,
+                               "text": text,
+                               "help": help,
+                               "logopt": logopt,
+                               "cmark": cmark,
+                              ));
         }
 
         #! turns on or off debugging; when debugging is enabled more verbose error messages are reported
@@ -308,6 +308,10 @@ public namespace JsonRpcHandler {
             #printf("DEBUG: about to call function '%s' (method=%s params=%y)\n", found.function, method, params);
 
             any rv = found.internal ? call_object_method_args(self, found.function, params) : call_function_args(found.function, params);
+
+            # throw an exception if the protocol version is >= 2.0 and there is no id (therefore the request is a notification) and a response was returned
+            if (exists cx.jsonrpc_version && !exists cx.jsonid && exists rv && compare_version(cx.jsonrpc_version, "2.0") >= 0)
+                throw "JSONRPC-NOTIFICATION-ERROR", sprintf("notification call to %y (i.e. without an id) included a response body which is a protocol violation", method);
             hash h.body = make_jsonrpc_response(cx.jsonrpc_version, cx.jsonid, rv);
             return h;
         }
@@ -375,7 +379,7 @@ public namespace JsonRpcHandler {
                     "code": 200,
                     "errlog": str,
                     "hdr": ("Content-Type": MimeTypeJsonRpc),
-                    "body": make_jsonrpc_error(cx.jsonrpc_version, 104, str, jsonrpc.id, ex.arg),
+                    "body": make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, str, jsonrpc.id, ex.arg),
                     );
             }
         }
