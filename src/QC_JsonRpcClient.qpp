@@ -5,7 +5,7 @@
 
   Qore Programming Language
 
-  Copyright (C) 2006 - 2012 Qore Technologies
+  Copyright (C) 2006 - 2016 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -135,8 +135,8 @@ qclass JsonRpcClient [arg=QORE_HTTP_CLIENT* client; ns=Qore::Json; default_base=
 /** No connection is made because no connection parameters are set with this call; connection parameters must be set afterwards using the appropriate HTTPClient methods.
     @par Example:
     @code
-my JsonRpcClient $jrc();
-$jrc.setURL("http://localhost:8080");@endcode
+JsonRpcClient jrc();
+jrc.setURL("http://localhost:8080");@endcode
 */
 JsonRpcClient::constructor() {
    // get HTTPClient object
@@ -149,22 +149,22 @@ JsonRpcClient::constructor() {
 
 //! Creates the JsonRpcClient object based on the parameters passed
 /** By default the object will immediately attempt to establish a connection to the server
-    @param $opts HTTPClient constructor options:
-    - \c url: A string giving the URL to connect to.
-    - \c default_port: The default port number to connect to if none is given in the URL.
-    - \c protocols: A hash describing new protocols, the key is the protocol name and the value is either an integer giving the default port number or a hash with \c 'port' and \c 'ssl' keys giving the default port number and a boolean value to indicate that an SSL connection should be established.
-    - \c http_version: Either \c '1.0' or \c '1.1' for the claimed HTTP protocol version compliancy in outgoing message headers.
+    @param opts HTTPClient constructor options:
+    - \c connect_timeout: The timeout value in milliseconds for establishing a new socket connection (also can be a relative date-time value for clarity, ex: \c 30s)
     - \c default_path: The default path to use for new connections if a path is not otherwise specified in the connection URL.
+    - \c default_port: The default port number to connect to if none is given in the URL.
+    - \c http_version: Either \c '1.0' or \c '1.1' for the claimed HTTP protocol version compliancy in outgoing message headers.
+    - \c protocols: A hash describing new protocols, the key is the protocol name and the value is either an integer giving the default port number or a hash with \c 'port' and \c 'ssl' keys giving the default port number and a boolean value to indicate that an SSL connection should be established.
     - \c max_redirects: The maximum number of redirects before throwing an exception (the default is 5).
     - \c proxy: The proxy URL for connecting through a proxy.
     - \c timeout: The timeout value in milliseconds (also can be a relative date-time value for clarity, ex: \c 5m)
-    - \c connect_timeout: The timeout value in milliseconds for establishing a new socket connection (also can be a relative date-time value for clarity, ex: \c 30s)
-    @param $no_connect pass a boolean True value argument to suppress the automatic connection and establish a connection on demand with the first request
+    - \c url: A string giving the URL to connect to.
+    @param no_connect pass a boolean True value argument to suppress the automatic connection and establish a connection on demand with the first request
 
     @see HTTPClient::constructor() and HTTPClient::connect() for information on possible exceptions
 
     @par Example:
-    @code my JsonRpcClient $jrc(("url": "http://authuser:authpass@otherhost:8080/JSONRPC"));@endcode
+    @code JsonRpcClient jrc(("url": "http://authuser:authpass@otherhost:8080/JSONRPC"));@endcode
 */
 JsonRpcClient::constructor(hash opts, softbool no_connect = False) {
    // get HTTPClient object
@@ -190,8 +190,8 @@ JsonRpcClient::copy() {
 }
 
 //! Calls a remote method using a single value after the method name for the method arguments and returns the response as qore data structure
-/** @param $method The JSON-RPC method name to call
-    @param $args An optional list of arguments (or single argument) for the method
+/** @param method The JSON-RPC method name to call
+    @param args An optional list of arguments (or single argument) for the method
 
     @return a data structure corresponding to the JSON data returned by the JSON-RPC server
 
@@ -203,7 +203,7 @@ JsonRpcClient::copy() {
     @note other exceptions may be thrown related to communication errors (ex: SSL errors, etc)
 
     @par Example:
-    @code my hash $result = $jrc.callArgs("method.name", $arg_list); @endcode
+    @code hash result = jrc.callArgs("method.name", arg_list); @endcode
 */
 hash JsonRpcClient::callArgs(string[doc] method, any[doc] args) {
    // create the outgoing message in JSON-RPC call format
@@ -228,7 +228,7 @@ hash JsonRpcClient::callArgs(string[doc] method, any[doc] args) {
     @note other exceptions may be thrown related to communication errors (ex: SSL errors, etc)
 
     @par Example:
-    @code my hash $result = $jrc.call("method.name", $arg1, $arg2); @endcode
+    @code hash result = jrc.call("method.name", arg1, arg2); @endcode
 */
 hash JsonRpcClient::call(string[doc] method, ...) {
    // create the outgoing message in JSON-RPC call format
@@ -240,15 +240,15 @@ hash JsonRpcClient::call(string[doc] method, ...) {
 }
 
 //! Calls a remote method using a single value after the method name for the method arguments and returns the response as qore data structure, accepts a reference to a hash as the first argument to give technical information about the call
-/** @param $info a reference to a hash that provides the following keys on output giving technical information about the HTTP call:
+/** @param info a reference to a hash that provides the following keys on output giving technical information about the HTTP call:
     - \c request: the literal outgoing request body sent
     - \c request-uri: the first line of the HTTP request
     - \c headers: a hash of HTTP headers in the outgoing request
     - \c response-uri: the first line of the HTTP response
     - \c response: the literal response body received from the server
     - \c response_headers: a hash of headers received in the response
-    @param $method The JSON-RPC method name to call
-    @param $args An optional list of arguments (or single argument) for the method
+    @param method The JSON-RPC method name to call
+    @param args An optional list of arguments (or single argument) for the method
 
     @return a data structure corresponding to the JSON data returned by the JSON-RPC server
 
@@ -261,8 +261,8 @@ hash JsonRpcClient::call(string[doc] method, ...) {
 
     @par Example:
     @code
-my hash $info;
-my hash $result = $jrc.callArgsWithInfo(\$info, "method.name", $arg_list);@endcode
+hash info;
+hash result = jrc.callArgsWithInfo(\info, "method.name", arg_list);@endcode
 */
 hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc] args) {
    // create the outgoing message in JSON-RPC call format
@@ -277,14 +277,14 @@ hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc
 }
 
 //! Calls a remote method taking all arguments after the method name for the method arguments and returns the response as qore data structure, accepts a reference to a hash as the first argument to give technical information about the call
-/** @param $info a reference to a hash that provides the following keys on output giving technical information about the HTTP call:
+/** @param info a reference to a hash that provides the following keys on output giving technical information about the HTTP call:
     - \c request: the literal outgoing request body sent
     - \c request-uri: the first line of the HTTP request
     - \c headers: a hash of HTTP headers in the outgoing request
     - \c response-uri: the first line of the HTTP response
     - \c response: the literal response body received from the server
     - \c response_headers: a hash of headers received in the response
-    @param $method The JSON-RPC method name to call
+    @param method The JSON-RPC method name to call
 
     @return a data structure corresponding to the JSON data returned by the JSON-RPC server
 
@@ -297,8 +297,8 @@ hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc
 
     @par Example:
     @code
-my hash $info;
-my hash $result = $jrc.callWithInfo(\$info, "method.name", $arg1, $arg2);@endcode
+hash info;
+hash result = jrc.callWithInfo(\info, "method.name", arg1, arg2);@endcode
 */
 hash JsonRpcClient::callWithInfo(reference info, string[doc] method, ...) {
    // create the outgoing message in JSON-RPC call format
@@ -314,7 +314,7 @@ hash JsonRpcClient::callWithInfo(reference info, string[doc] method, ...) {
 
 //! clears the event queue for the JsonRpcClient object
 /** @par Example:
-    @code $jrc.setEventQueue(); @endcode
+    @code jrc.setEventQueue(); @endcode
  */
 nothing JsonRpcClient::setEventQueue() {
    client->setEventQueue(0, xsink);
@@ -324,8 +324,8 @@ nothing JsonRpcClient::setEventQueue() {
 /** @param $queue the Queue object to receive network events from the JsonRpcClient object
     @par Example:
     @code
-my Queue $queue();
-$jrc.setEventQueue($queue); @endcode
+Queue queue();
+jrc.setEventQueue(queue); @endcode
  */
 nothing JsonRpcClient::setEventQueue(Queue[Queue] queue) {
    // pass reference from QoreObject::getReferencedPrivateData() to function
