@@ -1,6 +1,7 @@
 ***********
 version 1.6
 ***********
+
 * parse_json() now ignores UTF-8 and Unicode BOMs at the start of passed JSON string
 
 
