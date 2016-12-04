@@ -6,6 +6,16 @@
 
     The json module allows for easy serialization and deserialization between <a href="http://www.json.org/">JSON</a> strings and %Qore data structures.  The module also provides functions for @ref JSONRPC support as well as a @ref Qore::Json::JsonRpcClient "JsonRpcClient" class for easier integration with JavaScript clients.
 
+    Overview of the functionality provided by this module:
+    - user module: <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
+    - class: @ref Qore::Json::JsonRpcClient "JsonRpcClient"
+    - functions:
+      - @ref make_json()
+      - @ref parse_json()
+      - @ref make_jsonrpc_error()
+      - @ref make_jsonrpc_request()
+      - @ref make_jsonrpc_response()
+
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
     - MIT (see COPYING.MIT in the source distribution for more information)
@@ -51,7 +61,7 @@
     |@ref make_json()|Serializes qore data into a JSON string with optional verbose whitespace formatting for easier human readability
     |@ref parse_json()|Parses a JSON string and returns the corresponding %Qore data structure
 
-    <b>Deprecated JSON-RPC</b>
+    <b>Deprecated JSON Functions</b>
     |!Deprecated Function Name|!New Function Name
     |@ref makeFormattedJSONString()|@ref make_json()
     |@ref makeJSONString()|@ref make_json()
@@ -69,21 +79,21 @@
 
     <b>Functions Providing JSON-RPC Functionality</b>
     |!Function Name|!Description
-    |@ref make_jsonrpc11_error()|Creates a JSON-RPC 1.1 error response string from the parameters passed with optional verbose whitespace formatting for easier human readability
     |@ref make_jsonrpc_error()|a generic JSON-RPC error response string from the parameters passed with optional verbose whitespace formatting for easier human readability
     |@ref make_jsonrpc_request()|Creates a JSON-RPC request string from the parameters passed with optional verbose whitespace formatting for easier human readability
     |@ref make_jsonrpc_response()|Creates a JSON-RPC response string from the parameters passed with optional verbose whitespace formatting for easier human readability
 
     <b>Deprecated JSON-RPC Functions</b>
     |!Deprecated Function Name|!New Function Name
-    |@ref makeFormattedJSONRPC11ErrorString()|@ref make_jsonrpc11_error()
+    |@ref makeFormattedJSONRPC11ErrorString()|support for the non-published JSON-RPC 1.1 protocol was deprecated in json 1.7
     |@ref makeFormattedJSONRPCErrorString()|@ref make_jsonrpc_error()
     |@ref makeFormattedJSONRPCRequestString()|@ref make_jsonrpc_request()
     |@ref makeFormattedJSONRPCResponseString()|@ref make_jsonrpc_response()
-    |@ref makeJSONRPC11ErrorString()|@ref make_jsonrpc11_error()
+    |@ref makeJSONRPC11ErrorString()|support for the non-published JSON-RPC 1.1 protocol was deprecated in json 1.7
     |@ref makeJSONRPCErrorString()|@ref make_jsonrpc_error()
     |@ref makeJSONRPCRequestString()|@ref make_jsonrpc_request()
     |@ref makeJSONRPCResponseString()|@ref make_jsonrpc_response()
+    |@ref make_jsonrpc11_error()|support for the non-published JSON-RPC 1.1 protocol was deprecated in json 1.7
 
     @section codetags Function and Method Tags
 
@@ -120,6 +130,10 @@
     Code with this flag is deprecated and may be removed in a future version of this module; if a variant with this flag is resolved at parse time, a \c "deprecated" warning is raised (assuming this warning is enabled).
 
     @section jsonreleasenotes Release Notes
+
+    @subsection v0_1_7 Version 1.7
+    - deprecated support for the non-published JSON-RPC 1.1 protocol
+    - added support for JSON-RPC 2.0
 
     @subsection v0_1_6 Version 1.6
     - @ref parse_json() now ignores UTF-8 and Unicode BOMs at the start of passed JSON string
