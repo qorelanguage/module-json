@@ -67,16 +67,22 @@ class JsonTest inherits QUnit::Test {
 
         # JSON-RPC 1.0 messages
         assertEq(jc, parse_json(make_jsonrpc_request(method, NOTHING, id, TestHash)));
+        assertEq(jc, parse_json(make_jsonrpc_request(method, "1.0", id, TestHash)));
         assertEq(jc, parse_json(make_jsonrpc_request(method, NOTHING, id, TestHash, JGF_ADD_FORMATTING)));
+        assertEq(jc, parse_json(make_jsonrpc_request(method, "1.0", id, TestHash, JGF_ADD_FORMATTING)));
 
         hash jr = jc - ("method", "params") + ("result": TestHash);
         assertEq(jr, parse_json(make_jsonrpc_response(NOTHING, id, TestHash)));
+        assertEq(jr, parse_json(make_jsonrpc_response("1.0", id, TestHash)));
         assertEq(jr, parse_json(make_jsonrpc_response(NOTHING, id, TestHash, JGF_ADD_FORMATTING)));
+        assertEq(jr, parse_json(make_jsonrpc_response("1.0", id, TestHash, JGF_ADD_FORMATTING)));
 
         # create error hash by modifying the result hash: delete "result" key and add "error" key
         hash je = jr - "result" + ("error": TestHash);
         assertEq(je, parse_json(make_jsonrpc_error(NOTHING, id, TestHash)));
+        assertEq(je, parse_json(make_jsonrpc_error("1.0", id, TestHash)));
         assertEq(je, parse_json(make_jsonrpc_error(NOTHING, id, TestHash, JGF_ADD_FORMATTING)));
+        assertEq(je, parse_json(make_jsonrpc_error("1.0", id, TestHash, JGF_ADD_FORMATTING)));
 
         jc."jsonrpc" = "2.0";
 
