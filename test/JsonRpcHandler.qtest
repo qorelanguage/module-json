@@ -24,6 +24,12 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
              "help": "echos the argument",
              "logopt": 0,
             ),
+            ("name": "^system\\.notify\$",
+             "text": "system.notify",
+             "function": \MyJsonRpcHandler::notify(),
+             "help": "notification API",
+             "logopt": 0,
+            ),
             );
     }
 
@@ -32,6 +38,9 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
 
     static any echo(any arg) {
         return arg;
+    }
+
+    static nothing notify(any arg) {
     }
 }
 
@@ -50,7 +59,7 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
 
         const AllValues = (1, "two", ListValue, SimpleHashValue, LargerHashValue, HashValue);
 
-        const BatchBody = '[{"method":"system.echo","params":"abc","id":1},{"method":"system.echo","params":"abcd","id":2}]';
+        const BatchBody = '[{"method":"system.echo","params":"abc","id":1},{"method":"system.notify","params":"abc"},{"method":"system.echo","params":"abcd","id":2}]';
         const BatchResponse = (
             ("id":1,"result":"abc"),
             ("id":2,"result":"abcd"),

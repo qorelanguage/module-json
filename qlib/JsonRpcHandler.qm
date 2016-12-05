@@ -404,7 +404,9 @@ public namespace JsonRpcHandler {
                     );
 
                 try {
-                    rvl += callMethod(cx, jsonrpc.params).body;
+                    any rv = callMethod(cx, jsonrpc.params).body;
+                    if (exists elem.id)
+                        rvl += rv;
                 }
                 catch (hash ex) {
                     # show complete exception trace if system debug option is enabled
