@@ -292,7 +292,7 @@ public namespace JsonRpcHandler {
                 string str = sprintf("JSON-RPC-SERVER-UNKNOWN-METHOD: unknown method %n", method);
                 return (
                     "code": 200,
-                    "hdr": ( "Content-Type" : MimeTypeJsonRpc ),
+                    "hdr": ("Content-Type": MimeTypeJsonRpc),
                     "body": make_jsonrpc_error(cx.jsonrpc_version, 105, str, cx.jsonid),
                     );
             }
@@ -346,12 +346,17 @@ public namespace JsonRpcHandler {
 
                 try {
                     any req = parse_json(body);
-                    if (req.typeCode() != NT_HASH)
-                        throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with \"method\" and \"id\" keys in the JSON-RPC call; got type %y instead", req.type());
-                    cx.jsonrpc_version = req.version ?? req.jsonrpc;
-                    jsonrpc = req;
-                    if (!jsonrpc.method.val())
-                        throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("missing \"method\" key in call; got keys: %y", jsonrpc.keys());
+                    int t = req.typeCode();
+                    if (t == NT_LIST)
+                        return processBatchMessage(cx, req);
+                    else {
+                        if (t != NT_HASH)
+                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", req.type());
+                        cx.jsonrpc_version = req.jsonrpc ?? req.version;
+                        jsonrpc = req;
+                        if (!jsonrpc.method.val())
+                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("missing \"method\" key in call; got keys: %y", jsonrpc.keys());
+                    }
                 }
                 catch (hash ex) {
                     string estr = sprintf("%s: %s", ex.err, ex.desc);
@@ -382,6 +387,39 @@ public namespace JsonRpcHandler {
                     "body": make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, str, jsonrpc.id, ex.arg),
                     );
             }
+        }
+
+        final hash processBatchMessage(hash cx, list l) {
+            list rvl = ();
+            foreach any elem in (l) {
+                if (elem.typeCode() != NT_HASH)
+                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", $# + 1, l.size(), elem.type());
+                cx.jsonrpc_version = elem.jsonrpc ?? elem.version;
+                hash jsonrpc = elem;
+                if (!jsonrpc.method.val())
+                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: missing \"method\" key in call; got keys: %y", $# + 1, l.size(), jsonrpc.keys());
+                cx += (
+                    "method": jsonrpc.method,
+                    "jsonid": jsonrpc.id,
+                    );
+
+                try {
+                    rvl += callMethod(cx, jsonrpc.params).body;
+                }
+                catch (hash ex) {
+                    # show complete exception trace if system debug option is enabled
+                    string str = !debug
+                        ? sprintf("element %d of %d: %s: %s", $# + 1, l.size(), ex.err, ex.desc)
+                        : get_exception_string(ex);
+                    rvl += make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, str, jsonrpc.id, ex.arg);
+                }
+            }
+
+            return (
+                "code": 200,
+                "hdr": ("Content-Type": MimeTypeJsonRpc),
+                "body": "[" + (foldl $1 + "," + $2, rvl) + "]",
+                );
         }
     }
 }
