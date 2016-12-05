@@ -54,7 +54,7 @@ module JsonRpcHandler {
 
     @section jsonrpchandlerintro Introduction to the JsonRpcHandler Module
 
-    This module implements server-side support for the <a href="http://en.wikipedia.org/wiki/JSON-RPC">JSON-RPC protocol</a> for serialization/deserialization of message data.
+    This module implements server-side support for the <a href="http://en.wikipedia.org/wiki/JSON-RPC">JSON-RPC protocol</a> for serialization/deserialization of message data accoring to the <a href="http://www.jsonrpc.org/specification">JSON-RPC specification</a>.
 
     This module provides the @ref JsonRpcHandler::JsonRpcHandler "JsonRpcHandler" class which can be used to provide an RPC handler for the HttpServer class provided by the HttpServer module.
 
@@ -110,29 +110,46 @@ public namespace JsonRpcHandler {
     /**
      */
     public class JsonRpcHandler inherits public AbstractHttpRequestHandler {
-        #! implementation of the handler
-        const Version = "1.3";
+        public {
+            #! implementation of the handler
+            const Version = "1.3";
 
-        #! internal methods of the handler (introspection)
-        const InternalMethods = (
-            ("function": "help",
-             "help": "shows a list of JSON-RPC methods registered with this handler",
-             "text": "help",
-             "logopt": 2
-            ),
-            ("function": "listMethods",
-             "help": "lists JSON-RPC method names registered with this handler",
-             "text": "system.listMethods",
-             "logopt": 2
-            ),
-            ("function": "system_describe",
-             "help": "returns the service description object as per the JSON-RPC 1.1 spec",
-             "text": "system.describe",
-             "logopt": 2
-            ));
+            #! internal methods of the handler (introspection)
+            const InternalMethods = (
+                ("function": "help",
+                 "help": "shows a list of JSON-RPC methods registered with this handler",
+                 "text": "help",
+                 "logopt": 2
+                ),
+                ("function": "listMethods",
+                 "help": "lists JSON-RPC method names registered with this handler",
+                 "text": "system.listMethods",
+                 "logopt": 2
+                ),
+                ("function": "systemDescribe",
+                 "help": "returns the service description object as per the JSON-RPC 1.1 spec",
+                 "text": "system.describe",
+                 "logopt": 2
+                ));
+
+            #! JSON-RPC Error Code: Parse Error
+            const JRE_ParseError = -32700;
+
+            #! JSON-RPC Error Code: Invalid Request
+            const JRE_InvalidRequest = -32600;
+
+            #! JSON-RPC Error Code: Method not found
+            const JRE_MethodNotFound = -32601;
+
+            #! JSON-RPC Error Code: Invalid Params
+            const JRE_InvalidParams = -32602;
+
+            #! JSON-RPC Error Code: Internal error
+            const JRE_InternalError = -32603;
+        }
 
         #! @cond nodoc
-        private {
+        private:internal {
             list methods = ();
             hash mi;
             int loglevel;
@@ -239,7 +256,7 @@ public namespace JsonRpcHandler {
             return h;
         }
 
-        private hash system_describe() {
+        private hash systemDescribe() {
             string address = "http://localhost/JSON";
             list procs = ();
 
@@ -289,11 +306,11 @@ public namespace JsonRpcHandler {
             }
 
             if (!exists found) {
-                string str = sprintf("JSON-RPC-SERVER-UNKNOWN-METHOD: unknown method %n", method);
+                string str = sprintf("JSON-RPC-SERVER-UNKNOWN-METHOD: unknown method %y", method);
                 return (
                     "code": 200,
                     "hdr": ("Content-Type": MimeTypeJsonRpc),
-                    "body": make_jsonrpc_error(cx.jsonrpc_version, 105, str, cx.jsonid),
+                    "body": make_jsonrpc_error(cx.jsonrpc_version, cx.jsonid, ("code": JRE_MethodNotFound, "message": str)),
                     );
             }
 
@@ -341,30 +358,48 @@ public namespace JsonRpcHandler {
                 if (hdr.method != "POST")
                     return (
                         "code": 501,
-                        "body": sprintf("don't know how to handle method %n", hdr.method),
+                        "body": sprintf("don't know how to handle method %y", hdr.method),
                     );
 
                 try {
-                    any req = parse_json(body);
+                    any req;
+                    try {
+                        req = parse_json(body);
+                    }
+                    catch (hash ex) {
+                        throw ex.err, ex.desc, JRE_ParseError;
+                    }
                     int t = req.typeCode();
                     if (t == NT_LIST)
                         return processBatchMessage(cx, req);
                     else {
                         if (t != NT_HASH)
-                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", req.type());
+                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", req.type()), JRE_InvalidRequest;
                         cx.jsonrpc_version = req.jsonrpc ?? req.version;
                         jsonrpc = req;
                         if (!jsonrpc.method.val())
-                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("missing \"method\" key in call; got keys: %y", jsonrpc.keys());
+                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("missing \"method\" key in call; got keys: %y", jsonrpc.keys()), JRE_InvalidRequest;
+                        if (jsonrpc.method.typeCode() != NT_STRING)
+                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting \"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
                     }
                 }
                 catch (hash ex) {
                     string estr = sprintf("%s: %s", ex.err, ex.desc);
-                    return (
-                        "code": 500,
-                        "errlog": estr,
-                        "body": estr,
-                        );
+                    if (ex.arg.typeCode() == NT_INT) {
+                        return (
+                            "code": 200,
+                            "errlog": estr,
+                            "hdr": ("Content-Type": MimeTypeJsonRpc),
+                            "body": make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, ("code": ex.arg, "message": estr)),
+                            );
+                    }
+                    else {
+                        return (
+                            "code": 500,
+                            "errlog": estr,
+                            "body": estr,
+                            );
+                    }
                 }
             }
             cx += (
@@ -384,20 +419,22 @@ public namespace JsonRpcHandler {
                     "code": 200,
                     "errlog": str,
                     "hdr": ("Content-Type": MimeTypeJsonRpc),
-                    "body": make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, str, jsonrpc.id, ex.arg),
+                    "body": make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, ("code": JRE_InternalError, "message": str)),
                     );
             }
         }
 
-        final hash processBatchMessage(hash cx, list l) {
+        private hash processBatchMessage(hash cx, list l) {
             list rvl = ();
             foreach any elem in (l) {
                 if (elem.typeCode() != NT_HASH)
-                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", $# + 1, l.size(), elem.type());
+                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", $# + 1, l.size(), elem.type()), JRE_InvalidRequest;
                 cx.jsonrpc_version = elem.jsonrpc ?? elem.version;
                 hash jsonrpc = elem;
                 if (!jsonrpc.method.val())
-                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: missing \"method\" key in call; got keys: %y", $# + 1, l.size(), jsonrpc.keys());
+                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: missing \"method\" key in call; got keys: %y", $# + 1, l.size(), jsonrpc.keys(), JRE_InvalidRequest);
+                if (jsonrpc.method.typeCode() != NT_STRING)
+                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting \"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
                 cx += (
                     "method": jsonrpc.method,
                     "jsonid": jsonrpc.id,
@@ -413,7 +450,7 @@ public namespace JsonRpcHandler {
                     string str = !debug
                         ? sprintf("element %d of %d: %s: %s", $# + 1, l.size(), ex.err, ex.desc)
                         : get_exception_string(ex);
-                    rvl += make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, str, jsonrpc.id, ex.arg);
+                    rvl += make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, ("code": JRE_InternalError, "message": str));
                 }
             }
 

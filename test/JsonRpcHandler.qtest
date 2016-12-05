@@ -30,6 +30,12 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
              "help": "notification API",
              "logopt": 0,
             ),
+            ("name": "^system\\.error\$",
+             "text": "system.error",
+             "function": \MyJsonRpcHandler::error(),
+             "help": "throws an error",
+             "logopt": 0,
+            ),
             );
     }
 
@@ -41,6 +47,10 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
     }
 
     static nothing notify(any arg) {
+    }
+
+    static nothing error(any arg) {
+        throw "TEST-ERROR", arg;
     }
 }
 
@@ -64,6 +74,11 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
             ("id":1,"result":"abc"),
             ("id":2,"result":"abcd"),
             );
+
+        const ParseErrorBody = '{"method":"system.echo","params":"abc","id:1}';
+        const InvalidRequestBody = '{"method1":"system.echo","params":"abc","id":1}';
+        const MethodNotFoundBody = '{"method":"echo","params":"abc","id":1}';
+        const InternalErrorBody = '{"method":"system.error","params":"abc","id":1}';
     }
 
     public {
@@ -116,6 +131,15 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         # test a batch message
         string json = mClient.post("", BatchBody, ("Content-Type": MimeTypeJsonRpc));
         assertEq(BatchResponse, parse_json(json));
+
+        json = mClient.post("", ParseErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_ParseError, parse_json(json).error.code);
+        json = mClient.post("", InvalidRequestBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_InvalidRequest, parse_json(json).error.code);
+        json = mClient.post("", MethodNotFoundBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_MethodNotFound, parse_json(json).error.code);
+        json = mClient.post("", InternalErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_InternalError, parse_json(json).error.code);
     }
 
     log(string str) {
