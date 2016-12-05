@@ -49,6 +49,12 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         const ListValue = (1, "two", 3.1);
 
         const AllValues = (1, "two", ListValue, SimpleHashValue, LargerHashValue, HashValue);
+
+        const BatchBody = '[{"method":"system.echo","params":"abc","id":1},{"method":"system.echo","params":"abcd","id":2}]';
+        const BatchResponse = (
+            ("id":1,"result":"abc"),
+            ("id":2,"result":"abcd"),
+            );
     }
 
     public {
@@ -97,6 +103,10 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
             assertEq(3, h.size(), v.type() + " size " + mClient.getVersion());
             assertEq(v, h.result, v.type() + " value " + mClient.getVersion());
         }
+
+        # test a batch message
+        string json = mClient.post("", BatchBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(BatchResponse, parse_json(json));
     }
 
     log(string str) {
