@@ -144,7 +144,7 @@ public namespace JsonRpcHandler {
             *code getLogMessage;
 
             # a closure/call reference for logging (when set this is used instead of the HTTP server's logfunc for logging)
-            *code log;
+            *code log_code;
         }
         #! @endcond
 
@@ -168,7 +168,7 @@ public namespace JsonRpcHandler {
             getLogMessage = n_getLogMessage;
             debug = n_dbg;
             get_prefix = n_get_prefix;
-            log = n_log;
+            log_code = n_log;
 
             # add internal methods
             foreach hash im in (JsonRpcHandler::InternalMethods)
@@ -270,7 +270,7 @@ public namespace JsonRpcHandler {
             msg += sprintf("from %s: ", cx."peer-info".address_desc);
             msg += vsprintf(str, argv);
 
-            call_function_args(log ? log : cx.logfunc, msg);
+            call_function_args(log_code ? log_code : cx.logfunc, msg);
         }
 
         # don't reimplement this method; fix/enhance it in the module
@@ -298,7 +298,7 @@ public namespace JsonRpcHandler {
             cx.cmark = found.cmark;
             cx.function = found.function;
 
-            *string msg = exists getLogMessage ? call_function(getLogMessage, cx, found, \params) : NOTHING;
+            *string msg = getLogMessage ? call_function(getLogMessage, cx, found, \params) : NOTHING;
             if (exists msg)
                 log(cx, msg);
 

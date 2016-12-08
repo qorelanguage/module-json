@@ -1,0 +1,128 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%require-types
+%enable-all-warnings
+%new-style
+%strict-args
+
+%requires json
+
+%requires QUnit
+%requires HttpServer
+%requires Mime
+%requires ../qlib/JsonRpcHandler.qm
+
+%exec-class JsonRpcHandlerTest
+
+class MyJsonRpcHandler inherits JsonRpcHandler {
+    public {
+        const ApiMethods = (
+            ("name": "^system\\.echo\$",
+             "text": "system.echo",
+             "function": \MyJsonRpcHandler::echo(),
+             "help": "echos the argument",
+             "logopt": 0,
+            ),
+            ("name": "^system\\.notify\$",
+             "text": "system.notify",
+             "function": \MyJsonRpcHandler::notify(),
+             "help": "notification API",
+             "logopt": 0,
+            ),
+            ("name": "^system\\.error\$",
+             "text": "system.error",
+             "function": \MyJsonRpcHandler::error(),
+             "help": "throws an error",
+             "logopt": 0,
+            ),
+            );
+    }
+
+    constructor() : JsonRpcHandler(new PermissiveAuthenticator(), ApiMethods, \MyJsonRpcHandler::getLogMessage(), NOTHING, NOTHING, \MyJsonRpcHandler::log()) {
+    }
+
+    static string getLogMessage(hash cx, hash mh, reference params) {
+        return sprintf("%y: params: %y", mh.text, params);
+    }
+
+    static nothing log(string msg) {
+    }
+
+    static any echo(any arg) {
+        return arg;
+    }
+
+    static nothing notify(any arg) {
+    }
+
+    static nothing error(any arg) {
+        throw "TEST-ERROR", arg;
+    }
+}
+
+public class JsonRpcHandlerTest inherits QUnit::Test {
+    private {
+        HttpServer mServer;
+        JsonRpcClient mClient;
+        MyJsonRpcHandler mHandler();
+        int port;
+
+        const SimpleHashValue = ("a": 1);
+        const LargerHashValue = ("a": 1, "b": "two");
+        const HashValue = ("a": (1, "two"));
+
+        const ListValue = (1, "two", 3.1);
+
+        const AllValues = (1, "two", ListValue, SimpleHashValue, LargerHashValue, HashValue);
+
+        const BatchBody = '[{"method":"system.echo","params":"abc","id":1},{"method":"system.notify","params":"abc"},{"method":"system.echo","params":"abcd","id":2}]';
+        const BatchResponse = (
+            ("id":1,"result":"abc"),
+            ("id":2,"result":"abcd"),
+            );
+
+        const ParseErrorBody = '{"method":"system.echo","params":"abc","id:1}';
+        const InvalidRequestBody = '{"method1":"system.echo","params":"abc","id":1}';
+        const MethodNotFoundBody = '{"method":"echo","params":"abc","id":1}';
+        const InternalErrorBody = '{"method":"system.error","params":"abc","id":1}';
+    }
+
+    public {
+    }
+
+    constructor() : Test("JsonRpcHandlerTest", "1.0") {
+        addTestCase("Test JSON-RPC", \testJsonRpc());
+
+        # Return for compatibility with test harness that checks return value.
+        set_return_value(main());
+    }
+
+    globalSetUp() {
+        mServer = new HttpServer(\log(), \log());
+        mServer.setHandler("jsonrpc-handler", "", MimeTypeJson, mHandler);
+        mServer.setDefaultHandler("jsonrpc-handler", mHandler);
+        port = mServer.addListener(0).port;
+
+        mClient = new JsonRpcClient(("url": "http://localhost:" + port));
+    }
+
+    globalTearDown() {
+        mServer.stop();
+        delete mServer;
+    }
+
+    testJsonRpc() {
+        foreach any v in (AllValues) {
+            hash h = mClient.call("system.echo", v);
+            assertEq(NOTHING, h.jsonrpc, v.type() + " jsonrpc");
+            assertEq("1.1", h.version, v.type() + " version");
+            assertEq(2, h.size(), v.type() + " size");
+            assertEq(v, h.result, v.type() + " value");
+        }
+    }
+
+    log(string str) {
+        delete argv;
+    }
+}
