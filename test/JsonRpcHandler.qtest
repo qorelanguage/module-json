@@ -117,7 +117,7 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
             hash h = mClient.call("system.echo", v);
             assertEq(NOTHING, h.jsonrpc, v.type() + " jsonrpc");
             assertEq("1.1", h.version, v.type() + " version");
-            assertEq(3, h.size(), v.type() + " size");
+            assertEq(2, h.size(), v.type() + " size");
             assertEq(v, h.result, v.type() + " value");
         }
     }
