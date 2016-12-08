@@ -3,6 +3,7 @@ version 1.6
 ***********
 
 * parse_json() now ignores UTF-8 and Unicode BOMs at the start of passed JSON string
+* fixed a bug in request logging in the JsonRpcHandler module (issue 1487)
 
 
 ***********

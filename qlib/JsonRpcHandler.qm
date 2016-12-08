@@ -300,7 +300,7 @@ public namespace JsonRpcHandler {
 
             *string msg = exists getLogMessage ? call_function(getLogMessage, cx, found, \params) : NOTHING;
             if (exists msg)
-                log(cx, msg);
+                self.log(cx, msg);
 
             #printf("DEBUG: about to call function '%s' (method=%s params=%y)\n", found.function, method, params);
 
