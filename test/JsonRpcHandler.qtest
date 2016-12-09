@@ -39,7 +39,14 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
             );
     }
 
-    constructor() : JsonRpcHandler(new PermissiveAuthenticator(), ApiMethods) {
+    constructor() : JsonRpcHandler(new PermissiveAuthenticator(), ApiMethods, \MyJsonRpcHandler::getLogMessage(), NOTHING, NOTHING, \MyJsonRpcHandler::log()) {
+    }
+
+    static string getLogMessage(hash cx, hash mh, reference params) {
+        return sprintf("%y: params: %y", mh.text, params);
+    }
+
+    static nothing log(string msg) {
     }
 
     static any echo(any arg) {
