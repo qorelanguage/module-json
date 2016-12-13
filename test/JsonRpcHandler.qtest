@@ -92,7 +92,9 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
     }
 
     constructor() : Test("JsonRpcHandlerTest", "1.0") {
-        addTestCase("Test JSON-RPC", \testJsonRpc());
+        addTestCase("Test JSON-RPC 2.0", \testJsonRpc2_0());
+        addTestCase("Test JSON-RPC 1.0", \testJsonRpc1_0());
+        addTestCase("Test JSON-RPC 1.1", \testJsonRpc1_1());
 
         # Return for compatibility with test harness that checks return value.
         set_return_value(main());
@@ -112,14 +114,76 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         delete mServer;
     }
 
-    testJsonRpc() {
+    testJsonRpc2_0() {
+        mClient.setVersion("2.0");
         foreach any v in (AllValues) {
             hash h = mClient.call("system.echo", v);
-            assertEq(NOTHING, h.jsonrpc, v.type() + " jsonrpc");
-            assertEq("1.1", h.version, v.type() + " version");
-            assertEq(2, h.size(), v.type() + " size");
-            assertEq(v, h.result, v.type() + " value");
+            assertEq("2.0", h.jsonrpc, v.type() + " version " + mClient.getVersion());
+            assertEq(NOTHING, h.version, v.type() + " version " + mClient.getVersion());
+            assertEq(3, h.size(), v.type() + " size " + mClient.getVersion());
+            assertEq(v, h.result, v.type() + " value " + mClient.getVersion());
         }
+
+        # test a batch message
+        string json = mClient.post("", BatchBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(BatchResponse, parse_json(json));
+
+        json = mClient.post("", ParseErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_ParseError, parse_json(json).error.code);
+        json = mClient.post("", InvalidRequestBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_InvalidRequest, parse_json(json).error.code);
+        json = mClient.post("", MethodNotFoundBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_MethodNotFound, parse_json(json).error.code);
+        json = mClient.post("", InternalErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_InternalError, parse_json(json).error.code);
+    }
+
+    testJsonRpc1_0() {
+        mClient.setVersion("1.0");
+        foreach any v in (AllValues) {
+            hash h = mClient.call("system.echo", v);
+            assertEq(NOTHING, h.jsonrpc, v.type() + " jsonrpc " + mClient.getVersion());
+            assertEq(NOTHING, h.version, v.type() + " version " + mClient.getVersion());
+            assertEq(2, h.size(), v.type() + " size " + mClient.getVersion());
+            assertEq(v, h.result, v.type() + " value " + mClient.getVersion());
+        }
+
+        # test a batch message
+        string json = mClient.post("", BatchBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(BatchResponse, parse_json(json));
+
+        json = mClient.post("", ParseErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_ParseError, parse_json(json).error.code);
+        json = mClient.post("", InvalidRequestBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_InvalidRequest, parse_json(json).error.code);
+        json = mClient.post("", MethodNotFoundBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_MethodNotFound, parse_json(json).error.code);
+        json = mClient.post("", InternalErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_InternalError, parse_json(json).error.code);
+    }
+
+    testJsonRpc1_1() {
+        mClient.setVersion("1.1");
+        foreach any v in (AllValues) {
+            hash h = mClient.call("system.echo", v);
+            assertEq(NOTHING, h.jsonrpc, v.type() + " jsonrpc " + mClient.getVersion());
+            assertEq("1.1", h.version, v.type() + " version " + mClient.getVersion());
+            assertEq(3, h.size(), v.type() + " size " + mClient.getVersion());
+            assertEq(v, h.result, v.type() + " value " + mClient.getVersion());
+        }
+
+        # test a batch message
+        string json = mClient.post("", BatchBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(BatchResponse, parse_json(json));
+
+        json = mClient.post("", ParseErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_ParseError, parse_json(json).error.code);
+        json = mClient.post("", InvalidRequestBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_InvalidRequest, parse_json(json).error.code);
+        json = mClient.post("", MethodNotFoundBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_MethodNotFound, parse_json(json).error.code);
+        json = mClient.post("", InternalErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        assertEq(JsonRpcHandler::JRE_InternalError, parse_json(json).error.code);
     }
 
     log(string str) {
