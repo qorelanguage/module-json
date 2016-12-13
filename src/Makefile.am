@@ -1,7 +1,13 @@
 MNAME=json
 
+if COND_MINGW
+QPP=qpp_native
+else
+QPP=qpp
+endif
+
 .qpp.cpp:
-	qpp -V $<
+	$(QPP) $<
 
 GENERATED_SOURCES = QC_JsonRpcClient.cpp ql_json.cpp
 CLEANFILES = $(GENERATED_SOURCES)
