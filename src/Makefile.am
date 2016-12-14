@@ -7,7 +7,7 @@ QPP=qpp
 endif
 
 .qpp.cpp:
-	$(QPP) $<
+	$(QPP) -V $<
 
 GENERATED_SOURCES = QC_JsonRpcClient.cpp ql_json.cpp
 CLEANFILES = $(GENERATED_SOURCES)
