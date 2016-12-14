@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-json-module], [1.6],
+AC_INIT([qore-json-module], [1.7],
         [David Nichols <david@qore.org>],
         [qore-json-module])
 AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2])
@@ -275,6 +275,12 @@ else
       cpu_family=i386
    fi
    bits=32
+fi
+
+# test for C++11
+AX_CXX_COMPILE_STDCXX_11([noext], [mandatory])
+if test "$HAVE_CXX11" = "1"; then
+    AM_CXXFLAGS=-std=gnu++11
 fi
 
 # checks for how to build threads
