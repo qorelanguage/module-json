@@ -1,9 +1,9 @@
 MNAME=json
 
 if COND_MINGW
-QPP=qpp_native
+QPP=qpp_native -V
 else
-QPP=qpp
+QPP=qpp -V
 endif
 
 .qpp.cpp:
