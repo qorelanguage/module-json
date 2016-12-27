@@ -7,14 +7,17 @@
     The json module allows for easy serialization and deserialization between <a href="http://www.json.org/">JSON</a> strings and %Qore data structures.  The module also provides functions for @ref JSONRPC support as well as a @ref Qore::Json::JsonRpcClient "JsonRpcClient" class for easier integration with JavaScript clients.
 
     Overview of the functionality provided by this module:
-    - user module: <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
-    - class: @ref Qore::Json::JsonRpcClient "JsonRpcClient"
+    - classes:
+      - @ref Qore::Json::JsonRpcClient "JsonRpcClient"
     - functions:
       - @ref make_json()
       - @ref parse_json()
       - @ref make_jsonrpc_error()
       - @ref make_jsonrpc_request()
       - @ref make_jsonrpc_response()
+    - user modules:
+      - <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a>
+      - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
 
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>

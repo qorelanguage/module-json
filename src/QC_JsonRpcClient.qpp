@@ -170,7 +170,6 @@ JsonRpcClient::copy() {
 //! Calls a remote method using a single value after the method name for the method arguments and returns the response as qore data structure
 /** @param method The JSON-RPC method name to call
     @param args An optional list of arguments (or single argument) for the method
-    @param id the \c id value for the call
 
     @return a data structure corresponding to the JSON data returned by the JSON-RPC server
 
@@ -304,6 +303,7 @@ hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc
     - \c response-uri: the first line of the HTTP response
     - \c response: the literal response body received from the server
     - \c response_headers: a hash of headers received in the response
+    @param id the \c id value for the call
     @param method The JSON-RPC method name to call
     @param args An optional list of arguments (or single argument) for the method
 
@@ -426,7 +426,7 @@ nothing JsonRpcClient::setEventQueue() {
 }
 
 //! sets the event queue for the JsonRpcClient object
-/** @param $queue the Queue object to receive network events from the JsonRpcClient object
+/** @param queue the Queue object to receive network events from the JsonRpcClient object
     @par Example:
     @code{.py}
 Queue queue();

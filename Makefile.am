@@ -33,7 +33,7 @@ QDX = qdx
 DX_CLEANFILES = ${DOXYFILES} $(QLIB_TMP_DOXYFILES)
 
 docs/qlib/Doxyfile.JsonRpcHandler: docs/qlib/Doxyfile.tmpl
-	$(QDX) -M=qlib/JsonRpcHandler.qm:qlib/JsonRpcHandler.qm.dox.h $< $@
+	$(QDX) -M=qlib/JsonRpcHandler.qm:qlib/JsonRpcHandler.qm.dox.h -tjson.tag=../../json/html $< $@
 
 docs/qlib/JsonRpcHandler.qm.dox.h: qlib/JsonRpcHandler.qm
 	$(QDX) $< $@
@@ -43,7 +43,7 @@ docs/JsonRpcHandler/html: docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.J
 	$(QDX) --post docs/JsonRpcHandler/html docs/JsonRpcHandler/html/search
 
 docs/qlib/Doxyfile.JsonRpcConnection: docs/qlib/Doxyfile.tmpl
-	$(QDX) -M=qlib/JsonRpcConnection.qm:qlib/JsonRpcConnection.qm.dox.h $< $@
+	$(QDX) -M=qlib/JsonRpcConnection.qm:qlib/JsonRpcConnection.qm.dox.h -tjson.tag=../../json/html $< $@
 
 docs/qlib/JsonRpcConnection.qm.dox.h: qlib/JsonRpcConnection.qm
 	$(QDX) $< $@
