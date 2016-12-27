@@ -7,14 +7,17 @@
     The json module allows for easy serialization and deserialization between <a href="http://www.json.org/">JSON</a> strings and %Qore data structures.  The module also provides functions for @ref JSONRPC support as well as a @ref Qore::Json::JsonRpcClient "JsonRpcClient" class for easier integration with JavaScript clients.
 
     Overview of the functionality provided by this module:
-    - user module: <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
-    - class: @ref Qore::Json::JsonRpcClient "JsonRpcClient"
+    - classes:
+      - @ref Qore::Json::JsonRpcClient "JsonRpcClient"
     - functions:
       - @ref make_json()
       - @ref parse_json()
       - @ref make_jsonrpc_error()
       - @ref make_jsonrpc_request()
       - @ref make_jsonrpc_response()
+    - user modules:
+      - <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a>
+      - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
 
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
@@ -26,7 +29,8 @@
     @code %requires json @endcode
 
     Also included with the binary json module:
-    - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler user module</a>
+    - <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a> user module
+    - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> user module
 
     @note JSON functionality was included in the main %Qore shared library until version 0.8.1, at which time the code was removed to make this module.
 
@@ -133,6 +137,7 @@
     @subsection v0_1_7 Version 1.7
     - deprecated support for the non-published JSON-RPC 1.1 protocol
     - added support for JSON-RPC 2.0
+    - added the <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a> user module
 
     @subsection v0_1_6 Version 1.6
     - @ref parse_json() now ignores UTF-8 and Unicode BOMs at the start of passed JSON string  (<a href="https://github.com/qorelanguage/qore/issues/1398">issue 1398</a>)
