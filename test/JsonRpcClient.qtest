@@ -1,0 +1,45 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires ../qlib/JsonRpcConnection.qm
+%requires QUnit
+
+%exec-class JsonRpcClientTest
+
+class JsonRpcClientTest inherits QUnit::Test {
+    constructor() : Test("JsonRpcClient test", "1.0") {
+        addTestCase("JSON-RPC client test", \testJsonRpcClient());
+        addTestCase("JSON-RPC connection test", \testJsonRpcConnection());
+
+        # Return for compatibility with test harness that checks return value.
+        set_return_value(main());
+    }
+
+    testJsonRpcClient() {
+        JsonRpcClient client(("url": "http://localhost:80"), True);
+
+        assertEq(True, client instanceof JsonRpcClient);
+    }
+
+    testJsonRpcConnection() {
+        string url = "jsonrpcs://localhost:8099/";
+        JsonRpcConnection conn("test", "test", url, False, NOTHING, parse_url(url));
+        JsonRpcClient client = conn.get(False);
+        string yurl = url;
+        yurl =~ s/^jsonrpc/http/;
+        assertEq(yurl, client.getURL());
+
+        # test default path
+        url = "jsonrpcs://localhost:8099";
+        conn = new JsonRpcConnection("test", "test", url, False, NOTHING, parse_url(url));
+        client = conn.get(False);
+        yurl = url;
+        yurl =~ s/^jsonrpc/http/;
+        assertEq(yurl + "/JSON", client.getURL());
+    }
+}

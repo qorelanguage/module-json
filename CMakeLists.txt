@@ -22,6 +22,7 @@ set(CPP_SRC
 
 set(QMOD
     qlib/JsonRpcHandler.qm
+    qlib/JsonRpcConnection.qm
 )
 
 # Check for C++11.

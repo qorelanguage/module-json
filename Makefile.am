@@ -8,7 +8,7 @@ noinst_HEADERS = src/QC_JsonRpcClient.h \
 	src/ql_json.h \
 	src/qore-json-module.h
 
-USER_MODULES = qlib/JsonRpcHandler.qm
+USER_MODULES = qlib/JsonRpcHandler.qm qlib/JsonRpcConnection.qm
 
 EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
 	RELEASE-NOTES \
@@ -24,11 +24,11 @@ ACLOCAL_AMFLAGS=-I m4
 dist_mod_DATA = $(USER_MODULES)
 
 if COND_DOXYGEN
-DOX = json JsonRpcHandler
-DOXYGEN_OUTPUT=docs/json/html docs/JsonRpcHandler/html
+DOX = json JsonRpcHandler JsonRpcConnection
+DOXYGEN_OUTPUT=docs/json/html docs/JsonRpcHandler/html docs/JsonRpcConnection/html
 DOXYFILES = docs/doxyfile docs/mainpage.doxygen
 DOXYFILES_SRC = docs/doxyfile.tmpl docs/qlib/Doxyfile.tmpl docs/footer_template.html
-QLIB_TMP_DOXYFILES = docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler
+QLIB_TMP_DOXYFILES = docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler docs/qlib/JsonRpcConnection.qm.dox.h docs/qlib/Doxyfile.JsonRpcConnection
 QDX = qdx
 DX_CLEANFILES = ${DOXYFILES} $(QLIB_TMP_DOXYFILES)
 
@@ -41,6 +41,16 @@ docs/qlib/JsonRpcHandler.qm.dox.h: qlib/JsonRpcHandler.qm
 docs/JsonRpcHandler/html: docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler
 	cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.JsonRpcHandler
 	$(QDX) --post docs/JsonRpcHandler/html docs/JsonRpcHandler/html/search
+
+docs/qlib/Doxyfile.JsonRpcConnection: docs/qlib/Doxyfile.tmpl
+	$(QDX) -M=qlib/JsonRpcConnection.qm:qlib/JsonRpcConnection.qm.dox.h $< $@
+
+docs/qlib/JsonRpcConnection.qm.dox.h: qlib/JsonRpcConnection.qm
+	$(QDX) $< $@
+
+docs/JsonRpcConnection/html: docs/qlib/JsonRpcConnection.qm.dox.h docs/qlib/Doxyfile.JsonRpcConnection
+	cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.JsonRpcConnection
+	$(QDX) --post docs/JsonRpcConnection/html docs/JsonRpcConnection/html/search
 
 docs/json/html: $(DOXYFILES)
 	cd docs; $(DOXYGEN_CMD) doxyfile;

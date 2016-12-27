@@ -4,6 +4,7 @@ version 1.7
 
 * added support for JSON-RPC 2.0
 * deprecated JSON-RPC 1.1 functionality (1.1 was never released)
+* added the JsonRpcConnection user module
 
 
 ***********
