@@ -40,7 +40,7 @@ static int cmp_rest_token(const char*& p, const char* tok) {
    p++;
    while (*tok)
       if ((*(p++)) != (*(tok++)))
-	 return -1;
+         return -1;
    if (!*p || *p == ',' || *p == ']' || *p == '}')
       return 0;
    if (isblank(*p) || (*p) == '\r' || (*p) == '\n') {
@@ -53,13 +53,13 @@ static int cmp_rest_token(const char*& p, const char* tok) {
 static void skip_whitespace(const char*& buf, int& line_number) {
    while (*buf) {
       if (isblank(*buf) || (*buf) == '\r') {
-	 ++buf;
-	 continue;
+         ++buf;
+         continue;
       }
       if ((*buf) == '\n') {
-	 ++line_number;
-	 ++buf;
-	 continue;
+         ++line_number;
+         ++buf;
+         continue;
       }
       break;
    }
@@ -71,54 +71,54 @@ static int get_json_string_token(QoreString& str, const char*& buf, int& line_nu
    buf++;
    while (*buf) {
       if (*buf == '"') {
-	 buf++;
-	 return 0;
+         buf++;
+         return 0;
       }
       if (*buf == '\\') {
-	 buf++;
-	 if (*buf == '"' || *buf == '/' || *buf == '\\') {
-	    str.concat(*buf);
-	    buf++;
-	    continue;
-	 }
-	 if (*buf == 'a')
-	    str.concat('\a');
-	 else if (*buf == 'b')
-	    str.concat('\b');
-	 else if (*buf == 'f')
-	    str.concat('\f');
-	 else if (*buf == 'n')
-	    str.concat('\n');
-	 else if (*buf == 'r')
-	    str.concat('\r');
-	 else if (*buf == 't')
-	    str.concat('\t');
-	 else if (*buf == 'v')
-	    str.concat('\v');
-	 else if (*buf == 'u') { // expect a unicode character specification
-	    ++buf;
-	    // check for 4 hex digits
-	    if (isxdigit(*buf) && isxdigit(*(buf + 1)) && isxdigit(*(buf + 2)) && isxdigit(*(buf + 3))) {
-	       char unicode[5];
-	       strncpy(unicode, buf, 4);
-	       unicode[4] = '\0';
-	       unsigned code = strtoul(unicode, 0, 16);
+         buf++;
+         if (*buf == '"' || *buf == '/' || *buf == '\\') {
+            str.concat(*buf);
+            buf++;
+            continue;
+         }
+         if (*buf == 'a')
+            str.concat('\a');
+         else if (*buf == 'b')
+            str.concat('\b');
+         else if (*buf == 'f')
+            str.concat('\f');
+         else if (*buf == 'n')
+            str.concat('\n');
+         else if (*buf == 'r')
+            str.concat('\r');
+         else if (*buf == 't')
+            str.concat('\t');
+         else if (*buf == 'v')
+            str.concat('\v');
+         else if (*buf == 'u') { // expect a unicode character specification
+            ++buf;
+            // check for 4 hex digits
+            if (isxdigit(*buf) && isxdigit(*(buf + 1)) && isxdigit(*(buf + 2)) && isxdigit(*(buf + 3))) {
+               char unicode[5];
+               strncpy(unicode, buf, 4);
+               unicode[4] = '\0';
+               unsigned code = strtoul(unicode, 0, 16);
                if (str.concatUnicode(code, xsink))
                   break;
-	       buf += 3;
-	    }
-	    else
-	       str.concat("\\u");
-	 }
-	 else { // otherwise just concatenate the characters
-	    str.concat('\\');
-	    str.concat(*buf);
-	 }
-	 ++buf;
-	 continue;
+               buf += 3;
+            }
+            else
+               str.concat("\\u");
+         }
+         else { // otherwise just concatenate the characters
+            str.concat('\\');
+            str.concat(*buf);
+         }
+         ++buf;
+         continue;
       }
       if (*buf == '\n')
-	 line_number++;
+         line_number++;
       str.concat(*buf);
       ++buf;
    }
@@ -144,26 +144,26 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
 
    while (*buf) {
       if (*buf != '"') {
-	 //printd(5, "*buf='%c'\n", *buf);
-	 if (h->size())
-	    xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON object (expecting '\"' for key string)", line_number);
-	 else
-	    xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON object (expecting '\" or '}'')", line_number);
-	 break;
+         //printd(5, "*buf='%c'\n", *buf);
+         if (h->size())
+            xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON object (expecting '\"' for key string)", line_number);
+         else
+            xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON object (expecting '\" or '}'')", line_number);
+         break;
       }
 
       // get key
       QoreString str(enc);
       if (get_json_string_token(str, buf, line_number, xsink))
-	 break;
+         break;
 
       //printd(5, "get_json_object() key=%s\n", str.getBuffer());
 
       skip_whitespace(buf, line_number);
       if (*buf != ':') {
-	 //printd(5, "*buf='%c'\n", *buf);
-	 xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON object (expecting ':')", line_number);
-	 break;
+         //printd(5, "*buf='%c'\n", *buf);
+         xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON object (expecting ':')", line_number);
+         break;
       }
       buf++;
       skip_whitespace(buf, line_number);
@@ -171,21 +171,21 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
       // get value
       AbstractQoreNode* val = get_json_value(buf, line_number, enc, xsink);
       if (!val) {
-	 if (!xsink->isException())
-	    xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON object (expecting JSON value for key '%s')", line_number, str.getBuffer());
-	 break;
+         if (!xsink->isException())
+            xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON object (expecting JSON value for key '%s')", line_number, str.getBuffer());
+         break;
       }
       h->setKeyValue(&str, val, xsink);
 
       skip_whitespace(buf, line_number);
       if (*buf == '}') {
-	 buf++;
-	 return h.release();
+         buf++;
+         return h.release();
       }
 
       if (*buf != ',') {
-	 xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON object (expecting ',' or '}')", line_number);
-	 break;
+         xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON object (expecting ',' or '}')", line_number);
+         break;
       }
       buf++;
 
@@ -211,23 +211,23 @@ static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, cons
       //printd(5, "before get_json_value() buf=%s\n", buf);
       AbstractQoreNode* val = get_json_value(buf, line_number, enc, xsink);
       if (!val) {
-	 if (!xsink->isException())
-	    xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON array (expecting JSON value)", line_number);
-	 return 0;
+         if (!xsink->isException())
+            xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON array (expecting JSON value)", line_number);
+         return 0;
       }
       //printd(5, "after get_json_value() buf=%s\n", buf);
       l->push(val);
 
       skip_whitespace(buf, line_number);
       if (*buf == ']') {
-	 buf++;
-	 return l.release();
+         buf++;
+         return l.release();
       }
 
       if (*buf != ',') {
-	 //printd(5, "*buf='%c'\n", *buf);
-	 xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON array (expecting ',' or ']')", line_number);
-	 return 0;
+         //printd(5, "*buf='%c'\n", *buf);
+         xsink->raiseException("JSON-PARSE-ERROR", "unexpected text encountered at line %d while parsing JSON array (expecting ',' or ']')", line_number);
+         return 0;
       }
       buf++;
 
@@ -260,62 +260,62 @@ static AbstractQoreNode* get_json_value(const char*& buf, int& line_number, cons
       QoreString str;
       bool has_dot;
       if (*buf == '.') {
-	 // add a leading zero
-	 str.concat("0.");
-	 has_dot = true;
+         // add a leading zero
+         str.concat("0.");
+         has_dot = true;
       }
       else {
-	 str.concat(*buf);
-	 has_dot = false;
+         str.concat(*buf);
+         has_dot = false;
       }
       buf++;
       while (*buf) {
-	 if (*buf == '.') {
-	    if (has_dot) {
-	       xsink->raiseException("JSON-PARSE-ERROR", "unexpected '.' in floating point number (too many '.' characters)");
-	       return 0;
-	    }
-	    has_dot = true;
-	 }
-	 // if another token follows then break but do not increment buffer position
-	 else if (*buf == ',' || *buf == '}' || *buf == ']')
-	    break;
-	 // if whitespace follows then increment buffer position and break
-	 else if (isblank(*buf) || (*buf) == '\r') {
-	    ++buf;
-	    break;
-	 }
-	 // if a newline follows then  increment buffer position and line number and break
-	 else if ((*buf) == '\n') {
-	    ++buf;
-	    ++line_number;
-	    break;
-	 }
-	 else if (!isdigit(*buf)) {
-	    xsink->raiseException("JSON-PARSE-ERROR", "unexpected character in number");
-	    return 0;
-	 }
-	 str.concat(*buf);
-	 buf++;
+         if (*buf == '.') {
+            if (has_dot) {
+               xsink->raiseException("JSON-PARSE-ERROR", "unexpected '.' in floating point number (too many '.' characters)");
+               return 0;
+            }
+            has_dot = true;
+         }
+         // if another token follows then break but do not increment buffer position
+         else if (*buf == ',' || *buf == '}' || *buf == ']')
+            break;
+         // if whitespace follows then increment buffer position and break
+         else if (isblank(*buf) || (*buf) == '\r') {
+            ++buf;
+            break;
+         }
+         // if a newline follows then  increment buffer position and line number and break
+         else if ((*buf) == '\n') {
+            ++buf;
+            ++line_number;
+            break;
+         }
+         else if (!isdigit(*buf)) {
+            xsink->raiseException("JSON-PARSE-ERROR", "unexpected character in number");
+            return 0;
+         }
+         str.concat(*buf);
+         buf++;
       }
       if (has_dot)
-	 return new QoreFloatNode(strtod(str.getBuffer(), 0));
+         return new QoreFloatNode(strtod(str.getBuffer(), 0));
       return new QoreBigIntNode(strtoll(str.getBuffer(), 0, 10));
    }
 
    if ((*buf) == 't') {
       if (!cmp_rest_token(buf, "rue"))
-	 return boolean_true();
+         return boolean_true();
       goto error;
    }
    if ((*buf) == 'f') {
       if (!cmp_rest_token(buf, "alse"))
-	 return boolean_false();
+         return boolean_false();
       goto error;
    }
    if ((*buf) == 'n') {
       if (!cmp_rest_token(buf, "ull"))
-	 return nothing();
+         return nothing();
       goto error;
    }
 
@@ -382,6 +382,54 @@ static int do_json_list(ExceptionSink* xsink, QoreString* str, const QoreListNod
    return 0;
 }
 
+static int do_json_string(QoreString* str, const QoreString* vstr, ExceptionSink* xsink) {
+    TempEncodingHelper t(vstr, str->getEncoding(), xsink);
+    if (*xsink)
+        return -1;
+
+    str->concat('"');
+    qore_size_t i = str->size();
+    str->concatEscape(*t, '"', '\\', xsink);
+    if (*xsink)
+        return -1;
+
+    // http://tools.ietf.org/html/rfc4627
+    // encode all control characters in the string concatenated
+    while (i < str->size()) {
+        // see if we have a single-byte character; do not try to look at bytes within multi-byte characters
+        qore_size_t cl = q_get_char_len(str->getEncoding(), str->getBuffer() + i, str->size() - i, xsink);
+        if (*xsink)
+            return -1;
+        if (cl > 1) {
+            i += cl;
+            continue;
+        }
+
+        unsigned char c = (*str)[i];
+        if (c < 32) {
+            switch (c) {
+                case 7: str->replace(i, 1, "\\a"); ++i; break; // BEL
+                case 8: str->replace(i, 1, "\\b"); ++i; break; // BS
+                case 9: str->replace(i, 1, "\\t"); ++i; break; // HT
+                case 10: str->replace(i, 1, "\\n"); ++i; break; // LF
+                case 11: str->replace(i, 1, "\\v"); ++i; break; // VT
+                case 12: str->replace(i, 1, "\\f"); ++i; break; // FF
+                case 13: str->replace(i, 1, "\\r"); ++i; break; // CR
+                default: {
+                    char buf[7];
+                    sprintf(buf, "\\u%04x", (int)c);
+                    str->replace(i, 1, buf); i += 5;
+                    break;
+                }
+            }
+        }
+        ++i;
+    }
+
+    str->concat('"');
+    return 0;
+}
+
 static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink* xsink) {
    if (v.isNullOrNothing()) {
       str->concat("null");
@@ -399,18 +447,25 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
       ConstHashIterator hi(h);
       QoreString tmp(str->getEncoding());
       while (hi.next()) {
-	 bool ind = tmp.strlen() > JSF_THRESHOLD;
-	 tmp.clear();
-	 if (do_json_value(&tmp, hi.getValue(), format == -1 ? format : format + 2, xsink))
-	    return -1;
+         bool ind = tmp.strlen() > JSF_THRESHOLD;
+         tmp.clear();
+         if (do_json_value(&tmp, hi.getValue(), format == -1 ? format : format + 2, xsink))
+            return -1;
 
-	 if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
-	    str->concat('\n');
-	    str->addch(' ', format + 2);
-	 }
-	 str->sprintf("\"%s\": %s", hi.getKey(), tmp.getBuffer());
-	 if (!hi.last())
-	    str->concat(",");
+         if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
+            str->concat('\n');
+            str->addch(' ', format + 2);
+         }
+
+         QoreString tmpkey(hi.getKey());
+         if (do_json_string(str, &tmpkey, xsink))
+            return -1;
+         str->concat(": ");
+         str->concat(tmp.c_str(), tmp.size());
+         //str->sprintf("\"%s\": %s", hi.getKey(), tmp.getBuffer());
+         if (!hi.last())
+            str->concat(",");
+
       }
       str->concat("}");
       return 0;
@@ -421,13 +476,13 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
 
       TempEncodingHelper t(vstr, str->getEncoding(), xsink);
       if (*xsink)
-	 return -1;
+         return -1;
 
       str->concat('"');
       qore_size_t i = str->size();
       str->concatEscape(*t, '"', '\\', xsink);
       if (*xsink)
-	 return -1;
+         return -1;
 
       // http://tools.ietf.org/html/rfc4627
       // encode all control characters in the string concatenated
@@ -560,7 +615,7 @@ QoreStringNode* make_jsonrpc11_request_args(const QoreValueList* args, unsigned 
    str->concat(",\"params\": ");
    if (!p1.isNullOrNothing()) {
       if (do_json_value(*str, p1, -1, xsink))
-	 return 0;
+         return 0;
    }
    else
       str->concat("null");
@@ -610,9 +665,9 @@ AbstractQoreNode* parse_json(const QoreString* str, ExceptionSink* xsink) {
       // check for excess text after JSON data
       skip_whitespace(buf, line_number);
       if (*buf) {
-	 xsink->raiseException("JSON-PARSE-ERROR", "extra text after JSON data on line %d", line_number);
-	 rv->deref(xsink);
-	 rv = 0;
+         xsink->raiseException("JSON-PARSE-ERROR", "extra text after JSON data on line %d", line_number);
+         rv->deref(xsink);
+         rv = 0;
       }
    }
    return rv;
@@ -627,7 +682,7 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, Q
    if (!version.isNullOrNothing()) {
       str->sprintf("{%s\"version\" : ", fmt ? "\n  " : "");
       if (do_json_value(*str, version, fmt ? 2 : -1, xsink))
-	 return 0;
+         return 0;
          str->concat(fmt ? ",\n  " : ",");
    }
    else
@@ -640,7 +695,7 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, Q
    if (!id.isNullOrNothing()) {
       str->sprintf(",%s\"id\": ", fmt ? "\n  " : "");
       if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
-	 return 0;
+         return 0;
    }
 
    // params key should come last
@@ -661,7 +716,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, QoreValue ver
    if (!version.isNullOrNothing()) {
       str->sprintf("{%s\"version\": ", fmt ? "\n  " : "");
       if (do_json_value(*str, version, fmt ? 2 : -1, xsink))
-	 return 0;
+         return 0;
       str->concat(fmt ? ",\n  " : ",");
    }
    else
@@ -670,7 +725,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, QoreValue ver
    if (!id.isNullOrNothing()) {
       str->concat("\"id\": ");
       if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
-	 return 0;
+         return 0;
       str->concat(fmt ? ",\n  " : ",");
    }
 
@@ -685,7 +740,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, QoreValue ver
 
 static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* error, QoreValue id, QoreValue error_msg, int format, ExceptionSink* xsink) {
    if (code < 100 || code > 999) {
-      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: "QLLD")", code);
+      xsink->raiseException("MAKE-JSONRPC11-ERROR-STRING-ERROR", "error code (first argument) must be between 100 and 999 inclusive (value passed: " QLLD ")", code);
       return 0;
    }
 
@@ -704,7 +759,7 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
    if (!id.isNullOrNothing()) {
       str->concat("\"id\": ");
       if (do_json_value(*str, id, fmt ? 2 : -1, xsink))
-	 return 0;
+         return 0;
       str->concat(fmt ? ",\n  " : ",");
    }
 
@@ -723,7 +778,7 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
    if (!error_msg.isNullOrNothing()) {
       str->sprintf(",%s\"error\": ", fmt ? "\n   " : "");
       if (do_json_value(*str, error_msg, fmt ? 4 : -1, xsink))
-	 return 0;
+         return 0;
    }
    str->concat(fmt ? "\n  }\n}" : "}}");
    return str.release();
