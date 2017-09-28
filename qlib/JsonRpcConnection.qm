@@ -1,0 +1,143 @@
+# -*- mode: qore; indent-tabs-mode: nil -*-
+#! @file JsonRpcConnection.qm JSON-RPC client connection module implementation
+
+/*  JsonRpcConnections.qm Copyright 2013 - 2016 Qore Technologies, s.r.o.
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+*/
+
+# minimum required Qore version
+%requires qore >= 0.8.13
+
+# require type definitions everywhere
+%require-types
+
+# enable all warnings
+%enable-all-warnings
+
+%strict-args
+
+%requires(reexport) json
+#%requires Util >= 1.0
+%requires(reexport) ConnectionProvider >= 1.0
+
+%new-style
+
+module JsonRpcConnection {
+    version = "1.0";
+    desc = "user module for providing JSON-RPC client connections";
+    author = "David Nichols <david@qore.org>";
+    url = "http://qore.org";
+    license = "MIT";
+}
+
+/** @mainpage JsonRpcConnection Module
+
+    @tableofcontents
+
+    @section jsonrpcconnectionintro Introduction to the JsonRpcConnection Module
+
+    The %JsonRpcConnection module provides an JSON-RPC client connection definition
+    for the @ref connectionproviderintro "ConnectionProvider"
+    module in %Qore.
+
+    To use this module, use \c "%requires JsonRpcConnection" in your code.
+
+    This module automatically uses the <a href="../../json/html/index.html">json</a> binary module.
+
+    All the public symbols in the module are defined in the JsonRpcConnection namespace.
+
+    Currently the module provides the following classes:
+    - @ref JsonRpcConnection::JsonRpcConnection "JsonRpcConnection"
+
+    @section jsonrpcconnection_relnotes JsonRpcConnection Module Release History
+
+    @subsection jsonrpcconnection_v1_0 JsonRpcConnection v1.0
+    - the initial version of the JsonRpcConnection module
+*/
+
+#! the JsonRpcConnection namespace contains all the definitions in the JsonRpcConnection module
+public namespace JsonRpcConnection {
+    #! class for JSON-RPC connections; returns @ref Qore::Json::JsonRpcClient objects
+    /** supports the following options:
+        - \c "http_version": HTTP version to use (\c "1.0" or \c "1.1", defaults to \c "1.1")
+        - \c "max_redirects": maximum redirects to support
+        - \c "proxy": proxy URL to use
+        - \c "timeout": transfer timeout to use in milliseconds
+        - \c "connect_timeout": connection timeout to use in milliseconds
+
+        @see @ref Qore::Json::JsonRpcClient::constructor() "JsonRpcClient::constructor()" for more information on the above options
+    */
+    public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection {
+        public {
+            hash real_opts;
+        }
+
+        #! creates the JsonRpcConnection object
+        /** @param name the name of the connection
+            @param desc connection description
+            @param url connection URL (potentially with password info)
+            @param monitor monitoring flag
+            @param opts connection options
+            @param urlh broken down URL hash (as returned by @ref Qore::parse_url())
+        */
+        constructor(string name, string desc, string url, bool monitor, *hash opts, hash urlh) : HttpBasedConnection(name, desc, url, monitor, opts, urlh) {
+            real_opts = ("url": real_url) + opts;
+        }
+
+        #! returns a @ref Qore::Json::JsonRpcClient object
+        /** @param connect if @ref Qore::True "True", then the connection is returned already connected
+            @param rtopts this connection type does not accept any runtime options, so this parameter is ignored
+
+            @return a @ref Qore::Json::JsonRpcClient object
+        */
+        private Qore::Json::JsonRpcClient getImpl(bool connect = True, *hash rtopts) {
+            return new Qore::Json::JsonRpcClient(real_opts, !connect);
+        }
+
+        #! gets options
+        /** @return returns a hash with the following supported options:
+            - \c "http_version": HTTP version to use (\c "1.0" or \c "1.1", defaults to \c "1.1")
+            - \c "max_redirects": maximum redirects to support
+            - \c "proxy": proxy URL to use
+            - \c "timeout": transfer timeout to use in milliseconds
+            - \c "connect_timeout": connection timeout to use in milliseconds
+
+            @see @ref Qore::Json::JsonRpcClient::constructor() "JsonRpcClient::constructor()" for more information on the above options
+        */
+        hash getOptions() {
+            return HttpConnection::Options;
+        }
+
+        #! returns default options
+        *hash getDefaultOptions() {
+            return HttpConnection::DefaultOptions;
+        }
+
+        #! returns \c "jsonrpc"
+        string getType() {
+            return "jsonrpc";
+        }
+
+        #! static constructor
+        static JsonRpcConnection make(string name, string desc, string url, bool monitor, *hash opts, hash urlh) {
+            return new JsonRpcConnection(name, desc, url, monitor, opts, urlh);
+        }
+    }
+}

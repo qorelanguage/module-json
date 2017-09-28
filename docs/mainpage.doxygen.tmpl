@@ -6,6 +6,19 @@
 
     The json module allows for easy serialization and deserialization between <a href="http://www.json.org/">JSON</a> strings and %Qore data structures.  The module also provides functions for @ref JSONRPC support as well as a @ref Qore::Json::JsonRpcClient "JsonRpcClient" class for easier integration with JavaScript clients.
 
+    Overview of the functionality provided by this module:
+    - classes:
+      - @ref Qore::Json::JsonRpcClient "JsonRpcClient"
+    - functions:
+      - @ref make_json()
+      - @ref parse_json()
+      - @ref make_jsonrpc_error()
+      - @ref make_jsonrpc_request()
+      - @ref make_jsonrpc_response()
+    - user modules:
+      - <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a>
+      - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
+
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
     - MIT (see COPYING.MIT in the source distribution for more information)
@@ -16,7 +29,8 @@
     @code %requires json @endcode
 
     Also included with the binary json module:
-    - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler user module</a>
+    - <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a> user module
+    - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> user module
 
     @note JSON functionality was included in the main %Qore shared library until version 0.8.1, at which time the code was removed to make this module.
 
@@ -51,7 +65,7 @@
     |@ref make_json()|Serializes qore data into a JSON string with optional verbose whitespace formatting for easier human readability
     |@ref parse_json()|Parses a JSON string and returns the corresponding %Qore data structure
 
-    <b>Deprecated JSON-RPC</b>
+    <b>Deprecated JSON Functions</b>
     |!Deprecated Function Name|!New Function Name
     |@ref makeFormattedJSONString()|@ref make_json()
     |@ref makeJSONString()|@ref make_json()
@@ -59,9 +73,8 @@
 
     @section JSONRPC JSON-RPC
 
-    JSON-RPC is a lightweight but powerful JSON over HTTP web service protocol.  The json module includes builtin support for this protocol as described here.
-
-    Information about %Qore's JSON-RPC serialization can be found below.
+    JSON-RPC is a lightweight but powerful JSON over HTTP web service protocol.
+    The json module includes builtin support for several versions of the JSON-RPC protocol; the default protocol version used is \c "2.0" unless explicitly changed in the @ref Qore::Json::JsonRpcClient::constructor() "JsonRpcClient::constructor()".
 
     <b>Classes Providing JSON-RPC Functionality</b>
     |!Class|!Description
@@ -69,21 +82,21 @@
 
     <b>Functions Providing JSON-RPC Functionality</b>
     |!Function Name|!Description
-    |@ref make_jsonrpc11_error()|Creates a JSON-RPC 1.1 error response string from the parameters passed with optional verbose whitespace formatting for easier human readability
     |@ref make_jsonrpc_error()|a generic JSON-RPC error response string from the parameters passed with optional verbose whitespace formatting for easier human readability
     |@ref make_jsonrpc_request()|Creates a JSON-RPC request string from the parameters passed with optional verbose whitespace formatting for easier human readability
     |@ref make_jsonrpc_response()|Creates a JSON-RPC response string from the parameters passed with optional verbose whitespace formatting for easier human readability
 
     <b>Deprecated JSON-RPC Functions</b>
     |!Deprecated Function Name|!New Function Name
-    |@ref makeFormattedJSONRPC11ErrorString()|@ref make_jsonrpc11_error()
+    |@ref makeFormattedJSONRPC11ErrorString()|support for the non-published JSON-RPC 1.1 protocol was deprecated in json 1.7
     |@ref makeFormattedJSONRPCErrorString()|@ref make_jsonrpc_error()
     |@ref makeFormattedJSONRPCRequestString()|@ref make_jsonrpc_request()
     |@ref makeFormattedJSONRPCResponseString()|@ref make_jsonrpc_response()
-    |@ref makeJSONRPC11ErrorString()|@ref make_jsonrpc11_error()
+    |@ref makeJSONRPC11ErrorString()|support for the non-published JSON-RPC 1.1 protocol was deprecated in json 1.7
     |@ref makeJSONRPCErrorString()|@ref make_jsonrpc_error()
     |@ref makeJSONRPCRequestString()|@ref make_jsonrpc_request()
     |@ref makeJSONRPCResponseString()|@ref make_jsonrpc_response()
+    |@ref make_jsonrpc11_error()|support for the non-published JSON-RPC 1.1 protocol was deprecated in json 1.7
 
     @section codetags Function and Method Tags
 
@@ -121,6 +134,11 @@
 
     @section jsonreleasenotes Release Notes
 
+    @subsection v0_1_7 Version 1.7
+    - deprecated support for the non-published JSON-RPC 1.1 protocol
+    - added support for JSON-RPC 2.0
+    - added the <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a> user module
+
     @subsection v0_1_6 Version 1.6
     - @ref parse_json() now ignores UTF-8 and Unicode BOMs at the start of passed JSON string  (<a href="https://github.com/qorelanguage/qore/issues/1398">issue 1398</a>)
     - fixed a bug in request logging in the <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> module (<a href="https://github.com/qorelanguage/qore/issues/1487">issue 1487</a>)
@@ -134,7 +152,7 @@
     - new functions added conforming to %Qore's function naming convention, old camel-case functions deprecated
     - JSON tests ported to QUnit
     - %Qore 0.8.12 required as a minimum to build
-    - JSON output is more compact; fewer extransous whitespaces are used
+    - JSON output is more compact; less extraneous whitespace is used
 
     @subsection v0_1_4 Version 1.4
 
