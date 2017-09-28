@@ -38,6 +38,7 @@ class JsonTest inherits QUnit::Test {
             "time": now().format("YYYY-MM-DD HH:mm:SS"),
             "key": "this & that",
             "escapes": "lorem ipsum\ndolor\tsir amet",
+            "\"key\"": 1,
             );
     }
 
