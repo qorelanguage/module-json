@@ -424,7 +424,7 @@ static int do_json_string_intern(ExceptionSink* xsink, QoreString* str, const ch
    return 0;
 }
 
-static int do_json_string(ExceptionSink* xsink, QoreString* str, const QoreStringNode* vstr, int format) {
+static int do_json_string(ExceptionSink* xsink, QoreString* str, const QoreString* vstr, int format) {
    TempEncodingHelper t(vstr, str->getEncoding(), xsink);
    if (*xsink)
       return -1;
@@ -458,6 +458,46 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
             str->concat('\n');
             str->addch(' ', format + 2);
          }
+
+         QoreString tmpkey(hi.getKey());
+         if (do_json_string(xsink, str, &tmpkey, format))
+            return -1;
+         str->concat(": ");
+         str->concat(tmp.c_str(), tmp.size());
+         //str->sprintf("\"%s\": %s", hi.getKey(), tmp.getBuffer());
+         if (!hi.last())
+            str->concat(",");
+
+      }
+      str->concat("}");
+      return 0;
+   }
+/*
+   if (vtype == NT_STRING) {
+      const QoreStringNode* vstr = v.get<const QoreStringNode>();
+
+      TempEncodingHelper t(vstr, str->getEncoding(), xsink);
+      if (*xsink)
+         return -1;
+
+      str->concat('"');
+      qore_size_t i = str->size();
+      str->concatEscape(*t, '"', '\\', xsink);
+      if (*xsink)
+         return -1;
+
+      // http://tools.ietf.org/html/rfc4627
+      // encode all control characters in the string concatenated
+      while (i < str->size()) {
+         // see if we have a single-byte character; do not try to look at bytes within multi-byte characters
+         qore_size_t cl = q_get_char_len(str->getEncoding(), str->getBuffer() + i, str->size() - i, xsink);
+         if (*xsink)
+            return -1;
+
+         if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
+            str->concat('\n');
+            str->addch(' ', format + 2);
+         }
          str->sprintf("\"%s\": %s", hi.getKey(), tmp.getBuffer());
          if (!hi.last())
             str->concat(",");
@@ -465,6 +505,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
       str->concat("}");
       return 0;
    }
+*/
 
    if (vtype == NT_STRING)
       return do_json_string(xsink, str, v.get<const QoreStringNode>(), format);
