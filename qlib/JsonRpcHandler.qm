@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file JsonRpcHandler.qm @brief JSON-RPC handler class definition for the HttpServer module
 
-/*  JsonRpcHandler.qm Copyright (C) 2012 - 2016 David Nichols
+/*  JsonRpcHandler.qm Copyright (C) 2012 - 2018 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -213,7 +213,7 @@ public namespace JsonRpcHandler {
             @param logopt log options which can be used by a custom logger (see the getLogMessage parameter)
             @param cmark any value that will be added in the method hash under the \c "cmark" key
           */
-        addMethod(string name, code func, string text, string help, any logopt, any cmark) {
+        addMethod(string name, code func, string text, string help, auto logopt, auto cmark) {
             addMethodInternal(("name": name,
                                "function": func,
                                "text": text,
@@ -237,7 +237,7 @@ public namespace JsonRpcHandler {
         # don't reimplement this method; fix/enhance it in the module
         final private addMethodInternal(hash h) {
             # check for duplicate in method index
-            any i = mi.(h.text);
+            auto i = mi.(h.text);
             if (!exists i)
                 i = elements methods;
 
@@ -294,7 +294,7 @@ public namespace JsonRpcHandler {
         }
 
         # don't reimplement this method; fix/enhance it in the module
-        final private hash callMethod(hash cx, any params) {
+        final private hash callMethod(hash cx, auto params) {
             string method = cx.method;
             # find method function
             hash found;
@@ -324,7 +324,16 @@ public namespace JsonRpcHandler {
 
             #printf("DEBUG: about to call function '%s' (method=%s params=%y)\n", found.function, method, params);
 
-            any rv = found.internal ? call_object_method_args(self, found.function, params) : call_function_args(found.function, params);
+            auto rv;
+            try {
+                rv = found.internal ? call_object_method_args(self, found.function, params) : call_function_args(found.function, params);
+            }
+            catch (hash<ExceptionInfo> ex) {
+                # issue #2573: provide a more user-friendly error when the argument cannot be matched to the closure/call ref
+                if (ex.err == "RUNTIME-TYPE-ERROR" && (ex.callstack[1].file =~ /JsonRpcHandler.qm$/ && (ex.callstack[1].function == "call_function_args" || ex.callstack[1].function == "call_object_method_args")))
+                    throw "RPC-ARG-ERROR", sprintf("a call to JSON-RPC method %y is missing one or more required arguments; internal call error: %s: %s", method, ex.err, ex.desc);
+                rethrow;
+            }
 
             # throw an exception if the protocol version is >= 2.0 and there is no id (therefore the request is a notification) and a response was returned
             if (exists cx.jsonrpc_version && !exists cx.jsonid && exists rv && compare_version(cx.jsonrpc_version, "2.0") >= 0)
@@ -362,11 +371,11 @@ public namespace JsonRpcHandler {
                     );
 
                 try {
-                    any req;
+                    auto req;
                     try {
                         req = parse_json(body);
                     }
-                    catch (hash ex) {
+                    catch (hash<ExceptionInfo> ex) {
                         throw ex.err, ex.desc, JRE_ParseError;
                     }
                     int t = req.typeCode();
@@ -383,7 +392,7 @@ public namespace JsonRpcHandler {
                             throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting \"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
                     }
                 }
-                catch (hash ex) {
+                catch (hash<ExceptionInfo> ex) {
                     string estr = sprintf("%s: %s", ex.err, ex.desc);
                     if (ex.arg.typeCode() == NT_INT) {
                         return (
@@ -409,7 +418,7 @@ public namespace JsonRpcHandler {
             try {
                 return ("code": 200, "hdr": ("Content-Type": MimeTypeJsonRpc)) + callMethod(cx, jsonrpc.params);
             }
-            catch (hash ex) {
+            catch (hash<ExceptionInfo> ex) {
                 # show complete exception trace if system debug option is enabled
                 string str = !debug
                     ? sprintf("%s: %s", ex.err, ex.desc)
@@ -426,7 +435,7 @@ public namespace JsonRpcHandler {
 
         private hash processBatchMessage(hash cx, list l) {
             list rvl = ();
-            foreach any elem in (l) {
+            foreach auto elem in (l) {
                 if (elem.typeCode() != NT_HASH)
                     throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", $# + 1, l.size(), elem.type()), JRE_InvalidRequest;
                 cx.jsonrpc_version = elem.jsonrpc ?? elem.version;
@@ -441,11 +450,11 @@ public namespace JsonRpcHandler {
                     );
 
                 try {
-                    any rv = callMethod(cx, jsonrpc.params).body;
+                    auto rv = callMethod(cx, jsonrpc.params).body;
                     if (exists elem.id)
                         rvl += rv;
                 }
-                catch (hash ex) {
+                catch (hash<ExceptionInfo> ex) {
                     # show complete exception trace if system debug option is enabled
                     string str = !debug
                         ? sprintf("element %d of %d: %s: %s", $# + 1, l.size(), ex.err, ex.desc)
