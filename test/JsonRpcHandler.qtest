@@ -36,10 +36,19 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
              "help": "throws an error",
              "logopt": 0,
             ),
-            );
+            ("name": "^example\$",
+             "text": "example",
+             "function": string sub (string arg) { return arg; },
+             "help": "example call",
+            ),
+        );
     }
 
     constructor() : JsonRpcHandler(new PermissiveAuthenticator(), ApiMethods, \MyJsonRpcHandler::getLogMessage(), NOTHING, NOTHING, \MyJsonRpcHandler::log()) {
+    }
+
+    hash testCallMethod(hash cx, auto params) {
+        return callMethod(cx, params);
     }
 
     static string getLogMessage(hash cx, hash mh, reference params) {
@@ -95,6 +104,7 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         addTestCase("Test JSON-RPC 2.0", \testJsonRpc2_0());
         addTestCase("Test JSON-RPC 1.0", \testJsonRpc1_0());
         addTestCase("Test JSON-RPC 1.1", \testJsonRpc1_1());
+        addTestCase("issue 2573", \issue2573());
 
         # Return for compatibility with test harness that checks return value.
         set_return_value(main());
@@ -112,6 +122,10 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
     globalTearDown() {
         mServer.stop();
         delete mServer;
+    }
+
+    issue2573() {
+        assertThrows("RPC-ARG-ERROR", "missing one or more required arguments", \mHandler.testCallMethod(), ({"method": "example"}, ()));
     }
 
     testJsonRpc2_0() {
