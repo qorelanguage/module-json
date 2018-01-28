@@ -124,7 +124,7 @@ public namespace JsonRpcConnection {
                 "module": "json",
                 "class_name": "Qore::Json::JsonRpcClient",
                 "args": real_opts,
-                "pre_processing": "args[1] = !connect",
+                "pre_processing": "args[1] = !connect;",
             });
         }
 
