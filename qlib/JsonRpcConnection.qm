@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file JsonRpcConnection.qm JSON-RPC client connection module implementation
 
-/*  JsonRpcConnections.qm Copyright 2013 - 2016 Qore Technologies, s.r.o.
+/*  JsonRpcConnections.qm Copyright 2013 - 2018 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
 */
 
 # minimum required Qore version
-%requires qore >= 0.8.13
+%requires qore >= 0.9
 
 # require type definitions everywhere
 %require-types
@@ -35,12 +35,12 @@
 
 %requires(reexport) json
 #%requires Util >= 1.0
-%requires(reexport) ConnectionProvider >= 1.0
+%requires(reexport) ConnectionProvider >= 1.1
 
 %new-style
 
 module JsonRpcConnection {
-    version = "1.0";
+    version = "1.1";
     desc = "user module for providing JSON-RPC client connections";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -67,6 +67,11 @@ module JsonRpcConnection {
     - @ref JsonRpcConnection::JsonRpcConnection "JsonRpcConnection"
 
     @section jsonrpcconnection_relnotes JsonRpcConnection Module Release History
+
+    @subsection jsonrpcconnection_v1_1 JsonRpcConnection v1.1
+    - the @ref JsonRpcConnection::JsonRpcConnection::getConstructorInfo() "JsonRpcConnection::getConstructorInfo()"
+      method was added to allow connections to be created dynamically, potentially in another process from a network
+      call (<a href="https://github.com/qorelanguage/qore/issues/2628">issue 2628</a>)
 
     @subsection jsonrpcconnection_v1_0 JsonRpcConnection v1.0
     - the initial version of the JsonRpcConnection module
@@ -109,6 +114,18 @@ public namespace JsonRpcConnection {
         */
         private Qore::Json::JsonRpcClient getImpl(bool connect = True, *hash rtopts) {
             return new Qore::Json::JsonRpcClient(real_opts, !connect);
+        }
+
+        #! returns a hash that can be used to contruct the object dynamically
+        /** @since %JsonRpcConnection 1.1
+        */
+        private hash<ConnectionConstructorInfo> getConstructorInfoImpl() {
+            return new hash<ConnectionConstructorInfo>({
+                "module": "json",
+                "class_name": "Qore::Json::JsonRpcClient",
+                "args": real_opts,
+                "pre_processing": "args[1] = !connect",
+            });
         }
 
         #! gets options

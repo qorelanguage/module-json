@@ -41,5 +41,21 @@ class JsonRpcClientTest inherits QUnit::Test {
         yurl = url;
         yurl =~ s/^jsonrpc/http/;
         assertEq(yurl + "/JSON", client.getURL());
+
+        hash<ConnectionConstructorInfo> info = conn.getConstructorInfo();
+        assertEq("json", info.module);
+        assertEq("Qore::Json::JsonRpcClient", info.class_name);
+        assertEq("https://localhost:8099", info.args[0].url);
+        checkPostProcessing(info);
+    }
+
+    private checkPostProcessing(hash<ConnectionConstructorInfo> info) {
+        Program p(PO_NEW_STYLE | PO_STRICT_ARGS | PO_REQUIRE_TYPES);
+        if (info.module)
+            p.loadModule(info.module);
+        string post_processing = sprintf("sub post_processing(%s obj, bool connect, *hash rtopts) { %s }", info.class_name, info.post_processing);
+        # ensure that the post processing code can be parsed
+        p.parse(post_processing, "post processing");
+        assertTrue(True, "post processing: " + info.class_name);
     }
 }
