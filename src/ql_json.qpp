@@ -7,7 +7,7 @@
 
   Qore Programming Language
 
-  Copyright 2003 - 2016 Qore Technologies, s.r.o.
+  Copyright 2003 - 2018 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -553,11 +553,12 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
       // for simplicity's sake (particularly because json does not have a native date/time format)
       qore_tm info;
       date->getInfo(currentTZ(), info);
-      str->sprintf("%04d-%02d-%02d %02d:%02d:%02d.%06d", info.year, info.month, info.day, info.hour, info.minute, info.second, info.us);
+      // issue #2655 include a 'T' between the date and time as per ISO-8601
+      str->sprintf("%04d-%02d-%02dT%02d:%02d:%02d.%06d", info.year, info.month, info.day, info.hour, info.minute, info.second, info.us);
       if (!info.utc_secs_east)
          str->concat('Z');
       else {
-         str->concat(' ');
+         // issue #2655 do not include a space before the UTC offset
          str->concat(info.utc_secs_east < 0 ? '-' : '+');
          if (info.utc_secs_east < 0)
             info.utc_secs_east = -info.utc_secs_east;

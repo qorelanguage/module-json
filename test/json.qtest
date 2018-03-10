@@ -15,7 +15,7 @@
 %disable-warning deprecated
 
 # make sure we have the right version of qore
-%requires qore >= 0.8.1
+%requires qore >= 0.8.13
 
 # make sure we have the json module
 %requires json
@@ -28,7 +28,7 @@ class JsonTest inherits QUnit::Test {
     public {}
 
     private {
-        const TestHash = (
+        const TestHash = {
             "key1": 1,
             "key2": "string-\"test-quotes\"",
             "key3": 1.0391,
@@ -39,7 +39,9 @@ class JsonTest inherits QUnit::Test {
             "key": "this & that",
             "escapes": "lorem ipsum\ndolor\tsir amet",
             "\"key\"": 1,
-            );
+        };
+
+        const TestDate = 2018-03-10T05:17:18Z;
     }
 
     constructor() : Test("JsonTest", "1.0", \ARGV) {
@@ -48,6 +50,7 @@ class JsonTest inherits QUnit::Test {
         addTestCase("JSON-RPC 1.1 TestCase", \jsonRpc11TestCase());
         addTestCase("JsonDeprecatedTestCase", \jsonDeprecatedTestCase());
         addTestCase("parse_json UTF-8/Unicode BOM skipping test", \parseJsonBom());
+        addTestCase("issue 2655", \issue2655());
         set_return_value(main());
     }
 
@@ -60,11 +63,11 @@ class JsonTest inherits QUnit::Test {
         int id = 512;
         string method = "methodname";
 
-        hash jc = (
+        hash jc = {
             "id": id,
             "method": method,
             "params": TestHash,
-            );
+        };
 
         # JSON-RPC 1.0 messages
         assertEq(jc, parse_json(make_jsonrpc_request(method, NOTHING, id, TestHash)));
@@ -99,7 +102,6 @@ class JsonTest inherits QUnit::Test {
         je = jr - "result" + ("error": TestHash);
         assertEq(je, parse_json(make_jsonrpc_error("2.0", id, TestHash)));
         assertEq(je, parse_json(make_jsonrpc_error("2.0", id, TestHash, JGF_ADD_FORMATTING)));
-
     }
 
     jsonRpc11TestCase() {
@@ -107,12 +109,12 @@ class JsonTest inherits QUnit::Test {
         int id = 512;
         string method = "methodname";
 
-        hash jc = (
+        hash jc = {
             "version": ver,
             "id": id,
             "method": method,
             "params": TestHash,
-            );
+        };
 
         # non-standard, non-published JSON-RPC 1.1 messages
         assertEq(jc, parse_json(make_jsonrpc_request(method, ver, id, TestHash)));
@@ -179,5 +181,14 @@ class JsonTest inherits QUnit::Test {
         assertEqSoft(TestHash, parseJSON(dataWithUtf8BOM));
         assertEqSoft(TestHash, parseJSON(dataWithFEFFBOM));
         assertEqSoft(TestHash, parseJSON(dataWithFFFEBOM));
+    }
+
+    issue2655() {
+        # the json module serializes all dates to the current time zone
+        TimeZone tz = TimeZone::get();
+        # get a string for the test date in this time zone
+        string datestr = tz.date(TestDate).format("YYYY-MM-DDTHH:mm:SS.usZ");
+        string json = make_json(TestDate);
+        assertEq("\"" + datestr + "\"", json);
     }
 }
