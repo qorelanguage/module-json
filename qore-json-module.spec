@@ -1,4 +1,4 @@
-%define mod_ver 1.7
+%define mod_ver 1.8
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -100,6 +100,9 @@ json module.
 %doc docs/json/html docs/JsonRpcHandler/html examples/ test/
 
 %changelog
+* Sun Jan 26 2018 David Nichols <david@qore.org> - 1.8
+- updated to version 1.8
+
 * Sun Dec 4 2016 David Nichols <david@qore.org> - 1.7
 - updated to version 1.7
 
