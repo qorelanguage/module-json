@@ -49,7 +49,7 @@ Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.bz2
 #Source0: %{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
-Requires: qore-module-api-%{module_api}
+Requires: qore-module(abi)%{?_isa} = %{module_api}
 BuildRequires: gcc-c++
 BuildRequires: qore-devel >= 0.8.13
 BuildRequires: openssl-devel
