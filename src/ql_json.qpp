@@ -451,7 +451,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
       while (hi.next()) {
          bool ind = tmp.strlen() > JSF_THRESHOLD;
          tmp.clear();
-         if (do_json_value(&tmp, hi.getValue(), format == -1 ? format : format + 2, xsink))
+         if (do_json_value(&tmp, hi.get(), format == -1 ? format : format + 2, xsink))
             return -1;
 
          if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
