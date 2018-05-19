@@ -1,25 +1,25 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
 /** @file JsonRpcClient.qpp defines the JsonRpcClient class */
 /*
-  QC_JsonRpcClient.qpp
+    QC_JsonRpcClient.qpp
 
-  Qore Programming Language
+    Qore Programming Language
 
-  Copyright (C) 2006 - 2016 Qore Technologies, s.r.o.
+    Copyright (C) 2006 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "qore-json-module.h"
@@ -32,59 +32,59 @@
 
 class HTTPInfoRefHelper {
 protected:
-   const ReferenceNode *ref;
-   ExceptionSink *xsink;
-   ReferenceHolder<QoreHashNode> info;
+    const ReferenceNode *ref;
+    ExceptionSink *xsink;
+    ReferenceHolder<QoreHashNode> info;
 
 public:
-   DLLLOCAL HTTPInfoRefHelper(const ReferenceNode *n_ref, QoreStringNode *msg, ExceptionSink *n_xsink) : ref(n_ref), xsink(n_xsink), info(new QoreHashNode, xsink) {
-      info->setKeyValue("request", msg, xsink);
-   }
-   DLLLOCAL ~HTTPInfoRefHelper() {
-      // we have to create a temporary ExceptionSink if there is
-      // an active exception, otherwise writing back the reference will fail
-      ExceptionSink *txsink = *xsink ? new ExceptionSink : xsink;
+    DLLLOCAL HTTPInfoRefHelper(const ReferenceNode *n_ref, QoreStringNode *msg, ExceptionSink *n_xsink) : ref(n_ref), xsink(n_xsink), info(new QoreHashNode, xsink) {
+        info->setKeyValue("request", msg, xsink);
+    }
+    DLLLOCAL ~HTTPInfoRefHelper() {
+        // we have to create a temporary ExceptionSink if there is
+        // an active exception, otherwise writing back the reference will fail
+        ExceptionSink *txsink = *xsink ? new ExceptionSink : xsink;
 
-      // write info hash to reference
-      AutoVLock vl(txsink);
-      QoreTypeSafeReferenceHelper rh(ref, vl, txsink);
-      if (!rh)
-         return;
+        // write info hash to reference
+        AutoVLock vl(txsink);
+        QoreTypeSafeReferenceHelper rh(ref, vl, txsink);
+        if (!rh)
+            return;
 
-      if (rh.assign(info.release(), txsink))
-         return;
+        if (rh.assign(info.release(), txsink))
+            return;
 
-      if (txsink != xsink)
-         xsink->assimilate(txsink);
-   }
-   DLLLOCAL QoreHashNode *operator*() {
-      return *info;
-   }
+        if (txsink != xsink)
+            xsink->assimilate(txsink);
+    }
+    DLLLOCAL QoreHashNode *operator*() {
+        return *info;
+    }
 };
 
-AbstractQoreNode* JsonRpcClient::call(QoreStringNode *msg, QoreHashNode *info, ExceptionSink *xsink) {
-   ReferenceHolder<QoreHashNode> response(send("POST", 0, 0, msg->getBuffer(), msg->strlen(), true, info, xsink), xsink);
-   if (!response)
-      return 0;
+QoreValue JsonRpcClient::call(QoreStringNode *msg, QoreHashNode *info, ExceptionSink *xsink) {
+    ReferenceHolder<QoreHashNode> response(send("POST", 0, 0, msg->getBuffer(), msg->strlen(), true, info, xsink), xsink);
+    if (!response)
+        return QoreValue();
 
-   ReferenceHolder<AbstractQoreNode> ans(response->takeKeyValue("body"), xsink);
+    ValueHolder ans(response->takeKeyValue("body"), xsink);
 
-   if (!ans)
-      return 0;
+    if (!ans)
+        return QoreValue();
 
-   AbstractQoreNode *ah = *ans;
-   if (info) {
-      info->setKeyValue("response", ans.release(), xsink);
-      info->setKeyValue("response_headers", response.release(), xsink);
-   }
+    QoreValue ah = *ans;
+    if (info) {
+        info->setKeyValue("response", ans.release(), xsink);
+        info->setKeyValue("response_headers", response.release(), xsink);
+    }
 
-   if (ah->getType() != NT_STRING) {
-      xsink->raiseException("JSONRPCCLIENT-RESPONSE-ERROR", "undecoded binary response received from remote server");
-      return 0;
-   }
+    if (ah.getType() != NT_STRING) {
+        xsink->raiseException("JSONRPCCLIENT-RESPONSE-ERROR", "undecoded binary response received from remote server");
+        return QoreValue();
+    }
 
-   // parse JSON-RPC response
-   return parse_json(reinterpret_cast<QoreStringNode*>(ah), xsink);
+    // parse JSON-RPC response
+    return parse_json(ah.get<QoreStringNode>(), xsink);
 }
 
 //! The JsonRpcClient class provides easy access to JSON-RPC web services
