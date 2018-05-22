@@ -6,7 +6,7 @@ set (VERSION_MAJOR 1)
 set (VERSION_MINOR 8)
 set (VERSION_PATCH 0)
 
-find_package(Qore REQUIRED)
+find_package(Qore 0.9 REQUIRED)
 
 include_directories( ${CMAKE_SOURCE_DIR}/src )
 
