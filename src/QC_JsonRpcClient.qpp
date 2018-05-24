@@ -187,7 +187,7 @@ hash result = jrc.callArgs("method.name", arg_list);
 
     @since json 1.7 this method calls with a hardcoded \c id value of 1
 */
-hash JsonRpcClient::callArgs(string[doc] method, any[doc] args) {
+hash JsonRpcClient::callArgs(string[doc] method, auto[doc] args) {
    // create the outgoing message in JSON-RPC call format
    SimpleRefHolder<QoreStringNode> msg(make_jsonrpc_request_args(client->getVersionStr(), args, 1, 0, xsink));
    if (!msg)
@@ -284,15 +284,15 @@ hash result = jrc.callArgsWithInfo(\info, "method.name", arg_list, 2);
     @since json 1.7 this method calls with a hardcoded \c id value of 1
 */
 hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc] args) {
-   // create the outgoing message in JSON-RPC call format
-   QoreStringNode *msg = make_jsonrpc_request_args(client->getVersionStr(), args, 1, 1, xsink);
-   if (!msg)
-      return 0;
+    // create the outgoing message in JSON-RPC call format
+    QoreStringNode *msg = make_jsonrpc_request_args(client->getVersionStr(), args, 1, 1, xsink);
+    if (!msg)
+        return QoreValue();
 
-   HTTPInfoRefHelper irh(info, msg, xsink);
+    HTTPInfoRefHelper irh(info, msg, xsink);
 
-   // send the message to the server and get the response as a JSON string
-   return client->call(msg, *irh, xsink);
+    // send the message to the server and get the response as a JSON string
+    return client->call(msg, *irh, xsink);
 }
 
 //! Calls a remote method using a single value after the method name for the method arguments and returns the response as qore data structure, accepts a reference to a hash as the first argument to give technical information about the call
@@ -325,15 +325,15 @@ hash result = jrc.callIdArgsWithInfo(\info, 4, "method.name", arg_list, 2);
     @since json 1.7
 */
 hash JsonRpcClient::callIdArgsWithInfo(reference info, any id, string[doc] method, any[doc] args) {
-   // create the outgoing message in JSON-RPC call format
-   QoreStringNode *msg = make_jsonrpc_request_args(client->getVersionStr(), args, id, 1, xsink);
-   if (!msg)
-      return 0;
+    // create the outgoing message in JSON-RPC call format
+    QoreStringNode *msg = make_jsonrpc_request_args(client->getVersionStr(), args, id, 1, xsink);
+    if (!msg)
+        return QoreValue();
 
-   HTTPInfoRefHelper irh(info, msg, xsink);
+    HTTPInfoRefHelper irh(info, msg, xsink);
 
-   // send the message to the server and get the response as a JSON string
-   return client->call(msg, *irh, xsink);
+    // send the message to the server and get the response as a JSON string
+    return client->call(msg, *irh, xsink);
 }
 
 //! Calls a remote method taking all arguments after the method name for the method arguments and returns the response as qore data structure, accepts a reference to a hash as the first argument to give technical information about the call
@@ -364,15 +364,15 @@ hash result = jrc.callWithInfo(\info, "method.name", arg1, arg2);
     @since json 1.7 this method calls with a hardcoded \c id value of 1
 */
 hash JsonRpcClient::callWithInfo(reference info, string[doc] method, ...) {
-   // create the outgoing message in JSON-RPC call format
-   QoreStringNode *msg = make_jsonrpc_request(client->getVersionStr(), args, 1, 1, xsink);
-   if (!msg)
-      return 0;
+    // create the outgoing message in JSON-RPC call format
+    QoreStringNode *msg = make_jsonrpc_request(client->getVersionStr(), args, 1, 1, xsink);
+    if (!msg)
+        return QoreValue();
 
-   HTTPInfoRefHelper irh(info, msg, xsink);
+    HTTPInfoRefHelper irh(info, msg, xsink);
 
-   // send the message to the server and get the response as a JSON string
-   return client->call(msg, *irh, xsink);
+    // send the message to the server and get the response as a JSON string
+    return client->call(msg, *irh, xsink);
 }
 
 //! Calls a remote method taking all arguments after the method name for the method arguments and returns the response as qore data structure, accepts a reference to a hash as the first argument to give technical information about the call
@@ -404,15 +404,15 @@ hash result = jrc.callIdWithInfo(\info, 3, "method.name", arg1, arg2);
     @since the \c id parameter was added in json 1.7
 */
 hash JsonRpcClient::callIdWithInfo(reference info, any id, string[doc] method, ...) {
-   // create the outgoing message in JSON-RPC call format
-   QoreStringNode *msg = make_jsonrpc_request(client->getVersionStr(), args, id, 1, xsink);
-   if (!msg)
-      return 0;
+    // create the outgoing message in JSON-RPC call format
+    QoreStringNode *msg = make_jsonrpc_request(client->getVersionStr(), args, id, 1, xsink);
+    if (!msg)
+        return QoreValue();
 
-   HTTPInfoRefHelper irh(info, msg, xsink);
+    HTTPInfoRefHelper irh(info, msg, xsink);
 
-   // send the message to the server and get the response as a JSON string
-   return client->call(msg, *irh, xsink);
+    // send the message to the server and get the response as a JSON string
+    return client->call(msg, *irh, xsink);
 }
 
 //! clears the event queue for the JsonRpcClient object
@@ -422,7 +422,7 @@ jrc.setEventQueue();
     @endcode
  */
 nothing JsonRpcClient::setEventQueue() {
-   client->setEventQueue(0, xsink);
+    client->setEventQueue(0, xsink);
 }
 
 //! sets the event queue for the JsonRpcClient object
@@ -434,8 +434,8 @@ jrc.setEventQueue(queue);
     @endcode
  */
 nothing JsonRpcClient::setEventQueue(Queue[Queue] queue) {
-   // pass reference from QoreObject::getReferencedPrivateData() to function
-   client->setEventQueue(queue, xsink);
+    // pass reference from QoreObject::getReferencedPrivateData() to function
+    client->setEventQueue(queue, xsink);
 }
 
 //! Sets the JSON-RPC protocol version
@@ -444,9 +444,9 @@ nothing JsonRpcClient::setEventQueue(Queue[Queue] queue) {
     @since json 1.7
  */
 nothing JsonRpcClient::setVersion(string version) {
-   TempEncodingHelper tstr(version, QCS_UTF8, xsink);
-   if (tstr)
-      client->setVersion(tstr->c_str());
+    TempEncodingHelper tstr(version, QCS_UTF8, xsink);
+    if (tstr)
+        client->setVersion(tstr->c_str());
 }
 
 //! Returns the JSON-RPC protocol version
@@ -455,7 +455,7 @@ nothing JsonRpcClient::setVersion(string version) {
     @since json 1.7
  */
 string JsonRpcClient::getVersion() [flags=CONSTANT] {
-   QoreStringNode* str = new QoreStringNode(QCS_UTF8);
-   client->getVersion(*str);
-   return str;
+    QoreStringNode* str = new QoreStringNode(QCS_UTF8);
+    client->getVersion(*str);
+    return str;
 }

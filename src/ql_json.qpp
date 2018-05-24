@@ -1,27 +1,27 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
 /** @file ql_json.qpp defines JSON functions */
 /*
-  lib/ql_json.qpp
+    lib/ql_json.qpp
 
-  Qore JSON (JavaScript QoreObject Notation) functions
+    Qore JSON (JavaScript QoreObject Notation) functions
 
-  Qore Programming Language
+    Qore Programming Language
 
-  Copyright 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright 2003 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "qore-json-module.h"
@@ -563,7 +563,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
    return -1;
 }
 
-QoreStringNode* make_jsonrpc_request_args(const std::string& version, const QoreValueList* args, QoreValue id, unsigned offset, ExceptionSink* xsink) {
+QoreStringNode* make_jsonrpc_request_args(const std::string& version, const QoreListNode* args, QoreValue id, unsigned offset, ExceptionSink* xsink) {
    const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
 
    const QoreValue p1 = get_param_value(args, offset + 1);
@@ -596,7 +596,7 @@ QoreStringNode* make_jsonrpc_request_args(const std::string& version, const Qore
    return str.release();
 }
 
-QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreValueList* args, QoreValue id, unsigned offset, ExceptionSink* xsink) {
+QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreListNode* args, QoreValue id, unsigned offset, ExceptionSink* xsink) {
    const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
 
    QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
