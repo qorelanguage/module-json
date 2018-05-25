@@ -51,7 +51,7 @@ public:
         if (!rh)
             return;
 
-        if (rh.assign(info.release(), txsink))
+        if (rh.assign(info.release()))
             return;
 
         if (txsink != xsink)
