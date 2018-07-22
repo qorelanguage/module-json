@@ -305,12 +305,12 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
 
     if ((*buf) == 't') {
         if (!cmp_rest_token(buf, "rue"))
-            return boolean_true();
+            return true;
         goto error;
     }
     if ((*buf) == 'f') {
         if (!cmp_rest_token(buf, "alse"))
-            return boolean_false();
+            return false;
         goto error;
     }
     if ((*buf) == 'n') {
