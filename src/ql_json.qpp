@@ -306,20 +306,15 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
     if ((*buf) == 't') {
         if (!cmp_rest_token(buf, "rue"))
             return true;
-        goto error;
     }
-    if ((*buf) == 'f') {
+    else if ((*buf) == 'f') {
         if (!cmp_rest_token(buf, "alse"))
             return false;
-        goto error;
     }
-    if ((*buf) == 'n') {
+    else if ((*buf) == 'n') {
         if (!cmp_rest_token(buf, "ull"))
             return nothing();
-        goto error;
     }
-
-    error:
     //printd(5, "buf=%s\n", buf);
 
     xsink->raiseException("JSON-PARSE-ERROR", "invalid input at line %d; unable to parse JSON value", line_number);
