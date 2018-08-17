@@ -170,9 +170,7 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
 
         // get value
         QoreValue val = get_json_value(buf, line_number, enc, xsink);
-        if (!val) {
-            if (!xsink->isException())
-                xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON object (expecting JSON value for key '%s')", line_number, str.getBuffer());
+        if (*xsink) {
             break;
         }
         h->setKeyValue(&str, val, xsink);
