@@ -188,7 +188,6 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
         buf++;
 
         skip_whitespace(buf, line_number);
-
     }
     return 0;
 }
@@ -208,10 +207,8 @@ static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, cons
     while (*buf) {
         //printd(5, "before get_json_value() buf=%s\n", buf);
         QoreValue val = get_json_value(buf, line_number, enc, xsink);
-        if (!val) {
-            if (!xsink->isException())
-                xsink->raiseException("JSON-PARSE-ERROR", "premature end of input at line %d while parsing JSON array (expecting JSON value)", line_number);
-            return 0;
+        if (*xsink) {
+            break;
         }
         //printd(5, "after get_json_value() buf=%s\n", buf);
         l->push(val, xsink);
@@ -237,8 +234,9 @@ static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, cons
 static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
     // skip whitespace
     skip_whitespace(buf, line_number);
-    if (!*buf)
+    if (!*buf) {
         return QoreValue();
+    }
 
     // can expect: 't'rue, 'f'alse, '{', '[', '"'string...", integer, '.'digits
     if (*buf == '{')
