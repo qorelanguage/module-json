@@ -39,6 +39,8 @@ class JsonTest inherits QUnit::Test {
             "key": "this & that",
             "escapes": "lorem ipsum\ndolor\tsir amet",
             "\"key\"": 1,
+            "null": NOTHING,
+            "arr": (NOTHING,),
         };
 
         const TestDate = 2018-03-10T05:17:18Z;
