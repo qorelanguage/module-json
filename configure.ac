@@ -485,6 +485,8 @@ else
    fi
 fi
 AC_SUBST([userlibdir])
+usermoddir="`echo ${userlibdir}|sed s/-modules.*//`"
+AC_SUBST([usermoddir])
 
 set_openssl_cppflags() {
     if test "$1" != "/usr/include"; then
