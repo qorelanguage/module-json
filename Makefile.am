@@ -32,7 +32,10 @@ QLIB_TMP_DOXYFILES = docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRp
 QDX = qdx
 DX_CLEANFILES = ${DOXYFILES} $(QLIB_TMP_DOXYFILES)
 
-docs/qlib/Doxyfile.JsonRpcHandler: docs/qlib/Doxyfile.tmpl
+docs/qlib/Doxyfile.tmp: docs/qlib/Doxyfile.tmpl
+	sed s:__USERMODDIR__:${usermoddir}: $< > $@
+
+docs/qlib/Doxyfile.JsonRpcHandler: docs/qlib/Doxyfile.tmp
 	$(QDX) -M=qlib/JsonRpcHandler.qm:qlib/JsonRpcHandler.qm.dox.h -tjson.tag=../../json/html $< $@
 
 docs/qlib/JsonRpcHandler.qm.dox.h: qlib/JsonRpcHandler.qm
@@ -42,7 +45,8 @@ docs/JsonRpcHandler/html: docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.J
 	cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.JsonRpcHandler
 	$(QDX) --post docs/JsonRpcHandler/html docs/JsonRpcHandler/html/search
 
-docs/qlib/Doxyfile.JsonRpcConnection: docs/qlib/Doxyfile.tmpl
+docs/qlib/Doxyfile.JsonRpcConnection: docs/qlib/Doxyfile.tmp
+	sed s:__USERMODDIR__:${usermoddir}: $< > $@
 	$(QDX) -M=qlib/JsonRpcConnection.qm:qlib/JsonRpcConnection.qm.dox.h -tjson.tag=../../json/html $< $@
 
 docs/qlib/JsonRpcConnection.qm.dox.h: qlib/JsonRpcConnection.qm
@@ -60,7 +64,7 @@ docs/mainpage.doxygen: docs/mainpage.doxygen.tmpl
 	$(QDX) -d $< $@
 
 docs/doxyfile: docs/doxyfile.tmpl
-	sed s/__VERSION__/${VERSION}/ $< > $@
+	sed -e s/__VERSION__/${VERSION}/ -e s:__USERMODDIR__:${usermoddir}: $< > $@
 
 doxygen-doc: $(DOXYGEN_OUTPUT)
 
