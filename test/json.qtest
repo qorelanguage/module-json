@@ -47,6 +47,7 @@ class JsonTest inherits QUnit::Test {
     }
 
     constructor() : Test("JsonTest", "1.0", \ARGV) {
+        addTestCase("issue 3135", \issue3135());
         addTestCase("JsonTestCase", \jsonTestCase());
         addTestCase("JSON-RPC TestCase", \jsonRpcTestCase());
         addTestCase("JSON-RPC 1.1 TestCase", \jsonRpc11TestCase());
@@ -54,6 +55,16 @@ class JsonTest inherits QUnit::Test {
         addTestCase("parse_json UTF-8/Unicode BOM skipping test", \parseJsonBom());
         addTestCase("issue 2655", \issue2655());
         set_return_value(main());
+    }
+
+    issue3135() {
+        assertEq("\"PT1S250000u\"", make_json(1s + 250ms));
+        assertEq("\"P2M3DT10H14u\"", make_json(P2M3DT10H14u));
+        assertEq("\"P10Y4M200DT99H140S\"", make_json(P10Y4M200DT99H140S));
+
+        assertEq(PT1S250000u, date(parse_json("\"PT1S250000u\"")));
+        assertEq(P2M3DT10H14u, date(parse_json("\"P2M3DT10H14u\"")));
+        assertEq(P10Y4M200DT99H140S, date(parse_json("\"P10Y4M200DT99H140S\"")));
     }
 
     jsonTestCase() {
