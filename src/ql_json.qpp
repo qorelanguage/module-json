@@ -410,160 +410,172 @@ static int do_json_string(ExceptionSink* xsink, QoreString* str, const QoreStrin
 }
 
 static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink* xsink) {
-   if (v.isNullOrNothing()) {
-      str->concat("null");
-      return 0;
-   }
+    if (v.isNullOrNothing()) {
+        str->concat("null");
+        return 0;
+    }
 
-   qore_type_t vtype = v.getType();
+    qore_type_t vtype = v.getType();
 
-   if (vtype == NT_LIST)
-      return do_json_list(xsink, str, v.get<const QoreListNode>(), format);
+    if (vtype == NT_LIST)
+        return do_json_list(xsink, str, v.get<const QoreListNode>(), format);
 
-   if (vtype == NT_HASH) {
-      const QoreHashNode* h = v.get<const QoreHashNode>();
-      str->concat("{");
-      ConstHashIterator hi(h);
-      QoreString tmp(str->getEncoding());
-      while (hi.next()) {
-         bool ind = tmp.strlen() > JSF_THRESHOLD;
-         tmp.clear();
-         if (do_json_value(&tmp, hi.get(), format == -1 ? format : format + 2, xsink))
-            return -1;
+    if (vtype == NT_HASH) {
+        const QoreHashNode* h = v.get<const QoreHashNode>();
+        str->concat("{");
+        ConstHashIterator hi(h);
+        QoreString tmp(str->getEncoding());
+        while (hi.next()) {
+            bool ind = tmp.strlen() > JSF_THRESHOLD;
+            tmp.clear();
+            if (do_json_value(&tmp, hi.get(), format == -1 ? format : format + 2, xsink))
+                return -1;
 
-         if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
-            str->concat('\n');
-            str->addch(' ', format + 2);
-         }
+            if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
+                str->concat('\n');
+                str->addch(' ', format + 2);
+            }
 
-         QoreString tmpkey(hi.getKey());
-         if (do_json_string(xsink, str, &tmpkey, format))
-            return -1;
-         str->concat(": ");
-         str->concat(tmp.c_str(), tmp.size());
-         //str->sprintf("\"%s\": %s", hi.getKey(), tmp.getBuffer());
-         if (!hi.last())
-            str->concat(",");
+            QoreString tmpkey(hi.getKey());
+            if (do_json_string(xsink, str, &tmpkey, format))
+                return -1;
+            str->concat(": ");
+            str->concat(tmp.c_str(), tmp.size());
+            //str->sprintf("\"%s\": %s", hi.getKey(), tmp.getBuffer());
+            if (!hi.last())
+                str->concat(",");
 
-      }
-      str->concat("}");
-      return 0;
-   }
-/*
-   if (vtype == NT_STRING) {
-      const QoreStringNode* vstr = v.get<const QoreStringNode>();
+        }
+        str->concat("}");
+        return 0;
+    }
 
-      TempEncodingHelper t(vstr, str->getEncoding(), xsink);
-      if (*xsink)
-         return -1;
+    if (vtype == NT_STRING)
+        return do_json_string(xsink, str, v.get<const QoreStringNode>(), format);
 
-      str->concat('"');
-      qore_size_t i = str->size();
-      str->concatEscape(*t, '"', '\\', xsink);
-      if (*xsink)
-         return -1;
+    if (vtype == NT_INT) {
+        str->sprintf("%lld", v.getAsBigInt());
+        return 0;
+    }
 
-      // http://tools.ietf.org/html/rfc4627
-      // encode all control characters in the string concatenated
-      while (i < str->size()) {
-         // see if we have a single-byte character; do not try to look at bytes within multi-byte characters
-         qore_size_t cl = q_get_char_len(str->getEncoding(), str->getBuffer() + i, str->size() - i, xsink);
-         if (*xsink)
-            return -1;
+    if (vtype == NT_FLOAT) {
+        double f = v.getAsFloat();
+        // check for nan, +/-inf and serialize as null
+        if (std::isnan(f) || std::isinf(f))
+            str->concat("null");
+        else
+            str->sprintf("%.20g", f);
+        return 0;
+    }
 
-         if (format != -1 && (ind || tmp.strlen() > JSF_THRESHOLD)) {
-            str->concat('\n');
-            str->addch(' ', format + 2);
-         }
-         str->sprintf("\"%s\": %s", hi.getKey(), tmp.getBuffer());
-         if (!hi.last())
-            str->concat(",");
-      }
-      str->concat("}");
-      return 0;
-   }
-*/
+    if (vtype == NT_NUMBER) {
+        const QoreNumberNode* n = v.get<const QoreNumberNode>();
+        if (!n->ordinary())
+            str->concat("null");
+        else
+            n->getStringRepresentation(*str);
+        return 0;
+    }
 
-   if (vtype == NT_STRING)
-      return do_json_string(xsink, str, v.get<const QoreStringNode>(), format);
+    if (vtype == NT_BOOLEAN) {
+        str->concat(v.getAsBool() ? "true" : "false");
+        return 0;
+    }
 
-   if (vtype == NT_INT) {
-      str->sprintf("%lld", v.getAsBigInt());
-      return 0;
-   }
+    if (vtype == NT_DATE) {
+        const DateTimeNode* date = v.get<const DateTimeNode>();
+        // ensure that all date/time values are reported in the current time zone
+        // for simplicity's sake (particularly because json does not have a native date/time format)
+        qore_tm info;
+        date->getInfo(currentTZ(), info);
 
-   if (vtype == NT_FLOAT) {
-      double f = v.getAsFloat();
-      // check for nan, +/-inf and serialize as null
-      if (std::isnan(f) || std::isinf(f))
-         str->concat("null");
-      else
-         str->sprintf("%.20g", f);
-      return 0;
-   }
+        // this will be serialized as a string
+        str->concat('"');
+        if (date->isRelative()) {
+            str->concat('P');
+            if (date->hasValue()) {
+                if (info.year) {
+                    str->sprintf("%dY", info.year);
+                }
+                if (info.month) {
+                    str->sprintf("%dM", info.month);
+                }
+                if (info.day) {
+                    str->sprintf("%dD", info.day);
+                }
 
-   if (vtype == NT_NUMBER) {
-      const QoreNumberNode* n = v.get<const QoreNumberNode>();
-      if (!n->ordinary())
-         str->concat("null");
-      else
-         n->getStringRepresentation(*str);
-      return 0;
-   }
-
-   if (vtype == NT_BOOLEAN) {
-      str->concat(v.getAsBool() ? "true" : "false");
-      return 0;
-   }
-
-   if (vtype == NT_DATE) {
-      const DateTimeNode* date = v.get<const DateTimeNode>();
-      // this will be serialized as a string
-      str->concat('"');
+                bool has_t = false;
+                if (info.hour) {
+                    str->sprintf("T%dH", info.hour);
+                    has_t = true;
+                }
+                if (info.minute) {
+                    if (!has_t) {
+                        str->concat('T');
+                        has_t = true;
+                    }
+                    str->sprintf("%dM", info.minute);
+                }
+                if (info.second) {
+                    if (!has_t) {
+                        str->concat('T');
+                        has_t = true;
+                    }
+                    str->sprintf("%dS", info.second);
+                }
+                if (info.us) {
+                    if (!has_t) {
+                        str->concat('T');
+                        has_t = true;
+                    }
+                    str->sprintf("%du", info.us);
+                }
+            } else {
+                str->concat("0D");
+            }
+        } else {
 #ifndef SECS_PER_MINUTE
 #define SECS_PER_MINUTE          60
 #endif
 #ifndef SECS_PER_HOUR
 #define SECS_PER_HOUR            (SECS_PER_MINUTE * 60)
 #endif
-      // ensure that all date/time values are reported in the current time zone
-      // for simplicity's sake (particularly because json does not have a native date/time format)
-      qore_tm info;
-      date->getInfo(currentTZ(), info);
-      // issue #2655 include a 'T' between the date and time as per ISO-8601
-      str->sprintf("%04d-%02d-%02dT%02d:%02d:%02d.%06d", info.year, info.month, info.day, info.hour, info.minute, info.second, info.us);
-      if (!info.utc_secs_east)
-         str->concat('Z');
-      else {
-         // issue #2655 do not include a space before the UTC offset
-         str->concat(info.utc_secs_east < 0 ? '-' : '+');
-         if (info.utc_secs_east < 0)
-            info.utc_secs_east = -info.utc_secs_east;
-         int h = info.utc_secs_east / SECS_PER_HOUR;
-         // the remaining seconds after hours
-         int r = info.utc_secs_east % SECS_PER_HOUR;
-         // minutes
-         int m = r / SECS_PER_MINUTE;
-         // we have already output the hour sign above
-         str->sprintf("%02d:%02d", h < 0 ? -h : h, m);
-         // see if there are any seconds
-         int s = info.utc_secs_east - h * SECS_PER_HOUR - m * SECS_PER_MINUTE;
-         if (s)
-            str->sprintf(":%02d", s);
-      }
-      str->concat('"');
-      return 0;
-   }
+            // issue #2655 include a 'T' between the date and time as per ISO-8601
+            str->sprintf("%04d-%02d-%02dT%02d:%02d:%02d.%06d", info.year, info.month, info.day, info.hour, info.minute, info.second, info.us);
+            if (!info.utc_secs_east) {
+                str->concat('Z');
+            } else {
+                // issue #2655 do not include a space before the UTC offset
+                str->concat(info.utc_secs_east < 0 ? '-' : '+');
+                if (info.utc_secs_east < 0)
+                    info.utc_secs_east = -info.utc_secs_east;
+                int h = info.utc_secs_east / SECS_PER_HOUR;
+                // the remaining seconds after hours
+                int r = info.utc_secs_east % SECS_PER_HOUR;
+                // minutes
+                int m = r / SECS_PER_MINUTE;
+                // we have already output the hour sign above
+                str->sprintf("%02d:%02d", h < 0 ? -h : h, m);
+                // see if there are any seconds
+                int s = info.utc_secs_east - h * SECS_PER_HOUR - m * SECS_PER_MINUTE;
+                if (s) {
+                    str->sprintf(":%02d", s);
+                }
+            }
+        }
+        str->concat('"');
+        return 0;
+    }
 
-   if (vtype == NT_BINARY) {
-      str->concat('\"');
-      str->concatBase64(v.get<const BinaryNode>());
-      str->concat('\"');
-      return 0;
-   }
+    if (vtype == NT_BINARY) {
+        str->concat('\"');
+        str->concatBase64(v.get<const BinaryNode>());
+        str->concat('\"');
+        return 0;
+    }
 
-   xsink->raiseException("JSON-SERIALIZATION-ERROR", "don't know how to serialize type '%s'", v.getTypeName());
-   return -1;
+    xsink->raiseException("JSON-SERIALIZATION-ERROR", "don't know how to serialize type '%s'", v.getTypeName());
+    return -1;
 }
 
 QoreStringNode* make_jsonrpc_request_args(const std::string& version, const QoreListNode* args, QoreValue id, unsigned offset, ExceptionSink* xsink) {
