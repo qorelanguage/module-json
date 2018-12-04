@@ -28,7 +28,7 @@ class JsonRpcClientTest inherits QUnit::Test {
 
     testJsonRpcConnection() {
         string url = "jsonrpcs://localhost:8099/";
-        JsonRpcConnection conn("test", "test", url, False, NOTHING, parse_url(url));
+        JsonRpcConnection conn("test", "test", url, {"monitor": False});
         JsonRpcClient client = conn.get(False);
         string yurl = url;
         yurl =~ s/^jsonrpc/http/;
@@ -36,7 +36,7 @@ class JsonRpcClientTest inherits QUnit::Test {
 
         # test default path
         url = "jsonrpcs://localhost:8099";
-        conn = new JsonRpcConnection("test", "test", url, False, NOTHING, parse_url(url));
+        conn = new JsonRpcConnection("test", "test", url, {"monitor": False});
         client = conn.get(False);
         yurl = url;
         yurl =~ s/^jsonrpc/http/;

@@ -35,12 +35,12 @@
 
 %requires(reexport) json
 #%requires Util >= 1.0
-%requires(reexport) ConnectionProvider >= 1.1
+%requires(reexport) ConnectionProvider >= 1.2
 
 %new-style
 
 module JsonRpcConnection {
-    version = "1.1";
+    version = "1.2";
     desc = "user module for providing JSON-RPC client connections";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -68,6 +68,9 @@ module JsonRpcConnection {
 
     @section jsonrpcconnection_relnotes JsonRpcConnection Module Release History
 
+    @subsection jsonrpcconnection_v1_2 JsonRpcConnection v1.2
+    - new AbstractConnection infrastructure
+
     @subsection jsonrpcconnection_v1_1 JsonRpcConnection v1.1
     - the @ref JsonRpcConnection::JsonRpcConnection::getConstructorInfo() "JsonRpcConnection::getConstructorInfo()"
       method was added to allow connections to be created dynamically, potentially in another process from a network
@@ -94,15 +97,33 @@ public namespace JsonRpcConnection {
             hash real_opts;
         }
 
-        #! creates the JsonRpcConnection object
+        #! DEPRECATED: creates the JsonRpcConnection object
         /** @param name the name of the connection
             @param desc connection description
             @param url connection URL (potentially with password info)
             @param monitor monitoring flag
             @param opts connection options
             @param urlh broken down URL hash (as returned by @ref Qore::parse_url())
+
+            @deprecated since Qore 0.9
         */
-        constructor(string name, string desc, string url, bool monitor, *hash opts, hash urlh) : HttpBasedConnection(name, desc, url, monitor, opts, urlh) {
+        deprecated
+        constructor(string name, string desc, string url, bool monitor, *hash opts, hash urlh)
+            : HttpBasedConnection(name, desc, url, {"monitor": monitor}, opts ?? {}) {
+            real_opts = ("url": real_url) + opts;
+        }
+
+        #! creates the JsonRpcConnection object
+        /** @param name the name of the connection
+            @param description connection description
+            @param url connection URL (potentially with password info)
+            @param attributes various attributes. See below
+            @param options connection options
+
+            See @ref AbstractConnection::constructor() for \c attributes and \c options reference.
+         */
+        constructor(string name, string description, string url, hash attributes = {}, hash options = {})
+            : HttpBasedConnection(name, description, url, attributes, options) {
             real_opts = ("url": real_url) + opts;
         }
 
@@ -152,9 +173,16 @@ public namespace JsonRpcConnection {
             return "jsonrpc";
         }
 
-        #! static constructor
+        #! DEPRECATED: static constructor
+        /** @deprecated since Qore 0.9 in favor of new constructor and Qore::Reflection
+         */
+        deprecated
         static JsonRpcConnection make(string name, string desc, string url, bool monitor, *hash opts, hash urlh) {
-            return new JsonRpcConnection(name, desc, url, monitor, opts, urlh);
+            hash attributes = {
+                "monitor": monitor,
+            };
+
+            return new JsonRpcConnection(name, desc, url, attributes, opts ?? {});
         }
     }
 }
