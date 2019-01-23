@@ -361,7 +361,7 @@ public namespace JsonRpcHandler {
                 if (path.empty())
                     return (
                         "code": 501,
-                        "desc": "invalid HTTP GET: no path/JSON-RPC method name given",
+                        "body": "invalid HTTP GET: no path/JSON-RPC method name given",
                     );
 
                 jsonrpc += parse_uri_query(path);
