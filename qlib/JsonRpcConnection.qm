@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file JsonRpcConnection.qm JSON-RPC client connection module implementation
 
-/*  JsonRpcConnections.qm Copyright 2013 - 2018 Qore Technologies, s.r.o.
+/*  JsonRpcConnections.qm Copyright 2013 - 2019 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -76,6 +76,10 @@ module JsonRpcConnection {
       method was added to allow connections to be created dynamically, potentially in another process from a network
       call (<a href="https://github.com/qorelanguage/qore/issues/2628">issue 2628</a>)
 
+    @subsection jsonrpcconnection_v1_0_1 JsonRpcConnection v1.0.1
+    - fixed a bug handling default options including timeouts in @ref JsonRpcConnection::JsonRpcConnection "JsonRpcConnection"
+      (<a href="https://github.com/qorelanguage/qore/issues/3321">issue 3321</a>)
+
     @subsection jsonrpcconnection_v1_0 JsonRpcConnection v1.0
     - the initial version of the JsonRpcConnection module
 */
@@ -110,7 +114,7 @@ public namespace JsonRpcConnection {
         deprecated
         constructor(string name, string desc, string url, bool monitor, *hash opts, hash urlh)
             : HttpBasedConnection(name, desc, url, {"monitor": monitor}, opts ?? {}) {
-            real_opts = ("url": real_url) + opts;
+            real_opts = ("url": real_url) + self.opts;
         }
 
         #! creates the JsonRpcConnection object
