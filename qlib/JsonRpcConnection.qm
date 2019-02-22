@@ -23,7 +23,7 @@
 */
 
 # minimum required Qore version
-%requires qore >= 0.8.13
+%requires qore >= 0.9
 
 # require type definitions everywhere
 %require-types
@@ -35,12 +35,12 @@
 
 %requires(reexport) json
 #%requires Util >= 1.0
-%requires(reexport) ConnectionProvider >= 1.0
+%requires(reexport) ConnectionProvider >= 1.2
 
 %new-style
 
 module JsonRpcConnection {
-    version = "1.0.1";
+    version = "1.2";
     desc = "user module for providing JSON-RPC client connections";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -68,6 +68,14 @@ module JsonRpcConnection {
 
     @section jsonrpcconnection_relnotes JsonRpcConnection Module Release History
 
+    @subsection jsonrpcconnection_v1_2 JsonRpcConnection v1.2
+    - new AbstractConnection infrastructure
+
+    @subsection jsonrpcconnection_v1_1 JsonRpcConnection v1.1
+    - the @ref JsonRpcConnection::JsonRpcConnection::getConstructorInfo() "JsonRpcConnection::getConstructorInfo()"
+      method was added to allow connections to be created dynamically, potentially in another process from a network
+      call (<a href="https://github.com/qorelanguage/qore/issues/2628">issue 2628</a>)
+
     @subsection jsonrpcconnection_v1_0_1 JsonRpcConnection v1.0.1
     - fixed a bug handling default options including timeouts in @ref JsonRpcConnection::JsonRpcConnection "JsonRpcConnection"
       (<a href="https://github.com/qorelanguage/qore/issues/3321">issue 3321</a>)
@@ -93,16 +101,34 @@ public namespace JsonRpcConnection {
             hash real_opts;
         }
 
-        #! creates the JsonRpcConnection object
+        #! DEPRECATED: creates the JsonRpcConnection object
         /** @param name the name of the connection
             @param desc connection description
             @param url connection URL (potentially with password info)
             @param monitor monitoring flag
             @param opts connection options
             @param urlh broken down URL hash (as returned by @ref Qore::parse_url())
+
+            @deprecated since Qore 0.9
         */
-        constructor(string name, string desc, string url, bool monitor, *hash opts, hash urlh) : HttpBasedConnection(name, desc, url, monitor, opts, urlh) {
+        deprecated
+        constructor(string name, string desc, string url, bool monitor, *hash opts, hash urlh)
+            : HttpBasedConnection(name, desc, url, {"monitor": monitor}, opts ?? {}) {
             real_opts = ("url": real_url) + self.opts;
+        }
+
+        #! creates the JsonRpcConnection object
+        /** @param name the name of the connection
+            @param description connection description
+            @param url connection URL (potentially with password info)
+            @param attributes various attributes. See below
+            @param options connection options
+
+            See @ref AbstractConnection::constructor() for \c attributes and \c options reference.
+         */
+        constructor(string name, string description, string url, hash attributes = {}, hash options = {})
+            : HttpBasedConnection(name, description, url, attributes, options) {
+            real_opts = ("url": real_url) + opts;
         }
 
         #! returns a @ref Qore::Json::JsonRpcClient object
@@ -113,6 +139,18 @@ public namespace JsonRpcConnection {
         */
         private Qore::Json::JsonRpcClient getImpl(bool connect = True, *hash rtopts) {
             return new Qore::Json::JsonRpcClient(real_opts, !connect);
+        }
+
+        #! returns a hash that can be used to contruct the object dynamically
+        /** @since %JsonRpcConnection 1.1
+        */
+        private hash<ConnectionConstructorInfo> getConstructorInfoImpl() {
+            return new hash<ConnectionConstructorInfo>({
+                "module": "json",
+                "class_name": "Qore::Json::JsonRpcClient",
+                "args": real_opts,
+                "pre_processing": "args[1] = !connect;",
+            });
         }
 
         #! gets options
@@ -139,9 +177,16 @@ public namespace JsonRpcConnection {
             return "jsonrpc";
         }
 
-        #! static constructor
+        #! DEPRECATED: static constructor
+        /** @deprecated since Qore 0.9 in favor of new constructor and Qore::Reflection
+         */
+        deprecated
         static JsonRpcConnection make(string name, string desc, string url, bool monitor, *hash opts, hash urlh) {
-            return new JsonRpcConnection(name, desc, url, monitor, opts, urlh);
+            hash attributes = {
+                "monitor": monitor,
+            };
+
+            return new JsonRpcConnection(name, desc, url, attributes, opts ?? {});
         }
     }
 }

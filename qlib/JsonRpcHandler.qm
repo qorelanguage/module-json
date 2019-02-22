@@ -23,19 +23,19 @@
 */
 
 # minimum qore version
-%requires qore >= 0.8.12
+%requires qore >= 0.9
 
 # requires the binary json module
-%requires json >= 1.1
+%requires json >= 1.8
 
 # need mime definitions
-%requires Mime >= 1.0
+%requires Mime >= 1.4
 
 # need Util functions
 %requires Util
 
 # need HttpServerUtil definitions
-%requires HttpServerUtil >= 0.3.11
+%requires HttpServerUtil >= 0.3.12
 
 # don't use "$" for vars, members, and method calls, assume local var scope
 %new-style
@@ -65,12 +65,13 @@ module JsonRpcHandler {
 %requires Mime
 
 const ApiMethods = (
-     ("name": "^sys\\.shutdown\$",
-      "text": "sys.shutdown",
-      "function": sub () { background http.stop();  return "OK"; },
-      "help": "shuts down this server",
-      "logopt": 0,
-      ),
+     {
+        "name": "^sys\\.shutdown\$",
+        "text": "sys.shutdown",
+        "function": sub () { background http.stop(); return "OK"; },
+        "help": "shuts down this server",
+        "logopt": 0,
+    },
 );
 
 # a logging closure
@@ -116,21 +117,25 @@ public namespace JsonRpcHandler {
 
             #! internal methods of the handler (introspection)
             const InternalMethods = (
-                ("function": "help",
-                 "help": "shows a list of JSON-RPC methods registered with this handler",
-                 "text": "help",
-                 "logopt": 2
-                ),
-                ("function": "listMethods",
-                 "help": "lists JSON-RPC method names registered with this handler",
-                 "text": "system.listMethods",
-                 "logopt": 2
-                ),
-                ("function": "systemDescribe",
-                 "help": "returns the service description object as per the JSON-RPC 1.1 spec",
-                 "text": "system.describe",
-                 "logopt": 2
-                ));
+                {
+                    "function": "help",
+                    "help": "shows a list of JSON-RPC methods registered with this handler",
+                    "text": "help",
+                    "logopt": 2
+                },
+                {
+                    "function": "listMethods",
+                    "help": "lists JSON-RPC method names registered with this handler",
+                    "text": "system.listMethods",
+                    "logopt": 2
+                },
+                {
+                    "function": "systemDescribe",
+                    "help": "returns the service description object as per the JSON-RPC 1.1 spec",
+                    "text": "system.describe",
+                    "logopt": 2
+                },
+            );
 
             #! JSON-RPC Error Code: Parse Error
             const JRE_ParseError = -32700;
@@ -191,7 +196,7 @@ public namespace JsonRpcHandler {
             log_code = n_log;
 
             # add internal methods
-            map addMethodInternal($1 + ("internal": True)), JsonRpcHandler::InternalMethods;
+            map addMethodInternal($1 + {"internal": True}), JsonRpcHandler::InternalMethods;
 
             foreach hash m in (n_methods) {
                 if (!exists m.name)
@@ -214,13 +219,14 @@ public namespace JsonRpcHandler {
             @param cmark any value that will be added in the method hash under the \c "cmark" key
           */
         addMethod(string name, code func, string text, string help, auto logopt, auto cmark) {
-            addMethodInternal(("name": name,
-                               "function": func,
-                               "text": text,
-                               "help": help,
-                               "logopt": logopt,
-                               "cmark": cmark,
-                              ));
+            addMethodInternal({
+                "name": name,
+                "function": func,
+                "text": text,
+                "help": help,
+                "logopt": logopt,
+                "cmark": cmark,
+            });
         }
 
         #! turns on or off debugging; when debugging is enabled more verbose error messages are reported
@@ -258,29 +264,23 @@ public namespace JsonRpcHandler {
 
         private hash systemDescribe() {
             string address = "http://localhost/JSON";
-            list procs = ();
+            softlist<hash<auto>> procs = map (
+                "name" : $1.text,
+                "summary" : $1.help
+            ), methods, $1.text != "service.describe";
 
-            foreach hash m in (methods)
-                if (m.text != "service.describe")
-                procs += ( "name" : m.text,
-                            "summary" : m.help );
-
-            return (
+            return {
                 "sdversion": "1.0",
                 "name": "Qore JSON-RPC Handler",
                 "id": address,
                 "version": JsonRpcHandler::Version,
                 "summary": "provides a JSON-RPC handler to the HTTP server",
-                #"address": address,
                 "procs": procs,
-                );
+            };
         }
 
-        private list listMethods() {
-            list l = ();
-            foreach hash m in (methods)
-                l += m.text;
-            return l;
+        private softlist<string> listMethods() {
+            return map $1.text, methods;
         }
 
         private log(hash cx, string str) {
@@ -307,11 +307,11 @@ public namespace JsonRpcHandler {
 
             if (!exists found) {
                 string str = sprintf("JSON-RPC-SERVER-UNKNOWN-METHOD: unknown method %y", method);
-                return (
+                return {
                     "code": 200,
-                    "hdr": ("Content-Type": MimeTypeJsonRpc),
-                    "body": make_jsonrpc_error(cx.jsonrpc_version, cx.jsonid, ("code": JRE_MethodNotFound, "message": str)),
-                    );
+                    "hdr": {"Content-Type": MimeTypeJsonRpc},
+                    "body": make_jsonrpc_error(cx.jsonrpc_version, cx.jsonid, {"code": JRE_MethodNotFound, "message": str}),
+                };
             }
 
             # add context marker, if any
@@ -327,17 +327,23 @@ public namespace JsonRpcHandler {
             auto rv;
             try {
                 rv = found.internal ? call_object_method_args(self, found.function, params) : call_function_args(found.function, params);
-            }
-            catch (hash<ExceptionInfo> ex) {
+            } catch (hash<ExceptionInfo> ex) {
                 # issue #2573: provide a more user-friendly error when the argument cannot be matched to the closure/call ref
-                if (ex.err == "RUNTIME-TYPE-ERROR" && (ex.callstack[1].file =~ /JsonRpcHandler.qm$/ && (ex.callstack[1].function == "call_function_args" || ex.callstack[1].function == "call_object_method_args")))
-                    throw "RPC-ARG-ERROR", sprintf("a call to JSON-RPC method %y is missing one or more required arguments; internal call error: %s: %s", method, ex.err, ex.desc);
+                if (ex.err == "RUNTIME-TYPE-ERROR"
+                    && (ex.callstack[0].file =~ /JsonRpcHandler.qm$/
+                        && (ex.callstack[0].function == "call_function_args"
+                            || ex.callstack[0].function == "call_object_method_args")))
+                    throw "RPC-ARG-ERROR", sprintf("a call to JSON-RPC method %y is missing one or more required "
+                        "arguments; internal call error: %s: %s", method, ex.err, ex.desc);
                 rethrow;
             }
 
             # throw an exception if the protocol version is >= 2.0 and there is no id (therefore the request is a notification) and a response was returned
-            if (exists cx.jsonrpc_version && !exists cx.jsonid && exists rv && compare_version(cx.jsonrpc_version, "2.0") >= 0)
-                throw "JSONRPC-NOTIFICATION-ERROR", sprintf("notification call to %y (i.e. without an id) included a response body which is a protocol violation", method);
+            if (exists cx.jsonrpc_version
+                && !exists cx.jsonid && exists rv
+                && compare_version(cx.jsonrpc_version, "2.0") >= 0)
+                throw "JSONRPC-NOTIFICATION-ERROR", sprintf("notification call to %y (i.e. without an id) included a "
+                    "response body which is a protocol violation", method);
             hash h.body = make_jsonrpc_response(cx.jsonrpc_version, cx.jsonid, rv);
             return h;
         }
@@ -355,33 +361,32 @@ public namespace JsonRpcHandler {
                 if (path.empty())
                     return (
                         "code": 501,
-                        "desc": "invalid HTTP GET: no path/JSON-RPC method name given",
+                        "body": "invalid HTTP GET: no path/JSON-RPC method name given",
                     );
 
                 jsonrpc += parse_uri_query(path);
 
                 if (exists get_prefix && index(jsonrpc.method, ".") == -1)
                     jsonrpc.method = get_prefix + jsonrpc.method;
-            }
-            else {
-                if (hdr.method != "POST")
-                    return (
+            } else {
+                if (hdr.method != "POST") {
+                    return {
                         "code": 501,
                         "body": sprintf("don't know how to handle method %y", hdr.method),
-                    );
+                    };
+                }
 
                 try {
                     auto req;
                     try {
                         req = parse_json(body);
-                    }
-                    catch (hash<ExceptionInfo> ex) {
+                    } catch (hash<ExceptionInfo> ex) {
                         throw ex.err, ex.desc, JRE_ParseError;
                     }
                     int t = req.typeCode();
-                    if (t == NT_LIST)
+                    if (t == NT_LIST) {
                         return processBatchMessage(cx, req);
-                    else {
+                    } else {
                         if (t != NT_HASH)
                             throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", req.type()), JRE_InvalidRequest;
                         cx.jsonrpc_version = req.jsonrpc ?? req.version;
@@ -391,45 +396,45 @@ public namespace JsonRpcHandler {
                         if (jsonrpc.method.typeCode() != NT_STRING)
                             throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting \"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
                     }
-                }
-                catch (hash<ExceptionInfo> ex) {
+                } catch (hash<ExceptionInfo> ex) {
                     string estr = sprintf("%s: %s", ex.err, ex.desc);
                     if (ex.arg.typeCode() == NT_INT) {
-                        return (
+                        return {
                             "code": 200,
                             "errlog": estr,
                             "hdr": ("Content-Type": MimeTypeJsonRpc),
                             "body": make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, ("code": ex.arg, "message": estr)),
-                            );
-                    }
-                    else {
-                        return (
+                        };
+                    } else {
+                        return {
                             "code": 500,
                             "errlog": estr,
                             "body": estr,
-                            );
+                        };
                     }
                 }
             }
-            cx += (
+            cx += {
                 "method": jsonrpc.method,
                 "jsonid": jsonrpc.id,
-                );
+            };
             try {
-                return ("code": 200, "hdr": ("Content-Type": MimeTypeJsonRpc)) + callMethod(cx, jsonrpc.params);
-            }
-            catch (hash<ExceptionInfo> ex) {
+                return {
+                    "code": 200,
+                    "hdr": {"Content-Type": MimeTypeJsonRpc},
+                } + callMethod(cx, jsonrpc.params);
+            } catch (hash<ExceptionInfo> ex) {
                 # show complete exception trace if system debug option is enabled
                 string str = !debug
                     ? sprintf("%s: %s", ex.err, ex.desc)
                     : get_exception_string(ex);
 
-                return (
+                return {
                     "code": 200,
                     "errlog": str,
-                    "hdr": ("Content-Type": MimeTypeJsonRpc),
-                    "body": make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, ("code": JRE_InternalError, "message": str)),
-                    );
+                    "hdr": {"Content-Type": MimeTypeJsonRpc},
+                    "body": make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, {"code": JRE_InternalError, "message": str}),
+                };
             }
         }
 
@@ -444,17 +449,16 @@ public namespace JsonRpcHandler {
                     throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: missing \"method\" key in call; got keys: %y", $# + 1, l.size(), jsonrpc.keys(), JRE_InvalidRequest);
                 if (jsonrpc.method.typeCode() != NT_STRING)
                     throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting \"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
-                cx += (
+                cx += {
                     "method": jsonrpc.method,
                     "jsonid": jsonrpc.id,
-                    );
+                };
 
                 try {
                     auto rv = callMethod(cx, jsonrpc.params).body;
                     if (exists elem.id)
                         rvl += rv;
-                }
-                catch (hash<ExceptionInfo> ex) {
+                } catch (hash<ExceptionInfo> ex) {
                     # show complete exception trace if system debug option is enabled
                     string str = !debug
                         ? sprintf("element %d of %d: %s: %s", $# + 1, l.size(), ex.err, ex.desc)
@@ -463,11 +467,11 @@ public namespace JsonRpcHandler {
                 }
             }
 
-            return (
+            return {
                 "code": 200,
-                "hdr": ("Content-Type": MimeTypeJsonRpc),
+                "hdr": {"Content-Type": MimeTypeJsonRpc},
                 "body": "[" + (foldl $1 + "," + $2, rvl) + "]",
-                );
+            };
         }
     }
 }

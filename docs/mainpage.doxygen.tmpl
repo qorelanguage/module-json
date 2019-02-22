@@ -42,7 +42,7 @@
     |\c int|\c number|direct conversion
     |\c float|\c number|direct conversion
     |\c bool|\c boolean|direct conversion
-    |\c date|\c string|date/time values are serialized to strings like: \c "2010-12-22 16:35:36.372996 Wed +01:00 (CET)"
+    |\c date|\c string|date/time values are serialized to strings like: \c "2010-12-22 16:35:36.372996 Wed +01:00 (CET)"; intervals are serialized to ISO-8601 duration strings (ex: \c "PT2M1S")
     |\c binary|\c string|binary values are serialized as base64 encoded strings
     |\c list|\c array|direct conversion
     |\c hash|\c struct|direct conversion
@@ -133,6 +133,12 @@
     Code with this flag is deprecated and may be removed in a future version of this module; if a variant with this flag is resolved at parse time, a \c "deprecated" warning is raised (assuming this warning is enabled).
 
     @section jsonreleasenotes Release Notes
+
+    @subsection v0_1_8 Version 1.8
+    - updated the <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a> module to support the updated
+      abstract connection API (<a href="https://github.com/qorelanguage/qore/issues/2628">issue 2628</a>)
+    - added support for serializing intervals to strings that can be manually converted to the original value
+      (<a href="https://github.com/qorelanguage/qore/issues/3135">issue 3135</a>)
 
     @subsection v0_1_7 Version 1.7
     - deprecated support for the non-published JSON-RPC 1.1 protocol
