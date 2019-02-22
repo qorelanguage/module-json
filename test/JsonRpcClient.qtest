@@ -34,6 +34,10 @@ class JsonRpcClientTest inherits QUnit::Test {
         yurl =~ s/^jsonrpc/http/;
         assertEq(yurl, client.getURL());
 
+        # issue #3321: check default timeouts
+        assertEq(45000, client.getTimeout());
+        assertEq(45000, client.getConnectTimeout());
+
         # test default path
         url = "jsonrpcs://localhost:8099";
         conn = new JsonRpcConnection("test", "test", url, False, NOTHING, parse_url(url));

@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file JsonRpcConnection.qm JSON-RPC client connection module implementation
 
-/*  JsonRpcConnections.qm Copyright 2013 - 2016 Qore Technologies, s.r.o.
+/*  JsonRpcConnections.qm Copyright 2013 - 2019 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -40,7 +40,7 @@
 %new-style
 
 module JsonRpcConnection {
-    version = "1.0";
+    version = "1.0.1";
     desc = "user module for providing JSON-RPC client connections";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -67,6 +67,10 @@ module JsonRpcConnection {
     - @ref JsonRpcConnection::JsonRpcConnection "JsonRpcConnection"
 
     @section jsonrpcconnection_relnotes JsonRpcConnection Module Release History
+
+    @subsection jsonrpcconnection_v1_0_1 JsonRpcConnection v1.0.1
+    - fixed a bug handling default options including timeouts in @ref JsonRpcConnection::JsonRpcConnection "JsonRpcConnection"
+      (<a href="https://github.com/qorelanguage/qore/issues/3321">issue 3321</a>)
 
     @subsection jsonrpcconnection_v1_0 JsonRpcConnection v1.0
     - the initial version of the JsonRpcConnection module
@@ -98,7 +102,7 @@ public namespace JsonRpcConnection {
             @param urlh broken down URL hash (as returned by @ref Qore::parse_url())
         */
         constructor(string name, string desc, string url, bool monitor, *hash opts, hash urlh) : HttpBasedConnection(name, desc, url, monitor, opts, urlh) {
-            real_opts = ("url": real_url) + opts;
+            real_opts = ("url": real_url) + self.opts;
         }
 
         #! returns a @ref Qore::Json::JsonRpcClient object
