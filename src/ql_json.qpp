@@ -307,7 +307,7 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
             buf++;
         }
         if (has_dot)
-            return strtod(str.getBuffer(), 0);
+            return q_strtod(str.getBuffer());
         return strtoll(str.getBuffer(), 0, 10);
     }
 
