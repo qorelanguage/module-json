@@ -202,6 +202,12 @@ class JsonTest inherits QUnit::Test {
         # get a string for the test date in this time zone
         string datestr = tz.date(TestDate).format("YYYY-MM-DDTHH:mm:SS.usZ");
         string json = make_json(TestDate);
+
+        # transform "Z" at the end into "+00:00" because that's the format that Qore generates
+        if (json[json.length()-2] == "Z") {
+            json = json.substr(0, json.length()-2) + "+00:00\"";
+        }
+
         assertEq("\"" + datestr + "\"", json);
     }
 }
