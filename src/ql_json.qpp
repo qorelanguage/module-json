@@ -7,7 +7,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright 2003 - 2019 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -132,7 +132,7 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
 static QoreHashNode* get_json_object(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
     // increment buffer to first character of object description
     buf++;
-    ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+    ReferenceHolder<QoreHashNode> h(new QoreHashNode(autoTypeInfo), xsink);
 
     // get either string or '}'
     skip_whitespace(buf, line_number);
@@ -201,7 +201,7 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
 static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
     // increment buffer to first character of array description
     buf++;
-    ReferenceHolder<QoreListNode> l(new QoreListNode, xsink);
+    ReferenceHolder<QoreListNode> l(new QoreListNode(autoTypeInfo), xsink);
 
     skip_whitespace(buf, line_number);
     if (*buf == ']') {

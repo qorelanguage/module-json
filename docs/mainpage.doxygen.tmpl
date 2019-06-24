@@ -135,6 +135,8 @@
     @section jsonreleasenotes Release Notes
 
     @subsection v0_1_8 Version 1.8
+    - fixed the return types of deserializtion to avoid type stripping
+      (<a href="https://github.com/qorelanguage/qore/issues/3432">issue 3432</a>)
     - updated the <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a> module to support the updated
       abstract connection API (<a href="https://github.com/qorelanguage/qore/issues/2628">issue 2628</a>)
     - added support for serializing intervals to strings that can be manually converted to the original value
