@@ -463,8 +463,11 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
         // check for nan, +/-inf and serialize as null
         if (std::isnan(f) || std::isinf(f))
             str->concat("null");
-        else
-            str->sprintf("%.20g", f);
+        else {
+            str->sprintf("%.25g", f);
+            // apply noise reduction algorithm
+            qore_apply_rounding_heuristic(*str, 6, 8);
+        }
         return 0;
     }
 
