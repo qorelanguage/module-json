@@ -47,6 +47,7 @@ class JsonTest inherits QUnit::Test {
     }
 
     constructor() : Test("JsonTest", "1.0", \ARGV) {
+        addTestCase("float rounding test", \floatRoundingTest());
         addTestCase("issue 3135", \issue3135());
         addTestCase("JsonTestCase", \jsonTestCase());
         addTestCase("JSON-RPC TestCase", \jsonRpcTestCase());
@@ -55,6 +56,13 @@ class JsonTest inherits QUnit::Test {
         addTestCase("parse_json UTF-8/Unicode BOM skipping test", \parseJsonBom());
         addTestCase("issue 2655", \issue2655());
         set_return_value(main());
+    }
+
+    floatRoundingTest() {
+        assertEq("1.1", trim(make_json(1.1)));
+        assertEq("1.2", trim(make_json(1.2)));
+        assertEq("1.3", trim(make_json(1.3)));
+        assertEq("250.1912", trim(make_json(250.1912)));
     }
 
     issue3135() {
