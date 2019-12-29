@@ -40,7 +40,7 @@
 %new-style
 
 module JsonRpcConnection {
-    version = "1.2";
+    version = "1.3";
     desc = "user module for providing JSON-RPC client connections";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -67,6 +67,11 @@ module JsonRpcConnection {
     - @ref JsonRpcConnection::JsonRpcConnection "JsonRpcConnection"
 
     @section jsonrpcconnection_relnotes JsonRpcConnection Module Release History
+
+    @subsection jsonrpcconnection_v1_3 JsonRpcConnection v1.3
+    - removed the obsolete \c JsonRpcConnection::getConstructorInfo() method as connection serialization is a
+      much more elegant and maintainable solution
+      (<a href="https://github.com/qorelanguage/qore/issues/3696">issue 3696</a>)
 
     @subsection jsonrpcconnection_v1_2 JsonRpcConnection v1.2
     - new AbstractConnection infrastructure
@@ -98,7 +103,7 @@ public namespace JsonRpcConnection {
     */
     public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection {
         public {
-            hash real_opts;
+            hash<auto> real_opts;
         }
 
         #! DEPRECATED: creates the JsonRpcConnection object
@@ -126,9 +131,9 @@ public namespace JsonRpcConnection {
 
             See @ref AbstractConnection::constructor() for \c attributes and \c options reference.
          */
-        constructor(string name, string description, string url, hash attributes = {}, hash options = {})
+        constructor(string name, string description, string url, hash<auto> attributes = {}, hash<auto> options = {})
             : HttpBasedConnection(name, description, url, attributes, options) {
-            real_opts = ("url": real_url) + opts;
+            real_opts = {"url": real_url} + opts;
         }
 
         #! returns a @ref Qore::Json::JsonRpcClient object
@@ -137,20 +142,8 @@ public namespace JsonRpcConnection {
 
             @return a @ref Qore::Json::JsonRpcClient object
         */
-        private Qore::Json::JsonRpcClient getImpl(bool connect = True, *hash rtopts) {
+        private Qore::Json::JsonRpcClient getImpl(bool connect = True, *hash<auto> rtopts) {
             return new Qore::Json::JsonRpcClient(real_opts, !connect);
-        }
-
-        #! returns a hash that can be used to contruct the object dynamically
-        /** @since %JsonRpcConnection 1.1
-        */
-        private hash<ConnectionConstructorInfo> getConstructorInfoImpl() {
-            return new hash<ConnectionConstructorInfo>({
-                "module": "json",
-                "class_name": "Qore::Json::JsonRpcClient",
-                "args": real_opts,
-                "pre_processing": "args[1] = !connect;",
-            });
         }
 
         #! gets options
@@ -163,12 +156,12 @@ public namespace JsonRpcConnection {
 
             @see @ref Qore::Json::JsonRpcClient::constructor() "JsonRpcClient::constructor()" for more information on the above options
         */
-        hash getOptions() {
+        hash<auto> getOptions() {
             return HttpConnection::Options;
         }
 
         #! returns default options
-        *hash getDefaultOptions() {
+        *hash<auto> getDefaultOptions() {
             return HttpConnection::DefaultOptions;
         }
 
