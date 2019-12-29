@@ -189,7 +189,7 @@ public namespace JsonRpcHandler {
 
             @throw JSON-RPC-CONSTRUCTOR-ERROR missing \c "name", \c "function", or \"text" key in method hash, \c "function" key not assigned to a callable value
          */
-        constructor(HttpServer::AbstractAuthenticator n_auth, list n_methods, *code n_getLogMessage, bool n_dbg = False, *string n_get_prefix, *code n_log) : HttpServer::AbstractHttpRequestHandler(n_auth) {
+        constructor(HttpServer::AbstractAuthenticator n_auth, list<auto> n_methods, *code n_getLogMessage, bool n_dbg = False, *string n_get_prefix, *code n_log) : HttpServer::AbstractHttpRequestHandler(n_auth) {
             getLogMessage = n_getLogMessage;
             debug = n_dbg;
             get_prefix = n_get_prefix;
@@ -241,7 +241,7 @@ public namespace JsonRpcHandler {
 
         #! @conf nodoc
         # don't reimplement this method; fix/enhance it in the module
-        final private addMethodInternal(hash h) {
+        final private addMethodInternal(hash<auto> h) {
             # check for duplicate in method index
             auto i = mi.(h.text);
             if (!exists i)
@@ -252,8 +252,8 @@ public namespace JsonRpcHandler {
             methods[i] = h;
         }
 
-        private hash help() {
-            hash h;
+        private hash<auto> help() {
+            hash<auto> h;
             foreach hash m in (methods) {
                 h.(m.text).description = m.help;
                 if (exists m.params)
@@ -283,7 +283,7 @@ public namespace JsonRpcHandler {
             return map $1.text, methods;
         }
 
-        private log(hash cx, string str) {
+        private log(hash<auto> cx, string str) {
             string msg = "JSON-RPC ";
             if (exists cx.user)
                 msg += sprintf("user %s ", cx.user);
@@ -294,11 +294,11 @@ public namespace JsonRpcHandler {
         }
 
         # don't reimplement this method; fix/enhance it in the module
-        final private hash callMethod(hash cx, auto params) {
+        final private hash callMethod(hash<auto> cx, auto params) {
             string method = cx.method;
             # find method function
-            hash found;
-            foreach hash m in (methods) {
+            hash<auto> found;
+            foreach hash<auto> m in (methods) {
                 if (regex(method, m.name)) {
                     found = m;
                     break;
@@ -344,25 +344,25 @@ public namespace JsonRpcHandler {
                 && compare_version(cx.jsonrpc_version, "2.0") >= 0)
                 throw "JSONRPC-NOTIFICATION-ERROR", sprintf("notification call to %y (i.e. without an id) included a "
                     "response body which is a protocol violation", method);
-            hash h.body = make_jsonrpc_response(cx.jsonrpc_version, cx.jsonid, rv);
+            hash<auto> h.body = make_jsonrpc_response(cx.jsonrpc_version, cx.jsonid, rv);
             return h;
         }
 
         # method called by HttpServer to handle a request
         # don't reimplement this method; fix/enhance it in the module
-        final hash handleRequest(hash cx, hash hdr, *data body) {
+        final hash<auto> handleRequest(hash<auto> cx, hash<auto> hdr, *data body) {
             #printf("jsonrpc handler context=%y hdr=%y body=%y\n", cx, hdr, body);
 
-            hash jsonrpc;
+            hash<auto> jsonrpc;
 
             if (hdr.method == "GET") {
                 string path = substr(hdr.path, index(hdr.path, "/") + 1);
 
                 if (path.empty())
-                    return (
+                    return {
                         "code": 501,
                         "body": "invalid HTTP GET: no path/JSON-RPC method name given",
-                    );
+                    };
 
                 jsonrpc += parse_uri_query(path);
 
@@ -438,8 +438,8 @@ public namespace JsonRpcHandler {
             }
         }
 
-        private hash processBatchMessage(hash cx, list l) {
-            list rvl = ();
+        private hash<auto> processBatchMessage(hash<auto> cx, list<auto> l) {
+            list<auto> rvl = ();
             foreach auto elem in (l) {
                 if (elem.typeCode() != NT_HASH)
                     throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", $# + 1, l.size(), elem.type()), JRE_InvalidRequest;

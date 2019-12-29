@@ -63,7 +63,7 @@ public:
 };
 
 QoreValue JsonRpcClient::call(QoreStringNode *msg, QoreHashNode *info, ExceptionSink *xsink) {
-    ReferenceHolder<QoreHashNode> response(send("POST", 0, 0, msg->getBuffer(), msg->strlen(), true, info, xsink), xsink);
+    ReferenceHolder<QoreHashNode> response(send("POST", 0, 0, *msg, true, info, xsink), xsink);
     if (!response)
         return QoreValue();
 
