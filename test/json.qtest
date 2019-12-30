@@ -78,6 +78,13 @@ class JsonTest inherits QUnit::Test {
     jsonTestCase() {
         assertEqSoft(TestHash, parse_json(make_json(TestHash)));
         assertEqSoft(TestHash, parse_json(make_json(TestHash, JGF_ADD_FORMATTING)));
+        # issue #3707
+        assertEq(30.0, parse_json("3E1"));
+        assertEq(30.0, parse_json("3e1"));
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "3e1e2");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "3e1E2");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "3E1e2");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "3E1E2");
     }
 
     jsonRpcTestCase() {

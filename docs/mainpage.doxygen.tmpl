@@ -135,7 +135,11 @@
     @section jsonreleasenotes Release Notes
 
     @subsection v0_1_8 Version 1.8
-    - fixed the return types of deserializtion to avoid type stripping
+    - fixed a bug where numbers in scientific notation could not be parsed
+      (<a href="https://github.com/qorelanguage/qore/issues/3707">issue 3707</a>)
+    - implemented support for serializing connection objects
+      (<a href="https://github.com/qorelanguage/qore/issues/3696">issue 3696</a>)
+    - fixed the return types of deserialization to avoid type stripping
       (<a href="https://github.com/qorelanguage/qore/issues/3432">issue 3432</a>)
     - fixed output of excess noise in floating-point values
       (<a href="https://github.com/qorelanguage/qore/issues/3375">issue 3375</a>)
