@@ -271,12 +271,12 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
             // add a leading zero
             str.concat("0.");
             has_dot = true;
-        }
-        else {
+        } else {
             str.concat(*buf);
             has_dot = false;
         }
-        buf++;
+        ++buf;
+        bool has_e = false;
         while (*buf) {
             if (*buf == '.') {
                 if (has_dot) {
@@ -298,17 +298,22 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
                 ++buf;
                 ++line_number;
                 break;
-            }
-            else if (!isdigit(*buf)) {
-                xsink->raiseException("JSON-PARSE-ERROR", "unexpected character in number");
+            } else if (*buf == 'e' || *buf == 'E') {
+                if (has_e) {
+                    xsink->raiseException("JSON-PARSE-ERROR", "unexpected second exponent marker '%c' in number", *buf);
+                    return QoreValue();
+                }
+                has_e = true;
+            } else if (!isdigit(*buf)) {
+                xsink->raiseException("JSON-PARSE-ERROR", "unexpected character '%c' in number", *buf);
                 return QoreValue();
             }
             str.concat(*buf);
-            buf++;
+            ++buf;
         }
-        if (has_dot)
-            return QoreValue(q_strtod(str.getBuffer()));
-        return strtoll(str.getBuffer(), 0, 10);
+        if (has_dot || has_e)
+            return QoreValue(q_strtod(str.c_str()));
+        return strtoll(str.c_str(), 0, 10);
     }
 
     if ((*buf) == 't') {
