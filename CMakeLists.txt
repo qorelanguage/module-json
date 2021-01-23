@@ -43,7 +43,7 @@ set(QORE_DOX_TMPL_SRC
   docs/mainpage.doxygen.tmpl
 )
 
-add_library(${module_name} SHARED ${CPP_SRC} ${QPP_SOURCES} ${CPP_SRC})
+add_library(${module_name} MODULE ${CPP_SRC} ${QPP_SOURCES} ${CPP_SRC})
 
 if (WIN32 AND MINGW AND MSYS)
     target_compile_definitions(${module_name} PUBLIC BUILDING_DLL)
