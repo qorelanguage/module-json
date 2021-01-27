@@ -21,6 +21,7 @@ stamp-h1
 *.la
 autom4te.cache/
 m4/
+build/
 src/.deps/
 src/.libs/
 src/Makefile
