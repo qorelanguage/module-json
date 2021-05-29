@@ -1,7 +1,7 @@
 /*
   Qore json module
 
-  Copyright (C) 2010 Qore Technologies
+  Copyright (C) 2010 - 2021 Qore Technologies
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -48,7 +48,7 @@ DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
 #endif
 DLLEXPORT char qore_module_license_str[] = "MIT";
 
-QoreNamespace JNS("Json");
+QoreNamespace JNS("Qore::Json");
 
 QoreStringNode *json_module_init() {
    JNS.addSystemClass(initJsonRpcClientClass(JNS));
