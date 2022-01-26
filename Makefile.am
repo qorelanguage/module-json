@@ -17,7 +17,9 @@ EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
 	test/json.qtest \
 	examples/json-rpc-client.q \
 	examples/JsonRpcServerValidation.q \
-	qore-json-module.spec
+	qore-json-module.spec \
+    CMakeLists.txt \
+    cmake/cmake_uninstall.cmake.in
 
 ACLOCAL_AMFLAGS=-I m4
 
