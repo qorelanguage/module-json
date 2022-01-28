@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 2.8.12)
 
 project(qore-json-module)
 
 set (VERSION_MAJOR 1)
 set (VERSION_MINOR 8)
-set (VERSION_PATCH 0)
+#set (VERSION_PATCH 0)
 
 find_package(Qore 0.9 REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -52,10 +52,14 @@ endif (WIN32 AND MINGW AND MSYS)
 set(MODULE_DOX_INPUT ${CMAKE_CURRENT_BINARY_DIR}/mainpage.dox ${QPP_DOX})
 string(REPLACE ";" " " MODULE_DOX_INPUT "${MODULE_DOX_INPUT}")
 
-qore_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+if (${VERSION_PATCH})
+    qore_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+    qore_dist("${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+else()
+    qore_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}")
+    qore_dist("${VERSION_MAJOR}.${VERSION_MINOR}")
+endif()
 qore_user_modules("${QMOD}")
-
-qore_dist("${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
 qore_config_info()
 

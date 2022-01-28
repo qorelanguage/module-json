@@ -100,7 +100,7 @@ json module.
 %doc docs/json/html docs/JsonRpcHandler/html examples/ test/
 
 %changelog
-* Sun Jan 26 2018 David Nichols <david@qore.org> - 1.8
+* Fri Jan 26 2018 David Nichols <david@qore.org> - 1.8
 - updated to version 1.8
 
 * Sun Dec 4 2016 David Nichols <david@qore.org> - 1.7
@@ -118,7 +118,7 @@ json module.
 * Fri Aug 2 2013 David Nichols <david@qore.org> - 1.3
 - updated to version 1.3
 
-* Fri Jun 13 2013 David Nichols <david@qore.org> - 1.2
+* Thu Jun 13 2013 David Nichols <david@qore.org> - 1.2
 - updated to version 1.2
 
 * Fri Jun 1 2012 David Nichols <david@qore.org> - 1.1
