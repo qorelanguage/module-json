@@ -49,9 +49,6 @@ if (WIN32 AND MINGW AND MSYS)
     target_compile_definitions(${module_name} PUBLIC BUILDING_DLL)
 endif (WIN32 AND MINGW AND MSYS)
 
-set(MODULE_DOX_INPUT ${CMAKE_CURRENT_BINARY_DIR}/mainpage.dox ${QPP_DOX})
-string(REPLACE ";" " " MODULE_DOX_INPUT "${MODULE_DOX_INPUT}")
-
 if (${VERSION_PATCH})
     qore_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
     qore_dist("${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
