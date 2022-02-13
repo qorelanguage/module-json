@@ -50,13 +50,16 @@ if (WIN32 AND MINGW AND MSYS)
 endif (WIN32 AND MINGW AND MSYS)
 
 if (${VERSION_PATCH})
-    qore_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+    qore_external_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
     qore_dist("${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 else()
-    qore_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}")
+    qore_external_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}")
     qore_dist("${VERSION_MAJOR}.${VERSION_MINOR}")
 endif()
 qore_user_modules("${QMOD}")
+
+qore_external_user_module("qlib/JsonRpcConnection.qm" "")
+qore_external_user_module("qlib/JsonRpcHandler.qm" "")
 
 qore_config_info()
 
