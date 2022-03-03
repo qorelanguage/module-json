@@ -134,7 +134,11 @@
 
     @section jsonreleasenotes Release Notes
 
-    @subsection v0_1_8 Version 1.8
+    @subsection json_v1_8_1 json Module Version 1.8.1
+    - eliminated excess whitespace from compact JSON serialization
+      (<a href="https://github.com/qorelanguage/qore/issues/4459">issue 4459</a>)
+
+    @subsection json_v0_1_8 json Module Version 1.8
     - fixed a bug where numbers in scientific notation could not be parsed
       (<a href="https://github.com/qorelanguage/qore/issues/3707">issue 3707</a>)
     - implemented support for serializing connection objects
@@ -148,19 +152,19 @@
     - added support for serializing intervals to strings that can be manually converted to the original value
       (<a href="https://github.com/qorelanguage/qore/issues/3135">issue 3135</a>)
 
-    @subsection v0_1_7 Version 1.7
+    @subsection json_v0_1_7 json Module Version 1.7
     - deprecated support for the non-published JSON-RPC 1.1 protocol
     - added support for JSON-RPC 2.0
     - added the <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a> user module
     - improved argument error messages with RPC calls in the <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> module (<a href="https://github.com/qorelanguage/qore/issues/2573">issue 2573</a>)
     - fixed date serialization to use ISO-8601 format (instead of near-ISO-8601 format: <a href="https://github.com/qorelanguage/qore/issues/2655">issue 2655</a>)
 
-    @subsection v0_1_6 Version 1.6
+    @subsection json_v0_1_6 json Module Version 1.6
     - @ref parse_json() now ignores UTF-8 and Unicode BOMs at the start of passed JSON string  (<a href="https://github.com/qorelanguage/qore/issues/1398">issue 1398</a>)
     - fixed a bug in request logging in the <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> module (<a href="https://github.com/qorelanguage/qore/issues/1487">issue 1487</a>)
     - fixed a bug serializing hash keys with embedded quotes (<a href="https://github.com/qorelanguage/qore/issues/2242">issue 2242</a>)
 
-    @subsection v0_1_5 Version 1.5
+    @subsection json_v0_1_5 json Module Version 1.5
     - serialize binary values as base64-encoded strings
     - user modules moved to top-level qore module directory from version-specific module directory since they are valid for multiple versions of qore
     - serialize nan, +/-inf as \c null according to the JSON spec
@@ -170,27 +174,27 @@
     - %Qore 0.8.12 required as a minimum to build
     - JSON output is more compact; less extraneous whitespace is used
 
-    @subsection v0_1_4 Version 1.4
+    @subsection json_v0_1_4 json Module Version 1.4
 
     - date/time values are always serialized with microseconds and in the local time zone for consistency's sake
     - fixed a crashing bug in the JSON control-character encoding algorithm
     - updated the <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> module for enhanced logging
     - source released under the MIT license as well as LGPL 2.1
 
-    @subsection v0_1_3 Version 1.3
+    @subsection json_v0_1_3 json Module Version 1.3
 
     - always include \c charset=utf-8 in the \c Content-Type in @ref Qore::Json::JsonRpcClient "JsonRpcClient"; JSON messages are always serialized with UTF-8 encoding
 
-    @subsection v0_1_2 Version 1.2
+    @subsection json_v0_1_2 json Module Version 1.2
 
     - fixed serialization/deserialization/escaping regarding control characters
 
-    @subsection v0_1_1 Version 1.1
+    @subsection json_v0_1_1 json Module Version 1.1
 
     - added support for the new arbitrary-precision numeric type introduced in qore 0.8.6
     - serialize control characters with escape codes to be compatible with common Javascript JSON libraries (also corresponding deserialization support)
 
-    @subsection v0_1_0 Version 1.0
+    @subsection json_v0_1_0 json Module Version 1.0
 
     - Initial release of the json module
     - Requires qore 0.8.1+ to build and run

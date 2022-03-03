@@ -6,7 +6,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright 2003 - 2022 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -29,7 +29,7 @@
 
 // json generation constants
 #define JGF_NONE           0
-#define JGF_ADD_FORMATTING (1<<0)
+#define JGF_ADD_FORMATTING (1 << 0)
 
 DLLEXPORT QoreStringNode* make_jsonrpc_request_args(const std::string& version, const QoreListNode* params, QoreValue id, unsigned offset, ExceptionSink* xsink);
 DLLEXPORT QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreListNode* params, QoreValue id, unsigned offset, ExceptionSink* xsink);
