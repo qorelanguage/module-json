@@ -15,7 +15,7 @@
 %disable-warning deprecated
 
 # make sure we have the right version of qore
-%requires qore >= 0.8.13
+%requires qore >= 1.0
 
 # make sure we have the json module
 %requires json
@@ -47,6 +47,7 @@ class JsonTest inherits QUnit::Test {
     }
 
     constructor() : Test("JsonTest", "1.0", \ARGV) {
+        addTestCase("formatting test", \formattingTest());
         addTestCase("float rounding test", \floatRoundingTest());
         addTestCase("issue 3135", \issue3135());
         addTestCase("JsonTestCase", \jsonTestCase());
@@ -56,6 +57,20 @@ class JsonTest inherits QUnit::Test {
         addTestCase("parse_json UTF-8/Unicode BOM skipping test", \parseJsonBom());
         addTestCase("issue 2655", \issue2655());
         set_return_value(main());
+    }
+
+    formattingTest() {
+        hash<auto> h = {
+            "contact": {
+                "email": "email@gmail.com",
+                "codes": (1, "two",),
+            },
+        };
+        string expected = "{\n  \"contact\": {\n    \"email\": \"email@gmail.com\",\n    \"codes\": [\n      1,\n"
+            "      \"two\"\n    ]\n  }\n}";
+        string json = make_json(h, JGF_ADD_FORMATTING);
+        assertEq(expected, json);
+        assertEq(h, parse_json(json));
     }
 
     floatRoundingTest() {

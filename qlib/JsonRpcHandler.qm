@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file JsonRpcHandler.qm @brief JSON-RPC handler class definition for the HttpServer module
 
-/*  JsonRpcHandler.qm Copyright (C) 2012 - 2018 Qore Technologies, s.r.o.
+/*  JsonRpcHandler.qm Copyright (C) 2012 - 2022 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
 */
 
 # minimum qore version
-%requires qore >= 0.9
+%requires qore >= 1.0
 
 # requires the binary json module
 %requires json >= 1.8
@@ -41,7 +41,7 @@
 %new-style
 
 module JsonRpcHandler {
-    version = "1.3";
+    version = "1.3.1";
     desc = "JsonRpcHandler module for use with the HttpServer module";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -91,6 +91,9 @@ http.waitStop();
 
     @section jsonrpchandler_relnotes JsonRpcHandler Release Notes
 
+    @subsection jsonrpchandler_1_3_1 JsonRpcHandler v1.3.1
+    - minor type fix in handling JSON-RPC method calls
+
     @subsection jsonrpchandler_1_3 JsonRpcHandler v1.3
     - updated for JSON-RPC 2.0 support, return JSON-RPC messages with the same protocol level as the request
 
@@ -109,7 +112,7 @@ http.waitStop();
 public namespace JsonRpcHandler {
     #! JsonRpcHandler class definition; to be registered as a handler in the HttpServer class
     /**
-     */
+    */
     public class JsonRpcHandler inherits public AbstractHttpRequestHandler {
         public {
             #! implementation of the handler
@@ -177,19 +180,31 @@ public namespace JsonRpcHandler {
         /** @param n_auth an authentication object (use new AbstractAuthenticator() for no authentication)
             @param n_methods a list of hashes with the following keys:
             - \c name: a regular expression to use for matching the method name
-            - \c function: a string (giving a function name to call), a call reference, or a closure to call with the deserialized arguments to the method; the return value will be serialized to JSON-RPC and sent back to the caller
+            - \c function: a string (giving a function name to call), a call reference, or a closure to call with the
+              deserialized arguments to the method; the return value will be serialized to JSON-RPC and sent back to
+              the caller
             - \c text: the human-readable name of the method
             - \c help: help text for the method
-            - \c logopt: (optional - by convention) log options which can be used by a custom logger (see the getLogMessage parameter)
+            - \c logopt: (optional - by convention) log options which can be used by a custom logger (see the
+              getLogMessage parameter)
             - \c cmark: (optional) a data structure to be added to the context argument when the request method is called
-            @param n_getLogMessage an optional closure or call reference to be called when an incoming request is received; if this is set then it will be called with the following arguments: a context hash (see HttpServer::AbstractHttpRequestHandler::handleRequest() for a description of the context hash), the method definition as passed in the methods argument to this constructor, and a reference to the arguments in this call
-            @param n_dbg this parameter is set to @ref Qore::True "True", then additional information will be logged when errors occur
-            @param n_get_prefix prefix to add to derived methods with GET requests if no "." characters are in the path
+            @param n_getLogMessage an optional closure or call reference to be called when an incoming request is
+            received; if this is set then it will be called with the following arguments: a context hash (see
+            HttpServer::AbstractHttpRequestHandler::handleRequest() for a description of the context hash), the method
+            definition as passed in the methods argument to this constructor, and a reference to the arguments in this
+            call
+            @param n_dbg this parameter is set to @ref Qore::True "True", then additional information will be logged
+            when errors occur
+            @param n_get_prefix prefix to add to derived methods with GET requests if no "." characters are in the
+            path
             @param n_log an optional closure or call reference to be called when logging
 
-            @throw JSON-RPC-CONSTRUCTOR-ERROR missing \c "name", \c "function", or \"text" key in method hash, \c "function" key not assigned to a callable value
-         */
-        constructor(HttpServer::AbstractAuthenticator n_auth, list<auto> n_methods, *code n_getLogMessage, bool n_dbg = False, *string n_get_prefix, *code n_log) : HttpServer::AbstractHttpRequestHandler(n_auth) {
+            @throw JSON-RPC-CONSTRUCTOR-ERROR missing \c "name", \c "function", or \"text" key in method hash,
+            \c "function" key not assigned to a callable value
+        */
+        constructor(HttpServer::AbstractAuthenticator n_auth, list<auto> n_methods, *code n_getLogMessage,
+                bool n_dbg = False, *string n_get_prefix, *code n_log)
+                : HttpServer::AbstractHttpRequestHandler(n_auth) {
             getLogMessage = n_getLogMessage;
             debug = n_dbg;
             get_prefix = n_get_prefix;
@@ -212,12 +227,14 @@ public namespace JsonRpcHandler {
 
         #! adds a method to the handler dynamically
         /** @param name a regular expression to use for matching the method name
-            @param func a string (giving a function name to call), a call reference, or a closure to call with the deserialized arguments to the method; the return value will be serialized to XML-RPC and sent back to the caller
+            @param func a string (giving a function name to call), a call reference, or a closure to call with the
+            deserialized arguments to the method; the return value will be serialized to XML-RPC and sent back to the
+            caller
             @param text the human-readable name of the method
             @param help help text for the method
             @param logopt log options which can be used by a custom logger (see the getLogMessage parameter)
             @param cmark any value that will be added in the method hash under the \c "cmark" key
-          */
+        */
         addMethod(string name, code func, string text, string help, auto logopt, auto cmark) {
             addMethodInternal({
                 "name": name,
@@ -294,7 +311,9 @@ public namespace JsonRpcHandler {
         }
 
         # don't reimplement this method; fix/enhance it in the module
-        final private hash callMethod(hash<auto> cx, auto params) {
+        final private hash callMethod(hash<auto> cx0, auto params) {
+            # to ensure that cx remains "hash<auto>"
+            hash<auto> cx += cx0;
             string method = cx.method;
             # find method function
             hash<auto> found;
@@ -310,7 +329,8 @@ public namespace JsonRpcHandler {
                 return {
                     "code": 200,
                     "hdr": {"Content-Type": MimeTypeJsonRpc},
-                    "body": make_jsonrpc_error(cx.jsonrpc_version, cx.jsonid, {"code": JRE_MethodNotFound, "message": str}),
+                    "body": make_jsonrpc_error(cx.jsonrpc_version, cx.jsonid,
+                        {"code": JRE_MethodNotFound, "message": str}),
                 };
             }
 
@@ -326,9 +346,12 @@ public namespace JsonRpcHandler {
 
             auto rv;
             try {
-                rv = found.internal ? call_object_method_args(self, found.function, params) : call_function_args(found.function, params);
+                rv = found.internal
+                    ? call_object_method_args(self, found.function, params)
+                    : call_function_args(found.function, params);
             } catch (hash<ExceptionInfo> ex) {
-                # issue #2573: provide a more user-friendly error when the argument cannot be matched to the closure/call ref
+                # issue #2573: provide a more user-friendly error when the argument cannot be matched to the closure/
+                # call ref
                 if (ex.err == "RUNTIME-TYPE-ERROR"
                     && (ex.callstack[0].file =~ /JsonRpcHandler.qm$/
                         && (ex.callstack[0].function == "call_function_args"
@@ -338,7 +361,8 @@ public namespace JsonRpcHandler {
                 rethrow;
             }
 
-            # throw an exception if the protocol version is >= 2.0 and there is no id (therefore the request is a notification) and a response was returned
+            # throw an exception if the protocol version is >= 2.0 and there is no id (therefore the request is a
+            # notification) and a response was returned
             if (exists cx.jsonrpc_version
                 && !exists cx.jsonid && exists rv
                 && compare_version(cx.jsonrpc_version, "2.0") >= 0)
@@ -358,16 +382,18 @@ public namespace JsonRpcHandler {
             if (hdr.method == "GET") {
                 string path = substr(hdr.path, index(hdr.path, "/") + 1);
 
-                if (path.empty())
+                if (path.empty()) {
                     return {
                         "code": 501,
                         "body": "invalid HTTP GET: no path/JSON-RPC method name given",
                     };
+                }
 
                 jsonrpc += parse_uri_query(path);
 
-                if (exists get_prefix && index(jsonrpc.method, ".") == -1)
+                if (exists get_prefix && index(jsonrpc.method, ".") == -1) {
                     jsonrpc.method = get_prefix + jsonrpc.method;
+                }
             } else {
                 if (hdr.method != "POST") {
                     return {
@@ -387,14 +413,20 @@ public namespace JsonRpcHandler {
                     if (t == NT_LIST) {
                         return processBatchMessage(cx, req);
                     } else {
-                        if (t != NT_HASH)
-                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", req.type()), JRE_InvalidRequest;
+                        if (t != NT_HASH) {
+                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("expecting a hash with a \"method\" key in "
+                                "the JSON-RPC call; got type %y instead", req.type()), JRE_InvalidRequest;
+                        }
                         cx.jsonrpc_version = req.jsonrpc ?? req.version;
                         jsonrpc = req;
-                        if (!jsonrpc.method.val())
-                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("missing \"method\" key in call; got keys: %y", jsonrpc.keys()), JRE_InvalidRequest;
-                        if (jsonrpc.method.typeCode() != NT_STRING)
-                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting \"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
+                        if (!jsonrpc.method.val()) {
+                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("missing \"method\" key in call; got keys: "
+                                "%y", jsonrpc.keys()), JRE_InvalidRequest;
+                        }
+                        if (jsonrpc.method.typeCode() != NT_STRING) {
+                            throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; "
+                                "expecting \"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
+                        }
                     }
                 } catch (hash<ExceptionInfo> ex) {
                     string estr = sprintf("%s: %s", ex.err, ex.desc);
@@ -442,13 +474,17 @@ public namespace JsonRpcHandler {
             list<auto> rvl = ();
             foreach auto elem in (l) {
                 if (elem.typeCode() != NT_HASH)
-                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: expecting a hash with a \"method\" key in the JSON-RPC call; got type %y instead", $# + 1, l.size(), elem.type()), JRE_InvalidRequest;
+                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: expecting a hash with a "
+                        "\"method\" key in the JSON-RPC call; got type %y instead", $# + 1, l.size(), elem.type()),
+                        JRE_InvalidRequest;
                 cx.jsonrpc_version = elem.jsonrpc ?? elem.version;
                 hash jsonrpc = elem;
                 if (!jsonrpc.method.val())
-                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: missing \"method\" key in call; got keys: %y", $# + 1, l.size(), jsonrpc.keys(), JRE_InvalidRequest);
+                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: missing \"method\" key in call; "
+                        "got keys: %y", $# + 1, l.size(), jsonrpc.keys(), JRE_InvalidRequest);
                 if (jsonrpc.method.typeCode() != NT_STRING)
-                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting \"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
+                    throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting "
+                        "\"string\"", jsonrpc.method.type()), JRE_InvalidRequest;
                 cx += {
                     "method": jsonrpc.method,
                     "jsonid": jsonrpc.id,

@@ -1,4 +1,4 @@
-%define mod_ver 1.8.1
+%define mod_ver 1.8.2
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -100,6 +100,9 @@ json module.
 %doc docs/json/html docs/JsonRpcHandler/html examples/ test/
 
 %changelog
+* Mon May 9 2022 David Nichols <david@qore.org> - 1.8.2
+- updated to version 1.8.2
+
 * Thu Mar 8 2022 David Nichols <david@qore.org> - 1.8.1
 - updated to version 1.8.1
 
