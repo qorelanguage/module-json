@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.0.0)
 
 project(qore-json-module)
 
 set (VERSION_MAJOR 1)
 set (VERSION_MINOR 8)
-set (VERSION_PATCH 1)
+set (VERSION_PATCH 2)
 
 find_package(Qore 0.9 REQUIRED)
 find_package(OpenSSL REQUIRED)

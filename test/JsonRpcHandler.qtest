@@ -10,6 +10,7 @@
 
 %requires QUnit
 %requires HttpServer
+%requires Logger
 %requires Mime
 %requires ../qlib/JsonRpcHandler.qm
 
@@ -18,54 +19,57 @@
 class MyJsonRpcHandler inherits JsonRpcHandler {
     public {
         const ApiMethods = (
-            ("name": "^system\\.echo\$",
-             "text": "system.echo",
-             "function": \MyJsonRpcHandler::echo(),
-             "help": "echos the argument",
-             "logopt": 0,
-            ),
-            ("name": "^system\\.notify\$",
-             "text": "system.notify",
-             "function": \MyJsonRpcHandler::notify(),
-             "help": "notification API",
-             "logopt": 0,
-            ),
-            ("name": "^system\\.error\$",
-             "text": "system.error",
-             "function": \MyJsonRpcHandler::error(),
-             "help": "throws an error",
-             "logopt": 0,
-            ),
-            ("name": "^example\$",
-             "text": "example",
-             "function": string sub (string arg) { return arg; },
-             "help": "example call",
-            ),
+            {
+                "name": "^system\\.echo\$",
+                "text": "system.echo",
+                "function": \MyJsonRpcHandler::echo(),
+                "help": "echos the argument",
+                "logopt": 0,
+            }, {
+                "name": "^system\\.notify\$",
+                "text": "system.notify",
+                "function": \MyJsonRpcHandler::notify(),
+                "help": "notification API",
+                "logopt": 0,
+            }, {
+                "name": "^system\\.error\$",
+                "text": "system.error",
+                "function": \MyJsonRpcHandler::error(),
+                "help": "throws an error",
+                "logopt": 0,
+            }, {
+                "name": "^example\$",
+                "text": "example",
+                "function": string sub (string arg) { return arg; },
+                "help": "example call",
+            },
         );
     }
 
-    constructor() : JsonRpcHandler(new PermissiveAuthenticator(), ApiMethods, \MyJsonRpcHandler::getLogMessage(), NOTHING, NOTHING, \MyJsonRpcHandler::log()) {
+    constructor()
+            : JsonRpcHandler(new PermissiveAuthenticator(), ApiMethods, \MyJsonRpcHandler::getLogMessage(), NOTHING,
+                NOTHING, \MyJsonRpcHandler::log()) {
     }
 
-    hash testCallMethod(hash cx, auto params) {
+    hash<auto> testCallMethod(hash<auto> cx, auto params) {
         return callMethod(cx, params);
     }
 
-    static string getLogMessage(hash cx, hash mh, reference params) {
+    static string getLogMessage(hash<auto> cx, hash<auto> mh, reference<auto> params) {
         return sprintf("%y: params: %y", mh.text, params);
     }
 
     static nothing log(string msg) {
     }
 
-    static any echo(any arg) {
+    static auto echo(auto arg) {
         return arg;
     }
 
-    static nothing notify(any arg) {
+    static nothing notify(auto arg) {
     }
 
-    static nothing error(any arg) {
+    static nothing error(auto arg) {
         throw "TEST-ERROR", arg;
     }
 }
@@ -77,19 +81,20 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         MyJsonRpcHandler mHandler();
         int port;
 
-        const SimpleHashValue = ("a": 1);
-        const LargerHashValue = ("a": 1, "b": "two");
-        const HashValue = ("a": (1, "two"));
+        const SimpleHashValue = {"a": 1};
+        const LargerHashValue = {"a": 1, "b": "two"};
+        const HashValue = {"a": (1, "two")};
 
         const ListValue = (1, "two", 3.1);
 
         const AllValues = (1, "two", ListValue, SimpleHashValue, LargerHashValue, HashValue);
 
-        const BatchBody = '[{"method":"system.echo","params":"abc","id":1},{"method":"system.notify","params":"abc"},{"method":"system.echo","params":"abcd","id":2}]';
+        const BatchBody = '[{"method":"system.echo","params":"abc","id":1},{"method":"system.notify","params":"abc"},'
+            '{"method":"system.echo","params":"abcd","id":2}]';
         const BatchResponse = (
-            ("id":1,"result":"abc"),
-            ("id":2,"result":"abcd"),
-            );
+            {"id":1,"result":"abc"},
+            {"id":2,"result":"abcd"},
+        );
 
         const ParseErrorBody = '{"method":"system.echo","params":"abc","id:1}';
         const InvalidRequestBody = '{"method1":"system.echo","params":"abc","id":1}';
@@ -111,7 +116,15 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
     }
 
     globalSetUp() {
-        mServer = new HttpServer(\log(), \log());
+        Logger logger("test", LoggerLevel::getLevelInfo());
+        if (m_options.verbose > 2) {
+            logger.addAppender(new TestAppender());
+        }
+        hash<HttpServerOptionInfo> http_opts = <HttpServerOptionInfo>{
+            "logger": logger,
+            "debug": True,
+        };
+        mServer = new HttpServer(http_opts);
         mServer.setHandler("jsonrpc-handler", "", MimeTypeJson, mHandler);
         mServer.setDefaultHandler("jsonrpc-handler", mHandler);
         port = mServer.addListener(<HttpListenerOptionInfo>{"service": 0}).port;
@@ -125,12 +138,13 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
     }
 
     issue2573() {
-        assertThrows("RPC-ARG-ERROR", "missing one or more required arguments", \mHandler.testCallMethod(), ({"method": "example"}, ()));
+        assertThrows("RPC-ARG-ERROR", "missing one or more required arguments", \mHandler.testCallMethod(),
+            ({"method": "example"}, ()));
     }
 
     testJsonRpc2_0() {
         mClient.setVersion("2.0");
-        foreach any v in (AllValues) {
+        foreach auto v in (AllValues) {
             hash h = mClient.call("system.echo", v);
             assertEq("2.0", h.jsonrpc, v.type() + " version " + mClient.getVersion());
             assertEq(NOTHING, h.version, v.type() + " version " + mClient.getVersion());
@@ -154,7 +168,7 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
 
     testJsonRpc1_0() {
         mClient.setVersion("1.0");
-        foreach any v in (AllValues) {
+        foreach auto v in (AllValues) {
             hash h = mClient.call("system.echo", v);
             assertEq(NOTHING, h.jsonrpc, v.type() + " jsonrpc " + mClient.getVersion());
             assertEq(NOTHING, h.version, v.type() + " version " + mClient.getVersion());
@@ -178,7 +192,7 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
 
     testJsonRpc1_1() {
         mClient.setVersion("1.1");
-        foreach any v in (AllValues) {
+        foreach auto v in (AllValues) {
             hash h = mClient.call("system.echo", v);
             assertEq(NOTHING, h.jsonrpc, v.type() + " jsonrpc " + mClient.getVersion());
             assertEq("1.1", h.version, v.type() + " version " + mClient.getVersion());
@@ -202,5 +216,19 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
 
     log(string str) {
         delete argv;
+    }
+}
+
+class TestAppender inherits LoggerAppenderWithLayout {
+    constructor() : LoggerAppenderWithLayout("test", new LoggerLayoutPattern("%d T%t [%p]: %m%n")) {
+        open();
+    }
+
+    processEventImpl(int type, auto params) {
+        switch (type) {
+            case EVENT_LOG:
+                print(params);
+                break;
+        }
     }
 }
