@@ -113,9 +113,9 @@ case "${host_os}" in
 		# set LIB_PREFIX if not already set
 		if test -z "$LIB_PREFIX"; then
    		   AC_MSG_CHECKING([for mingw32 library prefix])
-		   cc_loc=`which $CXX|head -1`
+		   cc_loc=`which $CXX|cut -f1 -d\ |head -1`
 		   mingw_base=`dirname $cc_loc|sed 's/\/@<:@^/@:>@*$//'`
-		   cc_targ=`echo $CXX|sed s/-g++$//`
+		   cc_targ=`echo $CXX|cut -f1 -d\ |sed s/-g++$//`
 		   if test -d $mingw_base/$cc_targ; then
 		      LIB_PREFIX=$mingw_base/$cc_targ
 		      AC_MSG_RESULT([$LIB_PREFIX])
