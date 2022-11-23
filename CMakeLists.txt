@@ -49,6 +49,10 @@ if (WIN32 AND MINGW AND MSYS)
     target_compile_definitions(${module_name} PUBLIC BUILDING_DLL)
 endif (WIN32 AND MINGW AND MSYS)
 
+if (DEFINED ENV{DOXYGEN_EXECUTABLE})
+    set(DOXYGEN_EXECUTABLE $ENV{DOXYGEN_EXECUTABLE})
+endif()
+
 if (${VERSION_PATCH})
     qore_external_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
     qore_dist("${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")

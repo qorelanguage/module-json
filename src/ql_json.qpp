@@ -965,6 +965,7 @@ auto parseJSON(string json_str) [flags=RET_VALUE_ONLY,DEPRECATED] {
 /** @defgroup json_rpc_functions JSON-RPC Functions
  */
 //@{
+namespace Qore::Json;
 //! Creates a JSON-RPC request string from the parameters passed, without any line breaks
 /** To follow JSON-RPC specifications, the generated string will always be in UTF-8 encoding
     @param method_name the name of the JSON-RPC method to call
