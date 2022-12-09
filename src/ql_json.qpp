@@ -842,7 +842,7 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
 
 /** @defgroup json_generation_constants JSON Generation Constants
  */
-//@{
+///@{
 namespace Qore::Json;
 
 //! no flags; standard JSON generation without whitespace formatting
@@ -850,11 +850,11 @@ const JGF_NONE = JGF_NONE;
 
 //! use whitespace formatting including line breaks and indentation to make generated JSON more readable by humans
 const JGF_ADD_FORMATTING = JGF_ADD_FORMATTING;
-//@}
+///@}
 
 /** @defgroup json_functions JSON Functions
  */
-//@{
+///@{
 namespace Qore::Json;
 
 //! Serializes qore data into a JSON string with optional whitespace formatting (line breaks and indentation)
@@ -960,11 +960,11 @@ nothing parseJSON() [flags=RUNTIME_NOOP,DEPRECATED] {
 auto parseJSON(string json_str) [flags=RET_VALUE_ONLY,DEPRECATED] {
     return parse_json(json_str, xsink);
 }
-//@}
+///@}
 
 /** @defgroup json_rpc_functions JSON-RPC Functions
  */
-//@{
+///@{
 namespace Qore::Json;
 //! Creates a JSON-RPC request string from the parameters passed, without any line breaks
 /** To follow JSON-RPC specifications, the generated string will always be in UTF-8 encoding
@@ -1328,4 +1328,4 @@ string makeJSONRPC11ErrorString(softint code, string error, auto id, auto error_
 string makeFormattedJSONRPC11ErrorString(softint code, string error, auto id, auto error_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
     return make_jsonrpc11_error(code, error, id, error_msg, JGF_ADD_FORMATTING, xsink);
 }
-//@}
+///@}
