@@ -19,10 +19,8 @@
 # get *suse release minor version without trailing zeros
 %define os_min %(echo %suse_version|rev|cut -b-2|rev|sed s/0*$//)
 
-%if %suse_version > 1010
+%if %suse_version
 %define dist .opensuse%{os_maj}_%{os_min}
-%else
-%define dist .suse%{os_maj}_%{os_min}
 %endif
 
 %endif
@@ -42,8 +40,8 @@ Summary: JSON module for Qore
 Name: qore-json-module
 Version: %{mod_ver}
 Release: 1%{dist}
-License: LGPL
-Group: Development/Languages
+License: MIT
+Group: Development/Languages/Other
 URL: http://qore.org
 Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
@@ -54,9 +52,11 @@ BuildRequires:  devtoolset-7-gcc-c++
 %endif
 BuildRequires: cmake >= 3.5
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.9
+BuildRequires: qore-devel >= 1.12.4
+BuildRequires: qore-stdlib >= 1.12.4
+BuildRequires: qore >= 1.12.4
+BuildRequires: doxygen
 BuildRequires: openssl-devel
-BuildRequires: qore
 
 %description
 This package contains the json module for the Qore Programming Language.
@@ -78,6 +78,8 @@ JSON is a concise human-readable data serialization format.
 export CXXFLAGS="%{?optflags}"
 cmake -DCMAKE_INSTALL_PREFIX=%{_prefix} -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DCMAKE_SKIP_RPATH=1 -DCMAKE_SKIP_INSTALL_RPATH=1 -DCMAKE_SKIP_BUILD_RPATH=1 -DCMAKE_PREFIX_PATH=${_prefix}/lib64/cmake/Qore .
 make %{?_smp_mflags}
+make %{?_smp_mflags} docs
+sed -i 's/#!\/usr\/bin\/env qore/#!\/usr\/bin\/qore/' test/*.qtest examples/*
 
 %install
 make DESTDIR=%{buildroot} install %{?_smp_mflags}
@@ -90,6 +92,11 @@ rm -rf $RPM_BUILD_ROOT
 %{module_dir}
 %{user_module_dir}
 %doc COPYING.LGPL COPYING.MIT README RELEASE-NOTES AUTHORS
+
+%check
+qore -l ./json-api-1.3.qmod test/JsonRpcClient.qtest -v
+qore -l ./json-api-1.3.qmod test/JsonRpcHandler.qtest -v
+qore -l ./json-api-1.3.qmod test/json.qtest -v
 
 %package doc
 Summary: JSON module for Qore
