@@ -50,6 +50,10 @@ Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module(abi)%{?_isa} = %{module_api}
+%if 0%{?el7}
+BuildRequires:  devtoolset-7-gcc-c++
+%endif
+BuildRequires: cmake >= 3.5
 BuildRequires: gcc-c++
 BuildRequires: qore-devel >= 0.9
 BuildRequires: openssl-devel
@@ -66,17 +70,18 @@ JSON is a concise human-readable data serialization format.
 
 %prep
 %setup -q
-./configure RPM_OPT_FLAGS="$RPM_OPT_FLAGS" --prefix=/usr --disable-debug
 
 %build
-%{__make}
+%if 0%{?el7}
+# enable devtoolset7
+. /opt/rh/devtoolset-7/enable
+%endif
+export CXXFLAGS="%{?optflags}"
+cmake -DCMAKE_INSTALL_PREFIX=%{_prefix} -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DCMAKE_SKIP_RPATH=1 -DCMAKE_SKIP_INSTALL_RPATH=1 -DCMAKE_SKIP_BUILD_RPATH=1 -DCMAKE_PREFIX_PATH=${_prefix}/lib64/cmake/Qore .
+make %{?_smp_mflags}
 
 %install
-rm -rf $RPM_BUILD_ROOT
-mkdir -p $RPM_BUILD_ROOT/%{module_dir}
-mkdir -p $RPM_BUILD_ROOT/%{user_module_dir}
-mkdir -p $RPM_BUILD_ROOT/usr/share/doc/qore-json-module
-make install DESTDIR=$RPM_BUILD_ROOT
+make DESTDIR=%{buildroot} install %{?_smp_mflags}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -97,13 +102,14 @@ json module.
 
 %files doc
 %defattr(-,root,root,-)
-%doc docs/json/html docs/JsonRpcHandler/html examples/ test/
+%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler test examples
 
 %changelog
 * Mon May 9 2022 David Nichols <david@qore.org> - 1.8.2
 - updated to version 1.8.2
+- use cmake instead of autotools
 
-* Thu Mar 8 2022 David Nichols <david@qore.org> - 1.8.1
+* Tue Mar 8 2022 David Nichols <david@qore.org> - 1.8.1
 - updated to version 1.8.1
 
 * Fri Jan 26 2018 David Nichols <david@qore.org> - 1.8
