@@ -94,9 +94,9 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING.LGPL COPYING.MIT README RELEASE-NOTES AUTHORS
 
 %check
-qore -l ./json-api-1.3.qmod test/JsonRpcClient.qtest -v
-qore -l ./json-api-1.3.qmod test/JsonRpcHandler.qtest -v
-qore -l ./json-api-1.3.qmod test/json.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/JsonRpcClient.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/JsonRpcHandler.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/json.qtest -v
 
 %package doc
 Summary: JSON module for Qore
