@@ -119,6 +119,14 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
             "desc": "A connection to a JSON-RPC server",
             "cls": Class::forName("JsonRpcConnection"),
             "options": HttpConnection::ConnectionScheme.options,
+            "schemes": {
+                "jsonrpcs": True,
+                "jsonrpc": True,
+            },
+            "base_scheme_map": {
+                "https": "jsonrpcs",
+                "http": "jsonrpc",
+            },
         };
     }
 
@@ -132,7 +140,7 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
         See @ref AbstractConnection::constructor() for \c attributes and \c options reference.
     */
     constructor(string name, string description, string url, hash<auto> attributes = {}, hash<auto> options = {})
-        : HttpBasedConnection(name, description, url, attributes, options) {
+            : HttpBasedConnection(name, description, url, attributes, options) {
         real_opts = {"url": real_url} + opts;
     }
 
