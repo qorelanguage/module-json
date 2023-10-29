@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file JsonRpcConnection.qm JSON-RPC client connection module implementation
 
-/*  JsonRpcConnections.qm Copyright 2013 - 2022 Qore Technologies, s.r.o.
+/*  JsonRpcConnections.qm Copyright 2013 - 2023 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
 */
 
 # minimum required Qore version
-%requires qore >= 1.0
+%requires qore >= 2.0
 
 # require type definitions everywhere
 %require-types
@@ -114,8 +114,19 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
 
         #! Connection entry info
         const ConnectionScheme = <ConnectionSchemeInfo>{
+            "display_name": "JSON-RPC Connection",
+            "short_desc": "A connection to a JSON-RPC server",
+            "desc": "A connection to a JSON-RPC server",
             "cls": Class::forName("JsonRpcConnection"),
             "options": HttpConnection::ConnectionScheme.options,
+            "schemes": {
+                "jsonrpcs": True,
+                "jsonrpc": True,
+            },
+            "base_scheme_map": {
+                "https": "jsonrpcs",
+                "http": "jsonrpc",
+            },
         };
     }
 
@@ -129,7 +140,7 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
         See @ref AbstractConnection::constructor() for \c attributes and \c options reference.
     */
     constructor(string name, string description, string url, hash<auto> attributes = {}, hash<auto> options = {})
-        : HttpBasedConnection(name, description, url, attributes, options) {
+            : HttpBasedConnection(name, description, url, attributes, options) {
         real_opts = {"url": real_url} + opts;
     }
 
