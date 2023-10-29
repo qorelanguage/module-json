@@ -23,8 +23,7 @@
 */
 
 # minimum required Qore version
-%requires qore >= 2.0
-
+%requires qore >= 1.19.2
 # require type definitions everywhere
 %require-types
 
@@ -114,19 +113,9 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
 
         #! Connection entry info
         const ConnectionScheme = <ConnectionSchemeInfo>{
-            "display_name": "JSON-RPC Connection",
-            "short_desc": "A connection to a JSON-RPC server",
             "desc": "A connection to a JSON-RPC server",
             "cls": Class::forName("JsonRpcConnection"),
             "options": HttpConnection::ConnectionScheme.options,
-            "schemes": {
-                "jsonrpcs": True,
-                "jsonrpc": True,
-            },
-            "base_scheme_map": {
-                "https": "jsonrpcs",
-                "http": "jsonrpc",
-            },
         };
     }
 
