@@ -113,7 +113,6 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
 
         #! Connection entry info
         const ConnectionScheme = <ConnectionSchemeInfo>{
-            "desc": "A connection to a JSON-RPC server",
             "cls": Class::forName("JsonRpcConnection"),
             "options": HttpConnection::ConnectionScheme.options,
         };
