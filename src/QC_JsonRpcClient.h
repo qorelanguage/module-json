@@ -36,10 +36,6 @@ DLLEXPORT extern QoreClass *QC_JSONRPCCLIENT;
 DLLLOCAL QoreClass *initJsonRpcClientClass(QoreNamespace& ns);
 
 class JsonRpcClient : public QoreHttpClientObject {
-private:
-    mutable QoreThreadLock m;
-    std::string jsonrpc_version = "2.0";
-
 public:
     DLLLOCAL JsonRpcClient() {
         // set encoding to UTF-8
@@ -70,7 +66,13 @@ public:
             connect(xsink);
     }
 
-    DLLLOCAL QoreValue call(QoreStringNode *msg, QoreHashNode *info, ExceptionSink *xsink);
+    DLLLOCAL virtual ~JsonRpcClient() {
+        ExceptionSink xsink;
+        last_id.discard(&xsink);
+        xsink.clear();
+    }
+
+    DLLLOCAL QoreValue call(QoreStringNode* msg, QoreHashNode* info, ExceptionSink* xsink);
 
     DLLLOCAL void getVersion(QoreString& str) const {
         AutoLocker al(m);
@@ -85,6 +87,30 @@ public:
     DLLLOCAL const std::string& getVersionStr() const {
         return jsonrpc_version;
     }
+
+    DLLLOCAL QoreValue getNextId() {
+        if (!last_id) {
+            last_id = 1;
+        } else if (last_id.getType() == NT_INT) {
+            last_id = last_id.getAsBigInt() + 1;
+        } else if (last_id.getType() == NT_FLOAT) {
+            last_id = last_id.getAsFloat() + 1.0;
+        } else {
+            printf("CAN'T HANDLE TYPE %s\n", last_id.getFullTypeName());
+        }
+        return last_id;
+    }
+
+    DLLLOCAL void setLastId(QoreValue id) {
+        if (id) {
+            last_id = id;
+        }
+    }
+
+private:
+    mutable QoreThreadLock m;
+    std::string jsonrpc_version = "2.0";
+    QoreValue last_id;
 };
 
 #endif

@@ -1,0 +1,73 @@
+# -*- mode: qore; indent-tabs-mode: nil -*-
+#! @file McpServerHandler.qm @brief MCP Server class definition for the HttpServer module
+
+/*  McpServerHandler.qm Copyright (C) 2025 Qore Technologies, s.r.o.
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+*/
+
+# minimum qore version
+%requires qore >= 2.0
+%requires json
+%requires Mime
+%requires Util
+%requires HttpServerUtil
+%requires ServerSentEventHandler
+%requires JsonRpcHandler
+%requires Logger
+%try-module uuid
+%define NoUuid
+%endtry
+
+# don't use "$" for vars, members, and method calls, assume local var scope
+%new-style
+%require-types
+%enable-all-warnings
+%strict-args
+
+module McpServerHandler {
+    version = "1.0";
+    desc = "McpServerHandler module for use with the Qore HttpServer module";
+    author = "David Nichols <david@qore.org>";
+    url = "http://qore.org";
+    license = "MIT";
+}
+
+/** @mainpage McpServer Module
+
+    @tableofcontents
+
+    @section McpServerintro Introduction to the McpServer Module
+
+    This module implements support for an MCP server
+
+    @section McpServer_relnotes McpServer Release Notes
+
+    @subsection McpServer_1_0 McpServer v1.0
+    - initial release
+*/
+
+#! the %McpServerHandler namespace holds all public definitions in the %McpServerHandler module
+public namespace McpServerHandler {
+#! Server name
+public const McpServerName = "QoreMcpServer";
+
+#! Server version
+public const McpServerVersion = "1.0";
+}

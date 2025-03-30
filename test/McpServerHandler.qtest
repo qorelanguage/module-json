@@ -1,0 +1,99 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%require-types
+%enable-all-warnings
+%new-style
+%strict-args
+
+%requires json
+
+%requires QUnit
+%requires HttpServer
+%requires Logger
+%requires Mime
+%requires ../qlib/JsonRpcHandler.qm
+%requires ../qlib/McpServerHandler
+
+%exec-class McpServerHandlerTest
+
+class MyMcpServerHandler inherits McpServerHandler {
+    public {
+    }
+
+    constructor(LoggerInterface logger) : McpServerHandler(logger, new PermissiveAuthenticator()) {
+    }
+}
+
+public class McpServerHandlerTest inherits QUnit::Test {
+    public {
+        const McpApi = "2024-11-05";
+
+        const ClientInfo = {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "roots": {
+                    #"listChanged": true
+                },
+                "sampling": {}
+            },
+            "clientInfo": {
+                "name": "QoreMcpTestClient",
+                "version": "1.0.0"
+            },
+        };
+    }
+
+    private {
+        HttpServer http;
+        JsonRpcClient jsonrpc;
+        MyMcpServerHandler mcp_server;
+        int port;
+    }
+
+    constructor() : Test("McpServerHandlerTest", "1.0") {
+        addTestCase("main test", \mainTest());
+
+        # Return for compatibility with test harness that checks return value.
+        set_return_value(main());
+    }
+
+    globalSetUp() {
+        Logger logger("test", LoggerLevel::getLevelInfo());
+        if (m_options.verbose > 2) {
+            logger.addAppender(new StdoutAppender());
+        }
+        hash<HttpServerOptionInfo> http_opts = <HttpServerOptionInfo>{
+            "logger": logger,
+            "debug": True,
+        };
+        mcp_server = new MyMcpServerHandler(logger);
+        http = new HttpServer(http_opts);
+        http.setHandler("mcpserver-handler", "", MimeTypeJson, mcp_server);
+        http.setDefaultHandler("mcpserver-handler", mcp_server);
+        port = http.addListener(<HttpListenerOptionInfo>{"service": 0}).port;
+
+        jsonrpc = new JsonRpcClient({"url": "http://localhost:" + port});
+        #jsonrpc.setVersion("2.0");
+    }
+
+    globalTearDown() {
+        http.stop();
+        delete http;
+    }
+
+    mainTest() {
+        hash<auto> h = jsonrpc.call("initialize", ClientInfo);
+        on_error printf("h: %y\n", h);
+        assertEq("2.0", h.jsonrpc);
+        assertEq(1, h.id);
+        assertEq(McpApi, h.result.protocolVersion);
+
+        h = jsonrpc.callId(NOTHING, "notifications/initialized");
+        assertNothing(h.result);
+
+        h = jsonrpc.call("ping");
+        assertEq(2, h.id);
+        assertEq({}, h.result);
+    }
+}

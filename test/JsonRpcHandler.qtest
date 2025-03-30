@@ -46,9 +46,8 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
         );
     }
 
-    constructor()
-            : JsonRpcHandler(new PermissiveAuthenticator(), ApiMethods, \MyJsonRpcHandler::getLogMessage(), NOTHING,
-                NOTHING, \MyJsonRpcHandler::log()) {
+    constructor() : JsonRpcHandler(new PermissiveAuthenticator(), ApiMethods, \MyJsonRpcHandler::getLogMessage(),
+            NOTHING, NOTHING, \MyJsonRpcHandler::log()) {
     }
 
     hash<auto> testCallMethod(hash<auto> cx, auto params) {
@@ -153,16 +152,16 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         }
 
         # test a batch message
-        string json = mClient.post("", BatchBody, ("Content-Type": MimeTypeJsonRpc));
+        string json = mClient.post("", BatchBody);
         assertEq(BatchResponse, parse_json(json));
 
-        json = mClient.post("", ParseErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", ParseErrorBody);
         assertEq(JsonRpcHandler::JRE_ParseError, parse_json(json).error.code);
-        json = mClient.post("", InvalidRequestBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", InvalidRequestBody);
         assertEq(JsonRpcHandler::JRE_InvalidRequest, parse_json(json).error.code);
-        json = mClient.post("", MethodNotFoundBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", MethodNotFoundBody);
         assertEq(JsonRpcHandler::JRE_MethodNotFound, parse_json(json).error.code);
-        json = mClient.post("", InternalErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", InternalErrorBody);
         assertEq(JsonRpcHandler::JRE_InternalError, parse_json(json).error.code);
     }
 
@@ -177,16 +176,16 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         }
 
         # test a batch message
-        string json = mClient.post("", BatchBody, ("Content-Type": MimeTypeJsonRpc));
+        string json = mClient.post("", BatchBody);
         assertEq(BatchResponse, parse_json(json));
 
-        json = mClient.post("", ParseErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", ParseErrorBody);
         assertEq(JsonRpcHandler::JRE_ParseError, parse_json(json).error.code);
-        json = mClient.post("", InvalidRequestBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", InvalidRequestBody);
         assertEq(JsonRpcHandler::JRE_InvalidRequest, parse_json(json).error.code);
-        json = mClient.post("", MethodNotFoundBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", MethodNotFoundBody);
         assertEq(JsonRpcHandler::JRE_MethodNotFound, parse_json(json).error.code);
-        json = mClient.post("", InternalErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", InternalErrorBody);
         assertEq(JsonRpcHandler::JRE_InternalError, parse_json(json).error.code);
     }
 
@@ -201,16 +200,16 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         }
 
         # test a batch message
-        string json = mClient.post("", BatchBody, ("Content-Type": MimeTypeJsonRpc));
+        string json = mClient.post("", BatchBody);
         assertEq(BatchResponse, parse_json(json));
 
-        json = mClient.post("", ParseErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", ParseErrorBody);
         assertEq(JsonRpcHandler::JRE_ParseError, parse_json(json).error.code);
-        json = mClient.post("", InvalidRequestBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", InvalidRequestBody);
         assertEq(JsonRpcHandler::JRE_InvalidRequest, parse_json(json).error.code);
-        json = mClient.post("", MethodNotFoundBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", MethodNotFoundBody);
         assertEq(JsonRpcHandler::JRE_MethodNotFound, parse_json(json).error.code);
-        json = mClient.post("", InternalErrorBody, ("Content-Type": MimeTypeJsonRpc));
+        json = mClient.post("", InternalErrorBody);
         assertEq(JsonRpcHandler::JRE_InternalError, parse_json(json).error.code);
     }
 

@@ -37,7 +37,8 @@ protected:
     ReferenceHolder<QoreHashNode> info;
 
 public:
-    DLLLOCAL HTTPInfoRefHelper(const ReferenceNode *n_ref, QoreStringNode *msg, ExceptionSink *n_xsink) : ref(n_ref), xsink(n_xsink), info(new QoreHashNode(autoTypeInfo), xsink) {
+    DLLLOCAL HTTPInfoRefHelper(const ReferenceNode* n_ref, QoreStringNode* msg, ExceptionSink* n_xsink) : ref(n_ref),
+            xsink(n_xsink), info(new QoreHashNode(autoTypeInfo), xsink) {
         info->setKeyValue("request", msg, xsink);
     }
     DLLLOCAL ~HTTPInfoRefHelper() {
@@ -61,7 +62,7 @@ public:
     }
 };
 
-QoreValue JsonRpcClient::call(QoreStringNode *msg, QoreHashNode *info, ExceptionSink *xsink) {
+QoreValue JsonRpcClient::call(QoreStringNode* msg, QoreHashNode* info, ExceptionSink* xsink) {
     ReferenceHolder<QoreHashNode> response(send("POST", 0, 0, *msg, true, info, xsink), xsink);
     if (!response)
         return QoreValue();
@@ -78,7 +79,8 @@ QoreValue JsonRpcClient::call(QoreStringNode *msg, QoreHashNode *info, Exception
     }
 
     if (ah.getType() != NT_STRING) {
-        xsink->raiseException("JSONRPCCLIENT-RESPONSE-ERROR", "undecoded binary response received from remote server");
+        xsink->raiseException("JSONRPCCLIENT-RESPONSE-ERROR", "undecoded binary response received from remote "
+            "server");
         return QoreValue();
     }
 
@@ -181,18 +183,20 @@ JsonRpcClient::copy() {
 
     @par Example:
     @code{.py}
-hash result = jrc.callArgs("method.name", arg_list);
+hash<auto> result = jrc.callArgs("method.name", arg_list);
     @endcode
 
     @since json 1.7 this method calls with a hardcoded \c id value of 1
 */
-hash JsonRpcClient::callArgs(string[doc] method, auto[doc] args) {
-   // create the outgoing message in JSON-RPC call format
-   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc_request_args(client->getVersionStr(), args, 1, 0, xsink));
-   if (!msg)
-      return 0;
+hash<auto> JsonRpcClient::callArgs(string[doc] method, auto[doc] args) {
+    QoreValue id = client->getNextId();
+    // create the outgoing message in JSON-RPC call format
+    SimpleRefHolder<QoreStringNode> msg(make_jsonrpc_request_args(client->getVersionStr(), args, id, 0, xsink));
+    if (!msg) {
+        return QoreValue();
+    }
 
-   return client->call(*msg, 0, xsink);
+    return client->call(*msg, 0, xsink);
 }
 
 //! Calls a remote method taking all arguments after the method name for the method arguments and returns the response as qore data structure
@@ -210,18 +214,20 @@ hash JsonRpcClient::callArgs(string[doc] method, auto[doc] args) {
 
     @par Example:
     @code{.py}
-hash result = jrc.call("method.name", arg1, arg2);
+hash<auto> result = jrc.call("method.name", arg1, arg2);
     @endcode
 
     @since json 1.7 this method calls with a hardcoded \c id value of 1
 */
-hash JsonRpcClient::call(string[doc] method, ...) {
-   // create the outgoing message in JSON-RPC call format
-   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc_request(client->getVersionStr(), args, 1, 0, xsink));
-   if (!msg)
-      return 0;
+hash<auto> JsonRpcClient::call(string[doc] method, ...) {
+    QoreValue id = client->getNextId();
+    // create the outgoing message in JSON-RPC call format
+    SimpleRefHolder<QoreStringNode> msg(make_jsonrpc_request(client->getVersionStr(), args, id, 0, xsink));
+    if (!msg) {
+        return QoreValue();
+    }
 
-   return client->call(*msg, 0, xsink);
+    return client->call(*msg, 0, xsink);
 }
 
 //! Calls a remote method with a call ID, taking all arguments after the method name for the method arguments and returns the response as qore data structure
@@ -245,13 +251,15 @@ hash result = jrc.callId(1, "method.name", arg1, arg2);
 
     @since json 1.7
 */
-hash JsonRpcClient::callId(any id, string[doc] method, ...) {
-   // create the outgoing message in JSON-RPC call format
-   SimpleRefHolder<QoreStringNode> msg(make_jsonrpc_request(client->getVersionStr(), args, id, 1, xsink));
-   if (!msg)
-      return 0;
+hash<auto> JsonRpcClient::callId(auto id, string[doc] method, ...) {
+    // create the outgoing message in JSON-RPC call format
+    SimpleRefHolder<QoreStringNode> msg(make_jsonrpc_request(client->getVersionStr(), args, id, 1, xsink));
+    if (!msg) {
+        return QoreValue();
+    }
+    client->setLastId(id);
 
-   return client->call(*msg, 0, xsink);
+    return client->call(*msg, 0, xsink);
 }
 
 //! Calls a remote method using a single value after the method name for the method arguments and returns the response as qore data structure, accepts a reference to a hash as the first argument to give technical information about the call
@@ -282,11 +290,13 @@ hash result = jrc.callArgsWithInfo(\info, "method.name", arg_list, 2);
 
     @since json 1.7 this method calls with a hardcoded \c id value of 1
 */
-hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc] args) {
+hash<auto> JsonRpcClient::callArgsWithInfo(reference<auto> info, string[doc] method, auto[doc] args) {
+    QoreValue id = client->getNextId();
     // create the outgoing message in JSON-RPC call format
-    QoreStringNode *msg = make_jsonrpc_request_args(client->getVersionStr(), args, 1, 1, xsink);
-    if (!msg)
+    QoreStringNode *msg = make_jsonrpc_request_args(client->getVersionStr(), args, id, 1, xsink);
+    if (!msg) {
         return QoreValue();
+    }
 
     HTTPInfoRefHelper irh(info, msg, xsink);
 
@@ -317,17 +327,19 @@ hash JsonRpcClient::callArgsWithInfo(reference info, string[doc] method, any[doc
 
     @par Example:
     @code{.py}
-hash info;
-hash result = jrc.callIdArgsWithInfo(\info, 4, "method.name", arg_list, 2);
+hash<auto> info;
+hash<auto> result = jrc.callIdArgsWithInfo(\info, 4, "method.name", arg_list, 2);
     @endcode
 
     @since json 1.7
 */
-hash JsonRpcClient::callIdArgsWithInfo(reference info, any id, string[doc] method, any[doc] args) {
+hash<auto> JsonRpcClient::callIdArgsWithInfo(reference<hash<auto>> info, auto id, string[doc] method, auto[doc] args) {
     // create the outgoing message in JSON-RPC call format
     QoreStringNode *msg = make_jsonrpc_request_args(client->getVersionStr(), args, id, 1, xsink);
-    if (!msg)
+    if (!msg) {
         return QoreValue();
+    }
+    client->setLastId(id);
 
     HTTPInfoRefHelper irh(info, msg, xsink);
 
@@ -356,17 +368,19 @@ hash JsonRpcClient::callIdArgsWithInfo(reference info, any id, string[doc] metho
 
     @par Example:
     @code{.py}
-hash info;
-hash result = jrc.callWithInfo(\info, "method.name", arg1, arg2);
+hash<auto> info;
+hash<auto> result = jrc.callWithInfo(\info, "method.name", arg1, arg2);
     @endcode
 
     @since json 1.7 this method calls with a hardcoded \c id value of 1
 */
-hash JsonRpcClient::callWithInfo(reference info, string[doc] method, ...) {
+hash<auto> JsonRpcClient::callWithInfo(reference<hash<auto>> info, string[doc] method, ...) {
+    QoreValue id = client->getNextId();
     // create the outgoing message in JSON-RPC call format
-    QoreStringNode *msg = make_jsonrpc_request(client->getVersionStr(), args, 1, 1, xsink);
-    if (!msg)
+    QoreStringNode *msg = make_jsonrpc_request(client->getVersionStr(), args, id, 1, xsink);
+    if (!msg) {
         return QoreValue();
+    }
 
     HTTPInfoRefHelper irh(info, msg, xsink);
 
@@ -396,17 +410,19 @@ hash JsonRpcClient::callWithInfo(reference info, string[doc] method, ...) {
 
     @par Example:
     @code{.py}
-hash info;
-hash result = jrc.callIdWithInfo(\info, 3, "method.name", arg1, arg2);
+hash<auto> info;
+hash<auto> result = jrc.callIdWithInfo(\info, 3, "method.name", arg1, arg2);
     @endcode
 
     @since the \c id parameter was added in json 1.7
 */
-hash JsonRpcClient::callIdWithInfo(reference info, any id, string[doc] method, ...) {
+hash<auto> JsonRpcClient::callIdWithInfo(reference<hash<auto>> info, auto id, string[doc] method, ...) {
     // create the outgoing message in JSON-RPC call format
     QoreStringNode *msg = make_jsonrpc_request(client->getVersionStr(), args, id, 1, xsink);
-    if (!msg)
+    if (!msg) {
         return QoreValue();
+    }
+    client->setLastId(id);
 
     HTTPInfoRefHelper irh(info, msg, xsink);
 
@@ -444,8 +460,9 @@ nothing JsonRpcClient::setEventQueue(Queue[Queue] queue) {
  */
 nothing JsonRpcClient::setVersion(string version) {
     TempEncodingHelper tstr(version, QCS_UTF8, xsink);
-    if (tstr)
+    if (tstr) {
         client->setVersion(tstr->c_str());
+    }
 }
 
 //! Returns the JSON-RPC protocol version
