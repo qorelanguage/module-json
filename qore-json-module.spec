@@ -1,4 +1,4 @@
-%define mod_ver 1.8.2
+%define mod_ver 1.9.0
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -52,9 +52,9 @@ BuildRequires:  devtoolset-7-gcc-c++
 %endif
 BuildRequires: cmake >= 3.5
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 1.12.4
-BuildRequires: qore-stdlib >= 1.12.4
-BuildRequires: qore >= 1.12.4
+BuildRequires: qore-devel >= 2.0
+BuildRequires: qore-stdlib >= 2.0
+BuildRequires: qore >= 2.0
 BuildRequires: doxygen
 BuildRequires: openssl-devel
 
@@ -111,6 +111,9 @@ json module.
 %doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler test examples
 
 %changelog
+* Sun Mar 30 2025 David Nichols <david@qore.org> - 1.9.0
+- updated to version 1.9.0
+
 * Mon May 9 2022 David Nichols <david@qore.org> - 1.8.2
 - updated to version 1.8.2
 - use cmake instead of autotools

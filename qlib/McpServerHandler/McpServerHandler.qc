@@ -89,11 +89,25 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         hash<string, McpServerConnection> smap;
     }
 
-    #! creates the handler with the given method list
+    #! Creates the handler
     /**
     */
     constructor(Logger::LoggerInterface logger, HttpServer::AbstractAuthenticator auth)
             : JsonRpcHandler(logger, auth) {
+        addMethods(Methods);
+    }
+
+    #! Creates the handler
+    /**
+    */
+    constructor(HttpServer::AbstractAuthenticator auth) : JsonRpcHandler(auth) {
+        addMethods(Methods);
+    }
+
+    #! Creates the handler
+    /**
+    */
+    constructor() {
         addMethods(Methods);
     }
 

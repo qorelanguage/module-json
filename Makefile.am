@@ -26,11 +26,11 @@ ACLOCAL_AMFLAGS=-I m4
 dist_mod_DATA = $(USER_MODULES)
 
 if COND_DOXYGEN
-DOX = json JsonRpcHandler JsonRpcConnection
-DOXYGEN_OUTPUT=docs/json/html docs/JsonRpcHandler/html docs/JsonRpcConnection/html
+DOX = json JsonRpcHandler JsonRpcConnection McpServerHandler
+DOXYGEN_OUTPUT=docs/json/html docs/JsonRpcHandler/html docs/JsonRpcConnection/html docs/McpServerHandler/html
 DOXYFILES = docs/doxyfile docs/mainpage.doxygen
 DOXYFILES_SRC = docs/doxyfile.tmpl docs/qlib/Doxyfile.tmpl docs/footer_template.html
-QLIB_TMP_DOXYFILES = docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler docs/qlib/JsonRpcConnection.qm.dox.h docs/qlib/Doxyfile.JsonRpcConnection
+QLIB_TMP_DOXYFILES = docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler docs/qlib/JsonRpcConnection.qm.dox.h docs/qlib/Doxyfile.JsonRpcConnection docs/qlib/McpServerHandler.qm.dox.h docs/qlib/Doxyfile.McpServerHandler
 QDX = qdx
 DX_CLEANFILES = ${DOXYFILES} $(QLIB_TMP_DOXYFILES)
 
@@ -57,6 +57,17 @@ docs/qlib/JsonRpcConnection.qm.dox.h: qlib/JsonRpcConnection.qm
 docs/JsonRpcConnection/html: docs/qlib/JsonRpcConnection.qm.dox.h docs/qlib/Doxyfile.JsonRpcConnection
 	cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.JsonRpcConnection
 	$(QDX) --post docs/JsonRpcConnection/html docs/JsonRpcConnection/html/search
+
+docs/qlib/Doxyfile.McpServerHandler: docs/qlib/Doxyfile.tmp
+	$(QDX) -M=qlib/McpServerHandler.qm:qlib/McpServerHandler.qm.dox.h -tjson.tag=../../json/html $< $@
+
+docs/qlib/McpServerHandler.qm.dox.h: qlib/McpServerHandler.qm
+	$(QDX) $< $@
+
+docs/McpServerHandler/html: docs/qlib/McpServerHandler.qm.dox.h docs/qlib/Doxyfile.McpServerHandler
+	cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.McpServerHandler
+	$(QDX) --post docs/McpServerHandler/html docs/McpServerHandler/html/search
+
 
 docs/json/html: $(DOXYFILES)
 	cd docs; $(DOXYGEN_CMD) doxyfile;
