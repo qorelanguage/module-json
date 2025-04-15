@@ -608,7 +608,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
         return 0;
     }
 
-    xsink->raiseException("JSON-SERIALIZATION-ERROR", "don't know how to serialize type '%s'", v.getTypeName());
+    xsink->raiseException("JSON-SERIALIZATION-ERROR", "don't know how to serialize type '%s'", v.getFullTypeName());
     return -1;
 }
 
