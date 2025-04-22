@@ -112,7 +112,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     hash<auto> handleRequest(hash<auto> cx, hash<auto> hdr, *data b) {
-        if (False) {
+        if (cx.hdr.method == "GET") {
             return ServerSentEventHandler::handleRequest(cx, hdr, b);
         }
         return JsonRpcHandler::handleRequest(cx, hdr, b);

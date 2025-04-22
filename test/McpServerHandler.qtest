@@ -74,7 +74,6 @@ public class McpServerHandlerTest inherits QUnit::Test {
         port = http.addListener(<HttpListenerOptionInfo>{"service": 0}).port;
 
         jsonrpc = new JsonRpcClient({"url": "http://localhost:" + port});
-        #jsonrpc.setVersion("2.0");
     }
 
     globalTearDown() {
@@ -83,6 +82,7 @@ public class McpServerHandlerTest inherits QUnit::Test {
     }
 
     mainTest() {
+        assertEq("2.0", jsonrpc.getVersion());
         hash<auto> h = jsonrpc.call("initialize", ClientInfo);
         on_error printf("h: %y\n", h);
         assertEq("2.0", h.jsonrpc);
