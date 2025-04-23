@@ -26,14 +26,67 @@
 public namespace McpServerHandler {
 public class McpServerConnection inherits ServerSentEventHandler::ServerSentEventConnection {
     private {
+        #! The session identifier
         string session;
+
+        #! The protocol version
+        string version;
     }
 
-    constructor(ServerSentEventHandler handler, Socket sock, string cid, *string session)
-            : ServerSentEventConnection(handler, sock, cid) {
-        if (session.val()) {
-            self.session = session;
+    constructor(McpServerHandler handler, Socket sock, hash<auto> cx, hash<auto> hdr, string cid,
+            string version = MCP_Version_Latest)
+            : ServerSentEventConnection(handler, sock, cx, hdr, cid) {
+        self.version = version;
+        self.session = handler.getSessionId(hdr);
+    }
+
+    string getSession() {
+        return session;
+    }
+
+    string getProtocolVersion() {
+        return version;
+    }
+
+    sendNotification(string method, hash<auto> info) {
+        send(<SseMessageInfo>{
+            "data": make_jsonrpc_request(method, "2.0", NOTHING, info),
+        });
+    }
+
+    int sendRequest(string method, hash<auto> info) {
+        int id = cast<McpServerHandler>(handler).getNextIdForSession(session);
+        send(<SseMessageInfo>{
+            "data": make_jsonrpc_request(method, "2.0", id, info),
+        });
+        return id;
+    }
+
+    registered() {
+        if (version == MCP_Version_2024_11_05) {
+            McpServerHandler mcphandler = cast<McpServerHandler>(handler);
+            if ((*string endpoint = mcphandler.getCompatV1Endpoint(cx, hdr)).val()) {
+                endpoint += "?session=" + session;
+                mcphandler.info("Sending %s endpoint to client: %y", MCP_Version_2024_11_05, endpoint);
+                send(<SseMessageInfo>{
+                    "event": "endpoint",
+                    "data": endpoint,
+                });
+            } else {
+                throw "MCP-VERSION-ERROR", "This MCP server has no defined endpoint for 2011-11-05-compatible "
+                    "JSON-RPC commands";
+            }
         }
+    }
+
+    #! Pushes an unencoded message on the connection's message queue
+    /** The message will be encoded with @ref ServerSentEventUtil::ws_encode_message() before sending
+    */
+    send(hash<SseMessageInfo> msg) {
+        if (!msg.id) {
+            msg.id = cast<McpServerHandler>(handler).getNextIdForSession(session);
+        }
+        ServerSentEventConnection::send(msg);
     }
 }
 }

@@ -27,13 +27,13 @@ class MyMcpServerHandler inherits McpServerHandler {
 
 public class McpServerHandlerTest inherits QUnit::Test {
     public {
-        const McpApi = "2024-11-05";
+        const McpApi = "2025-03-26";
 
         const ClientInfo = {
-            "protocolVersion": "2024-11-05",
+            "protocolVersion": "2025-03-26",
             "capabilities": {
                 "roots": {
-                    #"listChanged": true
+                    "listChanged": False,
                 },
                 "sampling": {}
             },

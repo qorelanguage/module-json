@@ -364,7 +364,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         }
     }
 
-    private hash callMethod(hash<auto> cx0, auto params) {
+    private hash<HttpResponseInfo> callMethod(hash<auto> cx0, auto params) {
         # to ensure that cx remains "hash<auto>"
         hash<auto> cx += cx0;
         string method = cx.method;
@@ -379,7 +379,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
 
         if (!exists found) {
             string str = sprintf("JSON-RPC-SERVER-UNKNOWN-METHOD: unknown method %y", method);
-            return {
+            return <HttpResponseInfo>{
                 "code": 200,
                 "hdr": {"Content-Type": MimeTypeJsonRpc},
                 "body": make_jsonrpc_error(cx.jsonrpc_version, cx.jsonid,
@@ -418,15 +418,18 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         # notification) and a response was returned
         if (exists cx.jsonrpc_version
             && !exists cx.jsonid && exists rv
-            && compare_version(cx.jsonrpc_version, "2.0") >= 0)
-            throw "JSONRPC-NOTIFICATION-ERROR", sprintf("notification call to %y (i.e. without an id) included a "
-                "response body which is a protocol violation", method);
-        hash<auto> h.body = make_jsonrpc_response(cx.jsonrpc_version, cx.jsonid, rv);
-        return h;
+            && compare_version(cx.jsonrpc_version, "2.0") >= 0) {
+            throw "JSONRPC-NOTIFICATION-ERROR", sprintf("The response to notification call to %y (the request "
+                "arrived without an id) includes a response body which is a protocol violation", method);
+        }
+        info("JSON-RPC %y -> RV: %N", method, rv);
+        return <HttpResponseInfo>{
+            "body": make_jsonrpc_response(cx.jsonrpc_version, cx.jsonid, rv),
+        };
     }
 
     # method called by HttpServer to handle a request
-    hash<auto> handleRequest(hash<auto> cx, hash<auto> hdr, *data body) {
+    hash<HttpResponseInfo> handleRequest(hash<auto> cx, hash<auto> hdr, *data body) {
         #printf("jsonrpc handler context=%y hdr=%y body=%y\n", cx, hdr, body);
 
         hash<auto> jsonrpc;
@@ -435,7 +438,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             string path = substr(hdr.path, index(hdr.path, "/") + 1);
 
             if (path.empty()) {
-                return {
+                return <HttpResponseInfo>{
                     "code": 501,
                     "body": "invalid HTTP GET: no path/JSON-RPC method name given",
                 };
@@ -448,7 +451,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             }
         } else {
             if (hdr.method != "POST") {
-                return {
+                return <HttpResponseInfo>{
                     "code": 501,
                     "body": sprintf("Don't know how to handle method %y", hdr.method),
                 };
@@ -456,11 +459,14 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
 
             try {
                 auto req;
-                try {
-                    req = parse_json(body);
-                } catch (hash<ExceptionInfo> ex) {
-                    throw ex.err, ex.desc, JRE_ParseError;
+                if (body.val()) {
+                    try {
+                        req = parse_json(body);
+                    } catch (hash<ExceptionInfo> ex) {
+                        throw ex.err, ex.desc, JRE_ParseError;
+                    }
                 }
+                info("JSON-RPC REQ: %N", req);
                 int t = req.typeCode();
                 if (t == NT_LIST) {
                     return processBatchMessage(cx, req);
@@ -483,7 +489,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             } catch (hash<ExceptionInfo> ex) {
                 string estr = sprintf("%s: %s", ex.err, ex.desc);
                 if (ex.arg.typeCode() == NT_INT) {
-                    return {
+                    return <HttpResponseInfo>{
                         "code": 200,
                         "errlog": estr,
                         "hdr": {
@@ -495,7 +501,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
                         }),
                     };
                 } else {
-                    return {
+                    return <HttpResponseInfo>{
                         "code": 500,
                         "errlog": estr,
                         "body": estr,
@@ -508,12 +514,13 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             "jsonid": jsonrpc.id,
         };
         try {
-            return {
+            hash<HttpResponseInfo> v = callMethod(cx, jsonrpc.params);
+            return <HttpResponseInfo>{
                 "code": 200,
                 "hdr": {
                     "Content-Type": MimeTypeJsonRpc,
                 },
-            } + callMethod(cx, jsonrpc.params);
+            } + v;
         } catch (hash<ExceptionInfo> ex) {
             # show complete exception trace if system debug option is enabled
             string str = !debug
@@ -521,7 +528,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
                 : get_exception_string(ex);
 
             if (ex.err == "JSONRPC-ERROR") {
-                return {
+                return <HttpResponseInfo>{
                     "code": 200,
                     "errlog": str,
                     "hdr": {
@@ -534,7 +541,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
                 };
             }
 
-            return {
+            return <HttpResponseInfo>{
                 "code": 200,
                 "errlog": str,
                 "hdr": {
@@ -548,7 +555,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         }
     }
 
-    private hash<auto> processBatchMessage(hash<auto> cx, list<auto> l) {
+    private hash<HttpResponseInfo> processBatchMessage(hash<auto> cx, list<auto> l) {
         list<auto> rvl = ();
         foreach auto elem in (l) {
             if (elem.typeCode() != NT_HASH)
@@ -581,7 +588,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             }
         }
 
-        return {
+        return <HttpResponseInfo>{
             "code": 200,
             "hdr": {"Content-Type": MimeTypeJsonRpc},
             "body": "[" + (foldl $1 + "," + $2, rvl) + "]",
