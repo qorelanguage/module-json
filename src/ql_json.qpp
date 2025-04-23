@@ -464,7 +464,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
                 str->concat(' ');
             }
             str->concat(tmp.c_str(), tmp.size());
-            //str->sprintf("\"%s\": %s", hi.getKey(), tmp.c_str());
+            //str->sprintf("\"%s\":%s", hi.getKey(), tmp.c_str());
             if (!hi.last()) {
                 str->concat(",");
             }
@@ -658,21 +658,21 @@ QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreListN
     if (version == "1.0") {
         str->concat("{\"method\": ");
     } else {
-        str->sprintf("{\"%s\": \"%s\",\"method\": ", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
+        str->sprintf("{\"%s\":\"%s\",\"method\":", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
     }
     if (do_json_value(*str, p0, -1, xsink)) {
         return 0;
     }
 
     if (!id.isNullOrNothing()) {
-        str->concat(",\"id\": ");
+        str->concat(",\"id\":");
         if (do_json_value(*str, id, -1, xsink)) {
             return 0;
         }
     }
 
     // params key should come last
-    str->concat(",\"params\" : ");
+    str->concat(",\"params\":");
     if (num_args(args) > (offset + 1)) {
         if (do_json_list(xsink, *str, args, 0, offset + 1)) {
             return 0;
@@ -720,7 +720,7 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, c
 
     // write version key first if present
     if (version && *version) {
-        str->sprintf("{%s\"%s\" : ", fmt ? "\n  " : "", version_name);
+        str->sprintf("{%s\"%s\":", fmt ? "\n  " : "", version_name);
         if (do_json_string_intern(xsink, *str, version, fmt ? 2 : -1)) {
             return nullptr;
         }
@@ -729,20 +729,20 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, c
         str->concat(fmt ? "{\n  " : "{");
     }
 
-    str->concat("\"method\": ");
+    str->concat("\"method\":");
     if (do_json_value(*str, method_name, fmt ? 2 : -1, xsink)) {
         return nullptr;
     }
 
     if (!id.isNullOrNothing()) {
-        str->sprintf(",%s\"id\": ", fmt ? "\n  " : "");
+        str->sprintf(",%s\"id\":", fmt ? "\n  " : "");
         if (do_json_value(*str, id, fmt ? 2 : -1, xsink)) {
             return nullptr;
         }
     }
 
     // params key should come last
-    str->sprintf(",%s\"params\": ", fmt ? "\n  " : "");
+    str->sprintf(",%s\"params\":", fmt ? "\n  " : "");
     if (do_json_value(*str, request_msg, fmt ? 2 : -1, xsink)) {
         return nullptr;
     }
@@ -760,7 +760,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, const char* v
 
     // write version key first if present
     if (version && *version) {
-        str->sprintf("{%s\"%s\" : ", fmt ? "\n  " : "", version_name);
+        str->sprintf("{%s\"%s\":", fmt ? "\n  " : "", version_name);
         if (do_json_string_intern(xsink, *str, version, fmt ? 2 : -1)) {
             return nullptr;
         }
@@ -770,7 +770,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, const char* v
     }
 
     if (!id.isNullOrNothing()) {
-        str->concat("\"id\": ");
+        str->concat("\"id\":");
         if (do_json_value(*str, id, fmt ? 2 : -1, xsink)) {
             return nullptr;
         }
@@ -778,7 +778,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, const char* v
     }
 
     // result/error key should come last
-    str->sprintf("\"%s\": ", type);
+    str->sprintf("\"%s\":", type);
     if (do_json_value(*str, msg, fmt ? 2 : -1, xsink)) {
         return nullptr;
     }
@@ -805,11 +805,11 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
 
     bool fmt = format & JGF_ADD_FORMATTING;
 
-    str->concat(fmt ? "{\n  \"version\": \"1.1\",\n  " : "{\"version\": \"1.1\",");
+    str->concat(fmt ? "{\n  \"version\": \"1.1\",\n  " : "{\"version\":\"1.1\",");
 
     // get optional "id" value
     if (!id.isNullOrNothing()) {
-        str->concat("\"id\": ");
+        str->concat(fmt ? "\"id\": " : "\"id\":");
         if (do_json_value(*str, id, fmt ? 2 : -1, xsink)) {
             return nullptr;
         }
@@ -820,7 +820,7 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
         str->sprintf("\"error\":\n  {\n    \"name\": \"JSONRPCError\",\n    \"code\": %d,\n    \"message\": \"",
             (int)code);
     } else {
-        str->sprintf("\"error\": {\"name\": \"JSONRPCError\",\"code\": %d,\"message\": \"", (int)code);
+        str->sprintf("\"error\":{\"name\":\"JSONRPCError\",\"code\":%d,\"message\":\"", (int)code);
     }
     // concat here so character encodings can be automatically converted if necessary
     str->concatEscape(error, '"', '\\', xsink);
@@ -831,7 +831,7 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
 
     // get optional "error" value
     if (!error_msg.isNullOrNothing()) {
-        str->sprintf(",%s\"error\": ", fmt ? "\n   " : "");
+        str->sprintf(",%s\"error\":", fmt ? "\n   " : "");
         if (do_json_value(*str, error_msg, fmt ? 4 : -1, xsink)) {
             return nullptr;
         }
