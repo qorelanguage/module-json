@@ -350,6 +350,12 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             if (field.isMandatory()) {
                 required += name;
             }
+            if (*list<hash<AllowedValueInfo>> av = field.getAllowedValues()) {
+                info.enum = map $1.value, av;
+            }
+            if (exists (auto v = field.getDefaultValue())) {
+                info."default" = v;
+            }
             rv{name} = info;
         }
         if (required) {
@@ -359,7 +365,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     private static *hash<auto> getTypeDescription(string name, *string desc, AbstractDataProviderType t) {
-        *hash<auto> info = getTypeDescriptionIntern(name, t);
+        *hash<auto> info += getTypeDescriptionIntern(name, t);
         if (info && desc.val()) {
             info.description = desc;
         }
@@ -417,9 +423,13 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             case NT_NOTHING:
                 return;
         }
-        return {
+        hash<auto> info = {
             "type": tname,
         };
+        if (exists (auto v = t.getDefaultValue())) {
+            info."default" = v;
+        }
+        return info;
     }
 
     private setupMethods() {
