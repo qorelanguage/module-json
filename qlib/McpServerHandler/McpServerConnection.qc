@@ -31,6 +31,9 @@ public class McpServerConnection inherits ServerSentEventHandler::ServerSentEven
 
         #! The protocol version
         string version;
+
+        #! Tools changed notification
+        const McpToolsChangedNotification = "notifications/tools/list_changed";
     }
 
     constructor(McpServerHandler handler, Socket sock, hash<auto> cx, hash<auto> hdr, string cid,
@@ -48,7 +51,12 @@ public class McpServerConnection inherits ServerSentEventHandler::ServerSentEven
         return version;
     }
 
-    sendNotification(string method, hash<auto> info) {
+    #! Send tools changed notification
+    sendToolsChangedNotification() {
+        sendNotification(McpToolsChangedNotification);
+    }
+
+    sendNotification(string method, *hash<auto> info) {
         send(<SseMessageInfo>{
             "data": make_jsonrpc_request(method, "2.0", NOTHING, info),
         });

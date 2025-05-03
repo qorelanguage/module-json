@@ -622,27 +622,29 @@ QoreStringNode* make_jsonrpc_request_args(const std::string& version, const Qore
     if (version == "1.0") {
         str->concat("{\"method\": ");
     } else {
-        str->sprintf("{\"%s\": \"%s\",\"method\": ", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
+        str->sprintf("{\"%s\":\"%s\",\"method\":", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
     }
     if (do_json_value(*str, p0, -1, xsink)) {
         return 0;
     }
 
     if (!id.isNullOrNothing()) {
-        str->concat(",\"id\": ");
+        str->concat(",\"id\":");
         if (do_json_value(*str, id, -1, xsink)) {
             return 0;
         }
     }
 
-    // params key should come last
-    str->concat(",\"params\": ");
-    if (!p1.isNullOrNothing()) {
-        if (do_json_value(*str, p1, -1, xsink)) {
-            return 0;
+    if (!p1.isNullOrNothing() || (version != "2.0")) {
+        // params key should come last
+        str->concat(",\"params\":");
+        if (!p1.isNullOrNothing()) {
+            if (do_json_value(*str, p1, -1, xsink)) {
+                return 0;
+            }
+        } else {
+            str->concat("null");
         }
-    } else {
-        str->concat("null");
     }
     str->concat("}");
     return str.release();
@@ -656,7 +658,7 @@ QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreListN
 
     // write version key first
     if (version == "1.0") {
-        str->concat("{\"method\": ");
+        str->concat("{\"method\":");
     } else {
         str->sprintf("{\"%s\":\"%s\",\"method\":", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
     }
@@ -671,14 +673,17 @@ QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreListN
         }
     }
 
-    // params key should come last
-    str->concat(",\"params\":");
-    if (num_args(args) > (offset + 1)) {
-        if (do_json_list(xsink, *str, args, 0, offset + 1)) {
-            return 0;
+    bool has_args = num_args(args) > (offset + 1);
+    if (has_args || (version != "2.0")) {
+        // params key should come last
+        str->concat(",\"params\":");
+        if (has_args) {
+            if (do_json_list(xsink, *str, args, 0, offset + 1)) {
+                return 0;
+            }
+        } else {
+            str->concat("null");
         }
-    } else {
-        str->concat("null");
     }
     str->concat("}");
 
@@ -741,10 +746,12 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, c
         }
     }
 
-    // params key should come last
-    str->sprintf(",%s\"params\":", fmt ? "\n  " : "");
-    if (do_json_value(*str, request_msg, fmt ? 2 : -1, xsink)) {
-        return nullptr;
+    if (!request_msg.isNullOrNothing() || (strcmp(version, "2.0"))) {
+        // params key should come last
+        str->sprintf(",%s\"params\":", fmt ? "\n  " : "");
+        if (do_json_value(*str, request_msg, fmt ? 2 : -1, xsink)) {
+            return nullptr;
+        }
     }
 
     str->concat(fmt ? "\n}" : "}");
