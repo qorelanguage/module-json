@@ -293,19 +293,19 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return {};
     }
 
-    private *hash<McpToolInfo> findToolForCall(string name) {
+    private *hash<McpToolInfo> findToolForCall(hash<auto> cx, string name) {
         return tmap{name};
     }
 
-    private *list<string> getKnownToolNames() {
+    private *list<string> getKnownToolNames(hash<auto> cx) {
         return keys tmap;
     }
 
     private *hash<auto> toolsCallIntern(hash<auto> cx, *hash<auto> params) {
-        *hash<McpToolInfo> info = findToolForCall(params.name);
+        *hash<McpToolInfo> info = findToolForCall(cx, params.name);
         if (!info) {
             throw "MCP-SERVER-ARG-ERROR", sprintf("Tool %y is unknown; known tools: %y", params.name,
-                getKnownToolNames());
+                getKnownToolNames(cx));
         }
         auto rv = info.needs_map ? info.tool(params.arguments."data") : info.tool(params.arguments);
         return {
