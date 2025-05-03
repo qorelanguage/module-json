@@ -87,7 +87,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 },
                 */
                 "tools": {
-                    "listChanged": False,
+                    "listChanged": True,
                 },
             },
             "serverInfo": {
