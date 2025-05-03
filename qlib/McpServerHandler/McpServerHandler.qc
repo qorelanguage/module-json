@@ -277,7 +277,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     private hash<auto> initialize(hash<auto> cx, *hash<auto> params) {
         if (params.protocolVersion.typeCode() != NT_STRING) {
-            throw "JSONRPC-ERROR", "Missing or invalid protocolVersion";
+            throw "MCP-SERVER-ARG-ERROR", "Missing or invalid protocolVersion";
         }
         hash<auto> rv = ServerInfo;
         if (AllMcpVersions{params.protocolVersion}) {
