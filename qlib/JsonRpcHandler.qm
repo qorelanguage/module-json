@@ -256,8 +256,10 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         @param help help text for the method
         @param logopt log options which can be used by a custom logger (see the getLogMessage parameter)
         @param cmark any value that will be added in the method hash under the \c "cmark" key
+        @param include_context if the call context argument should be included in the method call as the first
+        argument
     */
-    addMethod(string name, code func, string text, string help, auto logopt, auto cmark) {
+    addMethod(string name, code func, string text, string help, auto logopt, auto cmark, *bool include_context) {
         addMethodInternal({
             "name": name,
             "function": func,
@@ -265,6 +267,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             "help": help,
             "logopt": logopt,
             "cmark": cmark,
+            "include_context": include_context,
         });
     }
 
@@ -397,11 +400,19 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
 
         #printf("DEBUG: about to call function '%s' (method=%s params=%y)\n", found.function, method, params);
 
+        *softlist<auto> args;
+        if (found.include_context) {
+            # add the context hash as the first argument
+            args = (cx,) + params;
+        } else {
+            args = params;
+        }
+
         auto rv;
         try {
             rv = found.internal
-                ? call_object_method_args(self, found.function, params)
-                : call_function_args(found.function, params);
+                ? call_object_method_args(self, found.function, args)
+                : call_function_args(found.function, args);
         } catch (hash<ExceptionInfo> ex) {
             # issue #2573: provide a more user-friendly error when the argument cannot be matched to the closure/
             # call ref

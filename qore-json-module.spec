@@ -96,6 +96,7 @@ rm -rf $RPM_BUILD_ROOT
 %check
 qore -l ./json-api-%{module_api}.qmod test/JsonRpcClient.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/JsonRpcHandler.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/MpcServerHandler.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/json.qtest -v
 
 %package doc
@@ -108,7 +109,7 @@ json module.
 
 %files doc
 %defattr(-,root,root,-)
-%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler test examples
+%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler test examples
 
 %changelog
 * Sun Mar 30 2025 David Nichols <david@qore.org> - 1.9.0
