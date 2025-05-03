@@ -252,12 +252,16 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     private hash<auto> toolsList(hash<auto> cx, *hash<auto> params) {
         return {
-            "tools": map (
-                "name": $1.name,
-                "description": $1.description,
-                "inputSchema": $1.input,
-            ), tmap.iterator(),
+            "tools": getToolList(cx),
         };
+    }
+
+    private *list<hash<auto>> getToolList(hash<auto> cx) {
+        return map (
+            "name": $1.name,
+            "description": $1.description,
+            "inputSchema": $1.input,
+        ), tmap.iterator();
     }
 
     private *hash<auto> toolsCall(hash<auto> cx, *hash<auto> params) {
