@@ -250,7 +250,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return aih{MimeTypeSse} || aih."*/*";
     }
 
-    private hash<auto> toolsList(*hash<auto> params) {
+    private hash<auto> toolsList(hash<auto> cx, *hash<auto> params) {
         return {
             "tools": map (
                 "name": $1.name,
@@ -260,9 +260,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         };
     }
 
-    private *hash<auto> toolsCall(*hash<auto> params) {
+    private *hash<auto> toolsCall(hash<auto> cx, *hash<auto> params) {
         try {
-            return toolsCallIntern(params);
+            return toolsCallIntern(cx, params);
         } catch (hash<ExceptionInfo> ex) {
             error("Error executing tool with params %y: %s", params, get_exception_string(ex));
             return {
@@ -275,7 +275,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
     }
 
-    private hash<auto> initialize(*hash<auto> params) {
+    private hash<auto> initialize(hash<auto> cx, *hash<auto> params) {
         if (params.protocolVersion.typeCode() != NT_STRING) {
             throw "JSONRPC-ERROR", "Missing or invalid protocolVersion";
         }
@@ -286,17 +286,26 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return rv;
     }
 
-    *hash<auto> initialized() {
+    *hash<auto> initialized(hash<auto> cx, *hash<auto> params) {
     }
 
-    hash<auto> ping() {
+    hash<auto> ping(hash<auto> cx, *hash<auto> params) {
         return {};
     }
 
-    private *hash<auto> toolsCallIntern(*hash<auto> params) {
-        *hash<McpToolInfo> info = tmap{params.name};
+    private *hash<McpToolInfo> findToolForCall(string name) {
+        return tmap{name};
+    }
+
+    private *list<string> getKnownToolNames() {
+        return keys tmap;
+    }
+
+    private *hash<auto> toolsCallIntern(hash<auto> cx, *hash<auto> params) {
+        *hash<McpToolInfo> info = findToolForCall(params.name);
         if (!info) {
-            throw "MCP-SERVER-ARG-ERROR", sprintf("Tool %y is unknown; known tools: %y", params.name, keys tmap);
+            throw "MCP-SERVER-ARG-ERROR", sprintf("Tool %y is unknown; known tools: %y", params.name,
+                getKnownToolNames());
         }
         auto rv = info.needs_map ? info.tool(params.arguments."data") : info.tool(params.arguments);
         return {
@@ -439,30 +448,35 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 "text": "initialize",
                 "function": \initialize(),
                 "help": "MCP server initialization request handler",
+                "include_context": True,
             },
             {
                 "name": "^ping$",
                 "text": "ping",
                 "function": \ping(),
                 "help": "MCP server client ping",
+                "include_context": True,
             },
             {
                 "name": "^notifications/initialized$",
                 "text": "notifications/initialized",
                 "function": \initialized(),
                 "help": "MCP server client initialized notification",
+                "include_context": True,
             },
             {
                 "name": "^tools/list$",
                 "text": "tools/list",
                 "function": \toolsList(),
                 "help": "MCP server list available tools",
+                "include_context": True,
             },
             {
                 "name": "^tools/call$",
                 "text": "tools/call",
                 "function": \toolsCall(),
                 "help": "MCP server call tool",
+                "include_context": True,
             },
         ));
     }

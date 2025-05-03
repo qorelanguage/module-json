@@ -8,7 +8,7 @@ noinst_HEADERS = src/QC_JsonRpcClient.h \
 	src/ql_json.h \
 	src/qore-json-module.h
 
-USER_MODULES = qlib/JsonRpcHandler.qm qlib/JsonRpcConnection.qm
+USER_MODULES = qlib/JsonRpcHandler.qm qlib/JsonRpcConnection.qm qlib/McpServerHandler
 
 EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
 	RELEASE-NOTES \
@@ -67,7 +67,6 @@ docs/qlib/McpServerHandler.qm.dox.h: qlib/McpServerHandler.qm
 docs/McpServerHandler/html: docs/qlib/McpServerHandler.qm.dox.h docs/qlib/Doxyfile.McpServerHandler
 	cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.McpServerHandler
 	$(QDX) --post docs/McpServerHandler/html docs/McpServerHandler/html/search
-
 
 docs/json/html: $(DOXYFILES)
 	cd docs; $(DOXYGEN_CMD) doxyfile;
