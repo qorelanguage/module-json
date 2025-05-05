@@ -96,7 +96,7 @@ rm -rf $RPM_BUILD_ROOT
 %check
 qore -l ./json-api-%{module_api}.qmod test/JsonRpcClient.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/JsonRpcHandler.qtest -v
-qore -l ./json-api-%{module_api}.qmod test/MpcServerHandler.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/McpServerHandler.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/json.qtest -v
 
 %package doc
