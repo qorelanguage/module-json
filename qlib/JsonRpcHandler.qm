@@ -169,7 +169,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         int loglevel;
 
         # if True then verbose exception info will be logged
-        bool debug;
+        bool debug_flag;
 
         # prefix to add to derived methods with GET requests if no "." characters are in the path
         *string get_prefix;
@@ -288,18 +288,18 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
 
     #! turns on or off debugging; when debugging is enabled more verbose error messages are reported
     setDebug(bool dbg = True) {
-        debug = dbg;
+        debug_flag = dbg;
     }
 
     #! returns the current status of the debug flag
     bool getDebug() {
-        return debug;
+        return debug_flag;
     }
 
     #! Shared constructor code
     private init(*list<auto> methods, *code getLogMessage, bool dbg = False, *string get_prefix) {
         self.getLogMessage = getLogMessage;
-        debug = dbg;
+        debug_flag = dbg;
         self.get_prefix = get_prefix;
 
         # add internal methods
@@ -477,7 +477,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
                         throw ex.err, ex.desc, JRE_ParseError;
                     }
                 }
-                info("JSON-RPC REQ: %N", req);
+                debug("JSON-RPC REQ: %N", req);
                 int t = req.typeCode();
                 if (t == NT_LIST) {
                     return processBatchMessage(cx, req);
@@ -534,7 +534,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             } + v;
         } catch (hash<ExceptionInfo> ex) {
             # show complete exception trace if system debug option is enabled
-            string str = !debug
+            string str = !debug_flag
                 ? sprintf("%s: %s%s", ex.err, ex.desc, ex.arg ? sprintf(" (%y)", ex.arg) : NOTHING)
                 : get_exception_string(ex);
 
@@ -592,7 +592,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
                     rvl += rv;
             } catch (hash<ExceptionInfo> ex) {
                 # show complete exception trace if system debug option is enabled
-                string str = !debug
+                string str = !debug_flag
                     ? sprintf("element %d of %d: %s: %s", $# + 1, l.size(), ex.err, ex.desc)
                     : get_exception_string(ex);
                 rvl += make_jsonrpc_error(cx.jsonrpc_version, jsonrpc.id, ("code": JRE_InternalError, "message": str));
