@@ -326,7 +326,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         bool needs_map;
         if (input) {
             input_desc = getTypeDescriptionIntern("input", input);
-            if (input_desc && input_desc.type != "object") {
+            debug("Creating tool %y (%y) input: %y (%s: %y) -> %y", name, desc, input ? input.getName() : "n/a",
+                input ? input.className() : "n/a", keys (input ? input.getFields() : NOTHING), input_desc);
+            if (input_desc.type.val() && input_desc.type != "object") {
                 needs_map = True;
                 input_desc = {
                     "type": "object",
@@ -348,14 +350,14 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         };
     }
 
-    private static hash<auto> getObjectDescription(hash<string, AbstractDataField> fields) {
+    private static hash<auto> getObjectDescription(hash<string, AbstractDataField> fields, *hash<string, bool> tmap) {
         hash<auto> rv += {
             "type": "object",
         };
         list<string> required;
         foreach AbstractDataField field in (fields.iterator()) {
             AbstractDataProviderType t = field.getType();
-            *hash<auto> info = getTypeDescription(field.getName(), field.getShortDescription(), t);
+            *hash<auto> info = getTypeDescription(field.getName(), field.getShortDescription(), t, tmap);
             if (!info) {
                 continue;
             }
@@ -369,7 +371,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             if (exists (auto v = field.getDefaultValue())) {
                 info."default" = v;
             }
-            rv{name} = info;
+            rv.properties{name} = info;
         }
         if (required) {
             rv.required = required;
@@ -377,55 +379,77 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return rv;
     }
 
-    private static *hash<auto> getTypeDescription(string name, *string desc, AbstractDataProviderType t) {
-        *hash<auto> info += getTypeDescriptionIntern(name, t);
+    private static *hash<auto> getTypeDescription(string name, *string desc, AbstractDataProviderType t, *hash<string, bool> tmap) {
+        *hash<auto> info += getTypeDescriptionIntern(name, t, tmap);
         if (info && desc.val()) {
             info.description = desc;
         }
         return info;
     }
 
-    private static *hash<auto> getTypeDescriptionIntern(string name, AbstractDataProviderType t) {
+    private static *hash<auto> getTypeDescriptionIntern(string name, AbstractDataProviderType t, *hash<string, bool> tmap) {
         if (*hash<string, AbstractDataField> fields = t.getFields()) {
-            return getObjectDescription(fields);
+            string uh = t.uniqueHash();
+            if (tmap{uh}) {
+                return {
+                    "type": "object",
+                };
+            }
+            tmap{uh} = True;
+            return getObjectDescription(fields, tmap);
         }
         int type = t.getBaseTypeCode();
-        if ((type == NT_LIST) && (*AbstractDataProviderType et = t.getElementType())) {
+        if ((type == NT_LIST) && (*AbstractDataProviderType et = t.getElementType())
+            && exists (*hash<auto> h = getTypeDescriptionIntern("items", et, tmap))) {
             return {
                 "type": "array",
-                "items": getTypeDescription("items", "array items", et),
+                "items": getTypeDescription("items", "array items", et, tmap),
             };
         }
 
-        string tname;
+        hash<auto> info;
+
         switch (type) {
             case NT_DATE:
             case NT_STRING:
-                tname = "string";
+                info.type = "string";
                 break;
 
             case NT_INT:
-                tname = "integer";
+                info.type = "integer";
                 break;
 
             case NT_BOOLEAN:
-                tname = "boolean";
+                info.type = "boolean";
                 break;
 
             case NT_NUMBER:
             case NT_FLOAT:
-                tname = "number";
+                info.type = "number";
                 break;
 
             case NT_LIST:
-                tname = "array";
+                info = {
+                    "type": "array",
+                    "items": {
+                    },
+                };
                 break;
 
             case NT_HASH:
-                tname = "object";
+                info.type = "object";
                 break;
 
             case NT_BINARY:
+                info = {
+                    "type": "string",
+                    "format": "base64",
+                };
+                break;
+
+            case NT_ALL:
+                info = {};
+
             case NT_OBJECT:
                 if (!t.isMandatory()) {
                     return;
@@ -434,11 +458,14 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                     t.getBaseTypeName());
 
             case NT_NOTHING:
+            case NT_NULL:
                 return;
+
+            default:
+                throw "TOOL-ARG-ERROR", sprintf("Tool parameter %y has unsupported type %y (%s)", name,
+                    t.getBaseTypeName(), t.className());
         }
-        hash<auto> info = {
-            "type": tname,
-        };
+
         if (exists (auto v = t.getDefaultValue())) {
             info."default" = v;
         }

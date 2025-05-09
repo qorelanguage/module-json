@@ -1,4 +1,4 @@
-%define mod_ver 1.9.0
+%define mod_ver 1.9.1
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -112,6 +112,9 @@ json module.
 %doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler test examples
 
 %changelog
+* Fri May 9 2025 David Nichols <david@qore.org> - 1.9.1
+- updated to version 1.9.1
+
 * Sun Mar 30 2025 David Nichols <david@qore.org> - 1.9.0
 - updated to version 1.9.0
 

@@ -12,16 +12,41 @@
 %requires HttpServer
 %requires Logger
 %requires Mime
+%requires DataProvider
 %requires ../qlib/JsonRpcHandler.qm
 %requires ../qlib/McpServerHandler
 
 %exec-class McpServerHandlerTest
 
-class MyMcpServerHandler inherits McpServerHandler {
+class TestInput inherits HashDataType {
     public {
+        const Fields = {
+            "id": {
+                "display_name": "ID",
+                "type": AbstractDataProviderTypeMap."int",
+                "desc": "ID field",
+            },
+            "name": {
+                "display_name": "Name",
+                "type": AbstractDataProviderTypeMap."string",
+                "desc": "Name field",
+            },
+        };
     }
 
+    constructor() {
+        addQoreFields(Fields);
+    }
+}
+
+const TestInput = new TestInput();
+
+class MyMcpServerHandler inherits McpServerHandler {
     constructor(LoggerInterface logger) : McpServerHandler(logger, new PermissiveAuthenticator()) {
+        registerTool("test", "test tool", TestInput, \test());
+    }
+
+    test(*hash<auto> params) {
     }
 }
 
@@ -95,5 +120,10 @@ public class McpServerHandlerTest inherits QUnit::Test {
         h = jsonrpc.call("ping");
         assertEq(2, h.id);
         assertEq({}, h.result);
+
+        h = jsonrpc.call("tools/list");
+        assertEq(3, h.id);
+        assertEq(1, h.result.tools.size());
+        assertEq(("id", "name"), h.result.tools[0].inputSchema.required);
     }
 }
