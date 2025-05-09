@@ -166,6 +166,12 @@
 
     @section jsonreleasenotes Release Notes
 
+    @subsection json_v1_9_1 json Module Version 1.9.1
+    - fixed a bug where the MCP handler would crash when tools had recursive input types
+      (<a href="https://github.com/qorelanguage/qore/issues/4944">issue 4944</a>)
+    - fixed a bug reporting MCP tool input schemas
+      (<a href="https://github.com/qorelanguage/qore/issues/4943">issue 4943</a>)
+
     @subsection json_v1_9 json Module Version 1.9
     - added support for an MCP server with the <a href="../../McpServerHandler/html/index.html">McpServerHandler</a>
       module

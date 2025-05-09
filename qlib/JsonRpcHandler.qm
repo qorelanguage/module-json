@@ -498,6 +498,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
                     }
                 }
             } catch (hash<ExceptionInfo> ex) {
+                error("%s", get_exception_string(ex));
                 string estr = sprintf("%s: %s", ex.err, ex.desc);
                 if (ex.arg.typeCode() == NT_INT) {
                     return <HttpResponseInfo>{
@@ -533,6 +534,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
                 },
             } + v;
         } catch (hash<ExceptionInfo> ex) {
+            error("%s", get_exception_string(ex));
             # show complete exception trace if system debug option is enabled
             string str = !debug_flag
                 ? sprintf("%s: %s%s", ex.err, ex.desc, ex.arg ? sprintf(" (%y)", ex.arg) : NOTHING)
