@@ -106,6 +106,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             # JSON serialization is performed by this object when needed
             "data": "none",
         };
+
+        #! Maximum name length for an MCP tool
+        const MaxMcpToolNameLength = 64;
     }
 
     private {
@@ -326,6 +329,10 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         bool needs_map;
         if (input) {
             input_desc = getTypeDescriptionIntern("input", input);
+            if (name.length() > MaxMcpToolNameLength) {
+                throw "MCP-SERVER-ARG-ERROR", sprintf("Tool name %y is too long (max %y)", name,
+                    MaxMcpToolNameLength);
+            }
             debug("Creating tool %y (%y) input: %y (%s: %y) -> %y", name, desc, input ? input.getName() : "n/a",
                 input ? input.className() : "n/a", keys (input ? input.getFields() : NOTHING), input_desc);
             if (input_desc.type.val() && input_desc.type != "object") {
