@@ -35,11 +35,35 @@ public hashdecl McpToolInfo {
     #! The input type of the tool
     *hash<auto> input;
 
+    #! If the input type has been fully initialized
+    *bool input_initialized;
+
     #! If the tool call requires mapping from a "data" property
     *bool needs_map;
 
     #! The code to call the tool
     code tool;
+
+    #! Extra free-form info to store for the tool
+    *hash<auto> extra;
+}
+
+#! MCP tool call context
+public hashdecl McpToolCallContext {
+    #! The name of the tool
+    string name;
+
+    #! The description of the tool
+    string description;
+
+    #! The arguments to the tool
+    *hash<auto> arguments;
+
+    #! MCP session ID
+    *string sid;
+
+    #! Network context
+    hash<auto> cx;
 }
 
 #! Initial version of the MCP protocol
@@ -146,8 +170,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     #! Registers a tool
-    registerTool(string name, string desc, *AbstractDataProviderType input, code tool) {
-        tmap{name} = getTool(name, desc, input, tool);
+    registerTool(string name, string desc, *AbstractDataProviderType input, code tool, *bool input_initialized,
+            *hash<auto> extra, *AbstractDataProvider prov) {
+        tmap{name} = getTool(name, desc, input, tool, input_initialized, extra, prov);
     }
 
     hash<HttpResponseInfo> handleRequest(hash<auto> cx, hash<auto> hdr, *data b) {
@@ -164,6 +189,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             if (info.params.session.val()) {
                 session = info.params.session;
             }
+        }
+        if (session.val()) {
+            cx.mcp_session = session;
         }
         if (cx.hdr.method == "DELETE") {
             if (!session.val()) {
@@ -300,6 +328,10 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return {};
     }
 
+    static *hash<McpToolCallContext> getToolCallContext() {
+        return McpCallContextHelper::get();
+    }
+
     private *hash<McpToolInfo> findToolForCall(hash<auto> cx, string name) {
         return tmap{name};
     }
@@ -314,26 +346,43 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             throw "MCP-SERVER-ARG-ERROR", sprintf("Tool %y is unknown; known tools: %y", params.name,
                 getKnownToolNames(cx));
         }
-        auto rv = info.needs_map ? info.tool(params.arguments."data") : info.tool(params.arguments);
-        return {
-            "content": ({
-                "type": "text",
-                "text": rv.typeCode() == NT_STRING ? rv : make_json(rv),
-                "isError": False,
-            },),
+        hash<McpToolCallContext> call_info = <McpToolCallContext>{
+            "name": info.name,
+            "description": info.description,
+            "sid": cx.mcp_session,
+            "arguments": params.arguments,
+            "cx": cx,
         };
+        McpCallContextHelper mcch(call_info);
+        try {
+            auto rv = info.needs_map ? info.tool(params.arguments."data") : info.tool(params.arguments);
+            return {
+                "content": ({
+                    "type": "text",
+                    "text": rv.typeCode() == NT_STRING ? rv : make_json(rv),
+                    "isError": False,
+                },),
+            };
+        } catch (hash<ExceptionInfo> ex) {
+            # put any response body data in the exception description
+            if (ex.arg."response-body") {
+                rethrow ex.err, sprintf("%s (%y)", ex.desc, ex.arg."response-body");
+            }
+            rethrow;
+        }
     }
 
-    private hash<McpToolInfo> getTool(string name, string desc, *AbstractDataProviderType input, code tool) {
+    private hash<McpToolInfo> getTool(string name, string desc, *AbstractDataProviderType input, code tool,
+            *bool input_initialized, *hash<auto> extra, *AbstractDataProvider prov) {
+        if (name.length() > MaxMcpToolNameLength) {
+            throw "MCP-SERVER-ARG-ERROR", sprintf("Tool name %y is too long (max %y)", name,
+                MaxMcpToolNameLength);
+        }
         *hash<auto> input_desc;
         bool needs_map;
         if (input) {
-            input_desc = getTypeDescriptionIntern("input", input);
-            if (name.length() > MaxMcpToolNameLength) {
-                throw "MCP-SERVER-ARG-ERROR", sprintf("Tool name %y is too long (max %y)", name,
-                    MaxMcpToolNameLength);
-            }
-            debug("Creating tool %y (%y) input: %y (%s: %y) -> %y", name, desc, input ? input.getName() : "n/a",
+            input_desc = getTypeDescriptionIntern("input", input, prov);
+            info("Creating tool %y (%y) input: %y (%s: %y) -> %y", name, desc, input ? input.getName() : "n/a",
                 input ? input.className() : "n/a", keys (input ? input.getFields() : NOTHING), input_desc);
             if (input_desc.type.val() && input_desc.type != "object") {
                 needs_map = True;
@@ -350,21 +399,32 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
         return <McpToolInfo>{
             "name": name,
-            "description": desc,
-            "input": input_desc ?? NoInputDescription,
+            "description": getToolDescription(name, input_initialized, extra, desc),
+            "input": input_desc ?? getNoInputDescription(name, input_initialized, extra),
+            "input_initialized": input_initialized,
             "needs_map": needs_map,
             "tool": tool,
+            "extra": extra,
         };
     }
 
-    private static hash<auto> getObjectDescription(hash<string, AbstractDataField> fields, *hash<string, bool> tmap) {
+    private string getToolDescription(string name, *bool input_initialized, *hash<auto> extra, string desc) {
+        return desc;
+    }
+
+    private hash<auto> getNoInputDescription(string name, *bool input_initialized, *hash<auto> extra) {
+        return NoInputDescription;
+    }
+
+    private hash<auto> getObjectDescription(hash<string, AbstractDataField> fields, *AbstractDataProvider prov,
+            *hash<string, bool> tmap) {
         hash<auto> rv += {
             "type": "object",
         };
         list<string> required;
         foreach AbstractDataField field in (fields.iterator()) {
             AbstractDataProviderType t = field.getType();
-            *hash<auto> info = getTypeDescription(field.getName(), field.getShortDescription(), t, tmap);
+            *hash<auto> info = getTypeDescription(field.getName(), field.getShortDescription(), t, prov, tmap);
             if (!info) {
                 continue;
             }
@@ -372,7 +432,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             if (field.isMandatory()) {
                 required += name;
             }
-            if (*list<hash<AllowedValueInfo>> av = field.getAllowedValues()) {
+            if (*list<hash<AllowedValueInfo>> av = getAllowedValues(field, prov)) {
                 info.enum = map $1.value, av;
             }
             if (exists (auto v = field.getDefaultValue())) {
@@ -386,15 +446,28 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return rv;
     }
 
-    private static *hash<auto> getTypeDescription(string name, *string desc, AbstractDataProviderType t, *hash<string, bool> tmap) {
-        *hash<auto> info += getTypeDescriptionIntern(name, t, tmap);
+    private *list<hash<AllowedValueInfo>> getAllowedValues(AbstractDataField field,
+            *AbstractDataProvider prov) {
+        if ((*list<hash<AllowedValueInfo>> rv = field.getAllowedValues()) || !prov) {
+            return rv;
+        }
+        *hash<auto> attr = field.getAttributes();
+        if (attr.ref_data.val()) {
+            return prov.getReferenceDataSafe(attr.ref_data);
+        }
+    }
+
+    private *hash<auto> getTypeDescription(string name, *string desc, AbstractDataProviderType t,
+            *AbstractDataProvider prov, *hash<string, bool> tmap) {
+        *hash<auto> info += getTypeDescriptionIntern(name, t, prov, tmap);
         if (info && desc.val()) {
             info.description = desc;
         }
         return info;
     }
 
-    private static *hash<auto> getTypeDescriptionIntern(string name, AbstractDataProviderType t, *hash<string, bool> tmap) {
+    private *hash<auto> getTypeDescriptionIntern(string name, AbstractDataProviderType t,
+            *AbstractDataProvider prov, *hash<string, bool> tmap) {
         if (*hash<string, AbstractDataField> fields = t.getFields()) {
             string uh = t.uniqueHash();
             if (tmap{uh}) {
@@ -403,14 +476,14 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 };
             }
             tmap{uh} = True;
-            return getObjectDescription(fields, tmap);
+            return getObjectDescription(fields, prov, tmap);
         }
         int type = t.getBaseTypeCode();
         if ((type == NT_LIST) && (*AbstractDataProviderType et = t.getElementType())
-            && exists (*hash<auto> h = getTypeDescriptionIntern("items", et, tmap))) {
+            && exists (*hash<auto> h = getTypeDescriptionIntern("items", et, prov, tmap))) {
             return {
                 "type": "array",
-                "items": getTypeDescription("items", "array items", et, tmap),
+                "items": getTypeDescription("items", "array items", et, prov, tmap),
             };
         }
 
@@ -528,5 +601,25 @@ hashdecl McpSessionInfo {
 
     # Active SSE connections; first is always primary
     hash<string, McpServerConnection> ssemap;
+}
+
+thread_local *hash<McpToolCallContext> _mcp_call_context;
+class McpCallContextHelper {
+    private {
+        *hash<McpToolCallContext> old;
+    }
+
+    constructor(hash<McpToolCallContext> call_info) {
+        old = _mcp_call_context;
+        _mcp_call_context = call_info;
+    }
+
+    destructor() {
+        _mcp_call_context = old;
+    }
+
+    static *hash<McpToolCallContext> get() {
+        return _mcp_call_context;
+    }
 }
 }
