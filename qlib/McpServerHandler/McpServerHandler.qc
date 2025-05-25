@@ -354,6 +354,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             "cx": cx,
         };
         McpCallContextHelper mcch(call_info);
+        return makeToolCall(info, params, call_info);
+    }
+
+    private *hash<auto> makeToolCall(*hash<McpToolInfo> info, *hash<auto> params,
+            *hash<McpToolCallContext> call_info) {
         try {
             auto rv = info.needs_map ? info.tool(params.arguments."data") : info.tool(params.arguments);
             return {
