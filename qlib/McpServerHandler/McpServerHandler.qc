@@ -177,6 +177,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         #! Session ID map
         hash<string, int> sidmap;
+
+        #! Request ID counter
+        int rid = 0;
     }
 
     #! Creates the handler
@@ -216,6 +219,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             "description": desc,
             "mimeType": mimeType,
         };
+    }
+
+    #! Returns the next request ID and increments the internal counter
+    int getNextRequestId() {
+        return rid++;
     }
 
     hash<HttpResponseInfo> handleRequest(hash<auto> cx, hash<auto> hdr, *data b) {
@@ -301,6 +309,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return session;
     }
 
+    #! Use MCP ping as heartbeat message
+    private string getHeartbeatMessage() {
+        return make_jsonrpc_request("ping", "2.0", getNextRequestId());
+    }
+
     #! Called while holding the write lock to register the new connection
     private registerNewConnectionIntern(string cid, ServerSentEventConnection conn) {
         ServerSentEventHandler::registerNewConnectionIntern(cid, conn);
@@ -380,6 +393,10 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             "description": $1.description,
             "arguments": $1.arguments,
         ), pmap.iterator();
+    }
+
+    private cancelRequest(hash<auto> cx) {
+        # currently requests cannot be canceled
     }
 
     private hash<auto> initialize(hash<auto> cx, *hash<auto> params) {
@@ -678,6 +695,13 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 "text": "prompts/list",
                 "function": \promptsList(),
                 "help": "MCP server list available prompts",
+                "include_context": True,
+            },
+            {
+                "name": "^notifications/cancelled$",
+                "text": "notifications/cancelled",
+                "function": \cancelRequest(),
+                "help": "Try to cancel an in-progress request",
                 "include_context": True,
             },
         ));
