@@ -108,7 +108,7 @@ public class McpServerHandlerTest inherits QUnit::Test {
 
     mainTest() {
         assertEq("2.0", jsonrpc.getVersion());
-        hash<auto> h = jsonrpc.call("initialize", ClientInfo);
+        *hash<auto> h = jsonrpc.call("initialize", ClientInfo);
         on_error printf("h: %y\n", h);
         assertEq("2.0", h.jsonrpc);
         assertEq(1, h.id);
@@ -116,6 +116,7 @@ public class McpServerHandlerTest inherits QUnit::Test {
 
         h = jsonrpc.callId(NOTHING, "notifications/initialized");
         assertNothing(h.result);
+        assertNothing(h);
 
         h = jsonrpc.call("ping");
         assertEq(2, h.id);
@@ -125,5 +126,13 @@ public class McpServerHandlerTest inherits QUnit::Test {
         assertEq(3, h.id);
         assertEq(1, h.result.tools.size());
         assertEq(("id", "name"), h.result.tools[0].inputSchema.required);
+
+        h = jsonrpc.call("resources/list");
+        assertEq(4, h.id);
+        assertEq(0, h.result.resources.size());
+
+        h = jsonrpc.call("prompts/list");
+        assertEq(5, h.id);
+        assertEq(0, h.result.prompts.size());
     }
 }

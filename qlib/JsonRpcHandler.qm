@@ -433,6 +433,11 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             throw "JSONRPC-NOTIFICATION-ERROR", sprintf("The response to notification call to %y (the request "
                 "arrived without an id) includes a response body which is a protocol violation", method);
         }
+        if (!exists cx.jsonid) {
+            return <HttpResponseInfo>{
+                "code": 202,
+            };
+        }
         #debug("JSON-RPC %y -> RV: %N", method, rv);
         return <HttpResponseInfo>{
             "body": make_jsonrpc_response(cx.jsonrpc_version, cx.jsonid, rv),

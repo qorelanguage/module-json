@@ -48,6 +48,33 @@ public hashdecl McpToolInfo {
     *hash<auto> extra;
 }
 
+#! MCP resource declaration
+public hashdecl McpResourceInfo {
+    #! The URI of the resource
+    string uri;
+
+    #! The name of the resource
+    string name;
+
+    #! The description of the resource
+    string description;
+
+    #! The MIME type of the resource
+    string mimeType;
+}
+
+#! MCP prompt declaration
+public hashdecl McpPromptInfo {
+    #! The name of the prompt
+    string name;
+
+    #! The description of the prompt
+    string description;
+
+    #! The arguments to the prompt
+    *list<hash<auto>> arguments;
+}
+
 #! MCP tool call context
 public hashdecl McpToolCallContext {
     #! The name of the tool
@@ -139,6 +166,12 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         #! Registered tools: name -> tool
         hash<string, hash<McpToolInfo>> tmap;
 
+        #! Registered resources: URI -> resource info
+        hash<string, hash<McpResourceInfo>> rmap;
+
+        #! Registered prompts: name -> prompt info
+        hash<string, hash<McpPromptInfo>> pmap;
+
         #! Session map; session ID -> session info
         hash<string, hash<McpSessionInfo>> smap;
 
@@ -173,6 +206,16 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     registerTool(string name, string desc, *AbstractDataProviderType input, code tool, *bool input_initialized,
             *hash<auto> extra, *AbstractDataProvider prov) {
         tmap{name} = getTool(name, desc, input, tool, input_initialized, extra, prov);
+    }
+
+    #! Registers a resource
+    registerResource(string uri, string name, string desc, string mimeType) {
+        rmap{uri} = <McpResourceInfo>{
+            "uri": uri,
+            "name": name,
+            "description": desc,
+            "mimeType": mimeType,
+        };
     }
 
     hash<HttpResponseInfo> handleRequest(hash<auto> cx, hash<auto> hdr, *data b) {
@@ -308,6 +351,35 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 },),
             };
         }
+    }
+
+    private hash<auto> resourcesList(hash<auto> cx, *hash<auto> params) {
+        return {
+            "resources": getResourceList(cx),
+        };
+    }
+
+    private *list<hash<auto>> getResourceList(hash<auto> cx) {
+        return map (
+            "uri": $1.uri,
+            "name": $1.name,
+            "description": $1.description,
+            "mimeType": $1.mimeType,
+        ), rmap.iterator();
+    }
+
+    private hash<auto> promptsList(hash<auto> cx, *hash<auto> params) {
+        return {
+            "resources": getPromptList(cx),
+        };
+    }
+
+    private *list<hash<auto>> getPromptList(hash<auto> cx) {
+        return map (
+            "name": $1.name,
+            "description": $1.description,
+            "arguments": $1.arguments,
+        ), pmap.iterator();
     }
 
     private hash<auto> initialize(hash<auto> cx, *hash<auto> params) {
@@ -592,6 +664,20 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 "text": "tools/call",
                 "function": \toolsCall(),
                 "help": "MCP server call tool",
+                "include_context": True,
+            },
+            {
+                "name": "^resources/list$",
+                "text": "resources/list",
+                "function": \resourcesList(),
+                "help": "MCP server list available resources",
+                "include_context": True,
+            },
+            {
+                "name": "^prompts/list$",
+                "text": "prompts/list",
+                "function": \promptsList(),
+                "help": "MCP server list available prompts",
                 "include_context": True,
             },
         ));
