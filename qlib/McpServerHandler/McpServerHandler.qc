@@ -159,7 +159,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         };
 
         #! Maximum name length for an MCP tool
-        const MaxMcpToolNameLength = 64;
+        const MaxMcpToolNameLength = 60;
     }
 
     private {
@@ -222,8 +222,8 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     #! Returns the next request ID and increments the internal counter
-    int getNextRequestId() {
-        return rid++;
+    string getNextRequestId() {
+        return "s" + rid++;
     }
 
     hash<HttpResponseInfo> handleRequest(hash<auto> cx, hash<auto> hdr, *data b) {
@@ -310,7 +310,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     #! Use MCP ping as heartbeat message
-    private string getHeartbeatMessage() {
+    private string getHeartbeatMessage(McpServerConnection conn) {
         return make_jsonrpc_request("ping", "2.0", getNextRequestId());
     }
 
