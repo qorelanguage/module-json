@@ -129,10 +129,10 @@ public class McpServerHandlerTest inherits QUnit::Test {
 
         h = jsonrpc.call("resources/list");
         assertEq(4, h.id);
-        assertEq(0, h.result.resources.size());
+        assertEq((), h.result.resources);
 
         h = jsonrpc.call("prompts/list");
         assertEq(5, h.id);
-        assertEq(0, h.result.prompts.size());
+        assertEq((), h.result.prompts);
     }
 }

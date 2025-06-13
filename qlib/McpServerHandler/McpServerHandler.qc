@@ -370,7 +370,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     private hash<auto> promptsList(hash<auto> cx, *hash<auto> params) {
         return {
-            "resources": getPromptList(cx),
+            "prompts": getPromptList(cx),
         };
     }
 
