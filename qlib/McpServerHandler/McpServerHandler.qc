@@ -395,8 +395,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         ), pmap.iterator();
     }
 
-    private cancelRequest(hash<auto> cx) {
+    private cancelRequest(hash<auto> cx, hash<auto> params) {
         # currently requests cannot be canceled
+        # cancel params:
+        # - requestId (string)
+        # - reason (*string)
     }
 
     private hash<auto> initialize(hash<auto> cx, *hash<auto> params) {
