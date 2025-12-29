@@ -26,6 +26,7 @@ set(QMOD
     qlib/JsonRpcConnection.qm
     qlib/McpServerHandler
     qlib/McpClient
+    qlib/McpClientDataProvider
 )
 
 # Check for C++11.
@@ -63,6 +64,7 @@ qore_external_user_module("qlib/JsonRpcConnection.qm" "")
 qore_external_user_module("qlib/JsonRpcHandler.qm" "")
 qore_external_user_module("qlib/McpServerHandler" "JsonRpcHandler")
 qore_external_user_module("qlib/McpClient" "")
+qore_external_user_module("qlib/McpClientDataProvider" "McpClient")
 
 qore_config_info()
 
