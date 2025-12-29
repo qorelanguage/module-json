@@ -288,6 +288,11 @@ public class McpClient {
         close();
     }
 
+    #! Returns the server URL
+    string getUrl() {
+        return url;
+    }
+
     #! Initializes the MCP connection
     /**
         @param client_info information about this client

@@ -25,6 +25,7 @@
       - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
       - <a href="../../McpServerHandler/html/index.html">McpServerHandler</a>
       - <a href="../../McpClient/html/index.html">McpClient</a>
+      - <a href="../../McpClientDataProvider/html/index.html">McpClientDataProvider</a>
 
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
@@ -41,6 +42,7 @@
     - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> user module
     - <a href="../../McpServerHandler/html/index.html">McpServerHandler</a> user module
     - <a href="../../McpClient/html/index.html">McpClient</a> user module
+    - <a href="../../McpClientDataProvider/html/index.html">McpClientDataProvider</a> user module
 
     @note JSON functionality was included in the main %Qore shared library until version 0.8.1, at which time the code
     was removed to make this module.
@@ -172,6 +174,16 @@
     @section jsonreleasenotes Release Notes
 
     @subsection json_v1_10 json Module Version 1.10
+    - added the <a href="../../McpClientDataProvider/html/index.html">McpClientDataProvider</a> module providing a
+      DataProvider API for MCP servers:
+      - factory registration for automatic data provider discovery
+      - tools provider: list and call MCP tools
+      - resources provider: list and read MCP resources
+      - prompts provider: list and get MCP prompts
+      - completion provider: get autocompletion suggestions
+      - ping provider: verify server connectivity
+      - ConnectionProvider integration for connection management
+      - comprehensive type definitions for all MCP data structures
     - added the <a href="../../McpClient/html/index.html">McpClient</a> module for connecting to MCP servers as a
       client:
       - full MCP protocol support with automatic version negotiation (2024-11-05 through 2025-11-25)
