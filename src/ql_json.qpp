@@ -1369,7 +1369,7 @@ string makeFormattedJSONRPC11ErrorString(softint code, string error, auto id, au
     - "~1" is used to escape "/"
     - Array indices are specified as integers
 
-    @since json 1.9.2
+    @since json 1.10
 */
 auto json_pointer_get(auto data, string pointer) [flags=RET_VALUE_ONLY] {
     if (pointer->empty()) {
@@ -1457,7 +1457,7 @@ auto json_pointer_get(auto data, string pointer) [flags=RET_VALUE_ONLY] {
 
     @throw JSON-POINTER-ERROR invalid pointer format
 
-    @since json 1.9.2
+    @since json 1.10
 */
 bool json_pointer_exists(auto data, string pointer) [flags=RET_VALUE_ONLY] {
     if (pointer->empty()) {
@@ -1540,7 +1540,7 @@ bool json_pointer_exists(auto data, string pointer) [flags=RET_VALUE_ONLY] {
 
     @return the escaped string suitable for use in a JSON Pointer
 
-    @since json 1.9.2
+    @since json 1.10
 */
 string json_pointer_escape(string token) [flags=CONSTANT] {
     QoreStringNode* str = new QoreStringNode;
