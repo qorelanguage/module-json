@@ -318,6 +318,14 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
                     return QoreValue();
                 }
                 has_e = true;
+                // handle optional sign after exponent marker
+                str.concat(*buf);
+                ++buf;
+                if (*buf == '+' || *buf == '-') {
+                    str.concat(*buf);
+                    ++buf;
+                }
+                continue;
             } else if (!isdigit(*buf)) {
                 xsink->raiseException("JSON-PARSE-ERROR", "unexpected character '%c' in number", *buf);
                 return QoreValue();
@@ -1334,5 +1342,219 @@ string makeJSONRPC11ErrorString(softint code, string error, auto id, auto error_
  */
 string makeFormattedJSONRPC11ErrorString(softint code, string error, auto id, auto error_msg) [flags=RET_VALUE_ONLY,DEPRECATED] {
     return make_jsonrpc11_error(code, error, id, error_msg, JGF_ADD_FORMATTING, xsink);
+}
+///@}
+
+/** @defgroup json_pointer_functions JSON Pointer Functions (RFC 6901)
+ */
+///@{
+//! Retrieves a value from a data structure using a JSON Pointer (RFC 6901)
+/** @par Example:
+    @code{.py}
+    auto data = {"foo": {"bar": [1, 2, 3]}};
+    auto val = json_pointer_get(data, "/foo/bar/1");
+    # val = 2
+    @endcode
+
+    @param data the data structure to query
+    @param pointer the JSON Pointer string (e.g., "/foo/bar/0")
+
+    @return the value at the specified location, or NOTHING if not found
+
+    @throw JSON-POINTER-ERROR invalid pointer format or array index
+
+    @note This function follows RFC 6901 for JSON Pointer syntax:
+    - Pointers must start with "/" or be empty (empty returns the root)
+    - "~0" is used to escape "~"
+    - "~1" is used to escape "/"
+    - Array indices are specified as integers
+
+    @since json 1.10
+*/
+auto json_pointer_get(auto data, string pointer) [flags=RET_VALUE_ONLY] {
+    if (pointer->empty()) {
+        return data.refSelf();
+    }
+
+    const char* p = pointer->c_str();
+    if (*p != '/') {
+        xsink->raiseException("JSON-POINTER-ERROR", "JSON Pointer must start with '/' or be empty; got: %s",
+            pointer->c_str());
+        return QoreValue();
+    }
+
+    QoreValue current = data;
+    QoreString token;
+    ++p;  // skip leading '/'
+
+    while (true) {
+        if (*p == '/' || !*p) {
+            // process token
+            qore_type_t t = current.getType();
+            if (t == NT_HASH) {
+                QoreHashNode* h = current.get<QoreHashNode>();
+                current = h->getKeyValue(token.c_str());
+            } else if (t == NT_LIST) {
+                // parse as array index
+                if (token.empty()) {
+                    xsink->raiseException("JSON-POINTER-ERROR", "empty array index in JSON Pointer");
+                    return QoreValue();
+                }
+                // check for leading zeros (not allowed except for "0")
+                if (token.size() > 1 && token[0] == '0') {
+                    xsink->raiseException("JSON-POINTER-ERROR", "leading zeros not allowed in array index: %s",
+                        token.c_str());
+                    return QoreValue();
+                }
+                char* endptr;
+                long idx = strtol(token.c_str(), &endptr, 10);
+                if (*endptr != '\0' || idx < 0) {
+                    xsink->raiseException("JSON-POINTER-ERROR", "invalid array index: %s", token.c_str());
+                    return QoreValue();
+                }
+                QoreListNode* l = current.get<QoreListNode>();
+                if (idx >= (long)l->size()) {
+                    return QoreValue();  // out of bounds, return NOTHING
+                }
+                current = l->retrieveEntry(idx);
+            } else {
+                return QoreValue();  // not a container, return NOTHING
+            }
+            token.clear();
+            if (!*p) break;
+        } else if (*p == '~') {
+            ++p;
+            if (*p == '0') {
+                token.concat('~');
+            } else if (*p == '1') {
+                token.concat('/');
+            } else {
+                xsink->raiseException("JSON-POINTER-ERROR", "invalid escape sequence '~%c' in JSON Pointer",
+                    *p ? *p : '?');
+                return QoreValue();
+            }
+        } else {
+            token.concat(*p);
+        }
+        ++p;
+    }
+
+    return current.refSelf();
+}
+
+//! Checks if a value exists at the specified JSON Pointer location
+/** @par Example:
+    @code{.py}
+    auto data = {"foo": {"bar": [1, 2, 3]}};
+    bool exists = json_pointer_exists(data, "/foo/bar/1");
+    # exists = True
+    @endcode
+
+    @param data the data structure to query
+    @param pointer the JSON Pointer string
+
+    @return True if a value exists at the location (even if the value is NOTHING), False otherwise
+
+    @throw JSON-POINTER-ERROR invalid pointer format
+
+    @since json 1.10
+*/
+bool json_pointer_exists(auto data, string pointer) [flags=RET_VALUE_ONLY] {
+    if (pointer->empty()) {
+        return true;
+    }
+
+    const char* p = pointer->c_str();
+    if (*p != '/') {
+        xsink->raiseException("JSON-POINTER-ERROR", "JSON Pointer must start with '/' or be empty; got: %s",
+            pointer->c_str());
+        return QoreValue();
+    }
+
+    QoreValue current = data;
+    QoreString token;
+    ++p;  // skip leading '/'
+
+    while (true) {
+        if (*p == '/' || !*p) {
+            // process token
+            qore_type_t t = current.getType();
+            if (t == NT_HASH) {
+                QoreHashNode* h = current.get<QoreHashNode>();
+                if (!h->existsKey(token.c_str())) {
+                    return false;
+                }
+                current = h->getKeyValue(token.c_str());
+            } else if (t == NT_LIST) {
+                if (token.empty()) {
+                    return false;
+                }
+                if (token.size() > 1 && token[0] == '0') {
+                    xsink->raiseException("JSON-POINTER-ERROR", "leading zeros not allowed in array index: %s",
+                        token.c_str());
+                    return QoreValue();
+                }
+                char* endptr;
+                long idx = strtol(token.c_str(), &endptr, 10);
+                if (*endptr != '\0' || idx < 0) {
+                    return false;
+                }
+                QoreListNode* l = current.get<QoreListNode>();
+                if (idx >= (long)l->size()) {
+                    return false;
+                }
+                current = l->retrieveEntry(idx);
+            } else {
+                return false;
+            }
+            token.clear();
+            if (!*p) break;
+        } else if (*p == '~') {
+            ++p;
+            if (*p == '0') {
+                token.concat('~');
+            } else if (*p == '1') {
+                token.concat('/');
+            } else {
+                xsink->raiseException("JSON-POINTER-ERROR", "invalid escape sequence '~%c' in JSON Pointer",
+                    *p ? *p : '?');
+                return QoreValue();
+            }
+        } else {
+            token.concat(*p);
+        }
+        ++p;
+    }
+
+    return true;
+}
+
+//! Escapes a string for use as a JSON Pointer token
+/** @par Example:
+    @code{.py}
+    string escaped = json_pointer_escape("foo/bar~baz");
+    # escaped = "foo~1bar~0baz"
+    @endcode
+
+    @param token the string to escape
+
+    @return the escaped string suitable for use in a JSON Pointer
+
+    @since json 1.10
+*/
+string json_pointer_escape(string token) [flags=CONSTANT] {
+    QoreStringNode* str = new QoreStringNode;
+    const char* p = token->c_str();
+    while (*p) {
+        if (*p == '~') {
+            str->concat("~0");
+        } else if (*p == '/') {
+            str->concat("~1");
+        } else {
+            str->concat(*p);
+        }
+        ++p;
+    }
+    return str;
 }
 ///@}

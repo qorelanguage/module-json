@@ -61,6 +61,9 @@ public hashdecl McpResourceInfo {
 
     #! The MIME type of the resource
     string mimeType;
+
+    #! The code to read the resource content
+    *code reader;
 }
 
 #! MCP prompt declaration
@@ -73,6 +76,9 @@ public hashdecl McpPromptInfo {
 
     #! The arguments to the prompt
     *list<hash<auto>> arguments;
+
+    #! The code to generate the prompt messages
+    *code handler;
 }
 
 #! MCP tool call context
@@ -93,19 +99,41 @@ public hashdecl McpToolCallContext {
     hash<auto> cx;
 }
 
+#! MCP log level constants
+public const McpLogLevel_Debug = "debug";
+public const McpLogLevel_Info = "info";
+public const McpLogLevel_Notice = "notice";
+public const McpLogLevel_Warning = "warning";
+public const McpLogLevel_Error = "error";
+public const McpLogLevel_Critical = "critical";
+public const McpLogLevel_Alert = "alert";
+public const McpLogLevel_Emergency = "emergency";
+
+#! MCP completion reference types
+public const McpCompletionRef_Prompt = "ref/prompt";
+public const McpCompletionRef_Resource = "ref/resource";
+
 #! Initial version of the MCP protocol
 public const MCP_Version_2024_11_05 = "2024-11-05";
 
-#! Second version of the MCP protocol
+#! Second version of the MCP protocol (March 2025)
 public const MCP_Version_2025_03_26 = "2025-03-26";
 
+#! Third version of the MCP protocol (June 2025 - Enterprise readiness)
+public const MCP_Version_2025_06_18 = "2025-06-18";
+
+#! Fourth version of the MCP protocol (November 2025 - Tasks, Extensions)
+public const MCP_Version_2025_11_25 = "2025-11-25";
+
 #! Latest known version of the MCP protocol
-public const MCP_Version_Latest = MCP_Version_2025_03_26;
+public const MCP_Version_Latest = MCP_Version_2025_11_25;
 
 #! Map of all known versions of the MCP protocol
 public const AllMcpVersions = {
     MCP_Version_2024_11_05: True,
     MCP_Version_2025_03_26: True,
+    MCP_Version_2025_06_18: True,
+    MCP_Version_2025_11_25: True,
 };
 
 #! MCP Session header
@@ -127,19 +155,18 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         const ServerInfo = {
             "protocolVersion": MCP_Version_Latest,
             "capabilities": {
-                #"logging": {},
-                /*
+                "logging": {},
                 "prompts": {
-                    "listChanged": False,
+                    "listChanged": True,
                 },
                 "resources": {
                     "subscribe": False,
-                    "listChanged": False,
+                    "listChanged": True,
                 },
-                */
                 "tools": {
                     "listChanged": True,
                 },
+                "completions": {},
             },
             "serverInfo": {
                 "name": McpServerName,
@@ -160,9 +187,14 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         #! Maximum name length for an MCP tool
         const MaxMcpToolNameLength = 60;
+
+        #! Default session timeout in seconds (1 hour)
+        const DefaultSessionTimeoutSecs = 3600;
     }
 
     private {
+        #! Session timeout in seconds
+        int session_timeout_secs = DefaultSessionTimeoutSecs;
         #! Registered tools: name -> tool
         hash<string, hash<McpToolInfo>> tmap;
 
@@ -211,18 +243,79 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         tmap{name} = getTool(name, desc, input, tool, input_initialized, extra, prov);
     }
 
+    #! Unregisters a tool
+    /** @param name the name of the tool to unregister
+        @return True if the tool was unregistered, False if it was not found
+    */
+    bool unregisterTool(string name) {
+        return exists remove tmap{name};
+    }
+
+    #! Returns a list of registered tool names
+    list<string> getToolNames() {
+        return keys tmap;
+    }
+
+    #! Checks if a tool is registered
+    /** @param name the name of the tool
+        @return True if the tool is registered
+    */
+    bool hasTools(string name) {
+        return exists tmap{name};
+    }
+
     #! Registers a resource
-    registerResource(string uri, string name, string desc, string mimeType) {
+    /** @param uri the URI of the resource
+        @param name the name of the resource
+        @param desc the description of the resource
+        @param mimeType the MIME type of the resource
+        @param reader optional code to read the resource content; if not provided, the resource is not readable
+    */
+    registerResource(string uri, string name, string desc, string mimeType, *code reader) {
         rmap{uri} = <McpResourceInfo>{
             "uri": uri,
             "name": name,
             "description": desc,
             "mimeType": mimeType,
+            "reader": reader,
         };
+    }
+
+    #! Unregisters a resource
+    /** @param uri the URI of the resource to unregister
+        @return True if the resource was unregistered, False if it was not found
+    */
+    bool unregisterResource(string uri) {
+        return exists remove rmap{uri};
+    }
+
+    #! Registers a prompt
+    /** @param name the name of the prompt
+        @param desc the description of the prompt
+        @param arguments optional list of argument definitions for the prompt
+        @param handler optional code to generate prompt messages; receives (context, arguments) and should return
+            a list of message hashes with "role" and "content" keys
+    */
+    registerPrompt(string name, string desc, *list<hash<auto>> arguments, *code handler) {
+        pmap{name} = <McpPromptInfo>{
+            "name": name,
+            "description": desc,
+            "arguments": arguments,
+            "handler": handler,
+        };
+    }
+
+    #! Unregisters a prompt
+    /** @param name the name of the prompt to unregister
+        @return True if the prompt was unregistered, False if it was not found
+    */
+    bool unregisterPrompt(string name) {
+        return exists remove pmap{name};
     }
 
     #! Returns the next request ID and increments the internal counter
     string getNextRequestId() {
+        AutoWriteLock al(rwl);
         return "s" + rid++;
     }
 
@@ -285,6 +378,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     int getNextIdForSession(string session) {
+        AutoWriteLock al(rwl);
         return ++sidmap{session};
     }
 
@@ -295,6 +389,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     string getSessionId(hash<auto> hdr) {
         if ((*string s = hdr{McpSessionHeaderLwr}).val()) {
+            # update last activity for existing session
+            AutoWriteLock al(rwl);
+            if (smap{s}) {
+                smap{s}.last_activity = now_us();
+            }
             return s;
         }
         string session;
@@ -303,10 +402,77 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 %else
         session = UUID::get();
 %endif
+        AutoWriteLock al(rwl);
         smap{session} = <McpSessionInfo>{
             "session": session,
+            "last_activity": now_us(),
         };
         return session;
+    }
+
+    #! Sets the session timeout in seconds
+    /** @param timeout_secs the timeout in seconds; 0 disables session timeout
+    */
+    setSessionTimeout(int timeout_secs) {
+        session_timeout_secs = timeout_secs;
+    }
+
+    #! Returns the session timeout in seconds
+    int getSessionTimeout() {
+        return session_timeout_secs;
+    }
+
+    #! Cleans up expired sessions
+    /** @return the number of sessions cleaned up
+    */
+    int cleanupExpiredSessions() {
+        if (!session_timeout_secs) {
+            return 0;
+        }
+
+        date cutoff = now_us() - seconds(session_timeout_secs);
+        list<string> expired;
+
+        {
+            AutoReadLock al(rwl);
+            foreach string sid in (keys smap) {
+                if (smap{sid}.last_activity < cutoff) {
+                    expired += sid;
+                }
+            }
+        }
+
+        if (!expired) {
+            return 0;
+        }
+
+        AutoWriteLock al(rwl);
+        foreach string sid in (expired) {
+            # double-check in case session was updated between locks
+            if (smap{sid} && smap{sid}.last_activity < cutoff) {
+                # close all connections
+                map $1.stop(), smap{sid}.ssemap.iterator();
+                remove smap{sid};
+                remove sidmap{sid};
+            }
+        }
+        return expired.size();
+    }
+
+    #! Returns the number of active sessions
+    int getSessionCount() {
+        AutoReadLock al(rwl);
+        return smap.size();
+    }
+
+    #! Returns information about active sessions (for debugging/monitoring)
+    list<hash<auto>> getSessionInfo() {
+        AutoReadLock al(rwl);
+        return map (
+            "session": $1.session,
+            "last_activity": $1.last_activity,
+            "connection_count": $1.ssemap.size(),
+        ), smap.iterator();
     }
 
     #! Use MCP ping as heartbeat message
@@ -381,6 +547,40 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         ), rmap.iterator();
     }
 
+    private *hash<auto> resourcesRead(hash<auto> cx, *hash<auto> params) {
+        return resourcesReadIntern(cx, params);
+    }
+
+    private *hash<auto> resourcesReadIntern(hash<auto> cx, *hash<auto> params) {
+        *hash<McpResourceInfo> info = rmap{params.uri};
+        if (!info) {
+            throw "MCP-SERVER-ARG-ERROR", sprintf("Resource %y is unknown; known resources: %y", params.uri,
+                keys rmap);
+        }
+        if (!info.reader) {
+            throw "MCP-SERVER-ARG-ERROR", sprintf("Resource %y does not have a reader defined", params.uri);
+        }
+        auto content = info.reader(cx, params.uri);
+        # handle different content types
+        hash<auto> result;
+        if (content.typeCode() == NT_BINARY) {
+            result = {
+                "uri": params.uri,
+                "mimeType": info.mimeType,
+                "blob": content.toBase64(),
+            };
+        } else {
+            result = {
+                "uri": params.uri,
+                "mimeType": info.mimeType,
+                "text": content.typeCode() == NT_STRING ? content : make_json(content),
+            };
+        }
+        return {
+            "contents": (result,),
+        };
+    }
+
     private hash<auto> promptsList(hash<auto> cx, *hash<auto> params) {
         return {
             "prompts": getPromptList(cx),
@@ -393,6 +593,40 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             "description": $1.description,
             "arguments": $1.arguments,
         ), pmap.iterator();
+    }
+
+    private *hash<auto> promptsGet(hash<auto> cx, *hash<auto> params) {
+        try {
+            return promptsGetIntern(cx, params);
+        } catch (hash<ExceptionInfo> ex) {
+            error("Error getting prompt with params %y: %s", params, get_exception_string(ex));
+            throw "MCP-PROMPT-ERROR", sprintf("%s: %s", ex.err, ex.desc);
+        }
+    }
+
+    private *hash<auto> promptsGetIntern(hash<auto> cx, *hash<auto> params) {
+        *hash<McpPromptInfo> info = pmap{params.name};
+        if (!info) {
+            throw "MCP-SERVER-ARG-ERROR", sprintf("Prompt %y is unknown; known prompts: %y", params.name,
+                keys pmap);
+        }
+        list<hash<auto>> messages;
+        if (info.handler) {
+            messages = info.handler(cx, params.arguments);
+        } else {
+            # default: return a simple user message with the prompt description
+            messages = ({
+                "role": "user",
+                "content": {
+                    "type": "text",
+                    "text": info.description,
+                },
+            },);
+        }
+        return {
+            "description": info.description,
+            "messages": messages,
+        };
     }
 
     private cancelRequest(hash<auto> cx, hash<auto> params) {
@@ -418,6 +652,106 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     hash<auto> ping(hash<auto> cx, *hash<auto> params) {
         return {};
+    }
+
+    #! Handle completion/complete requests for autocompletion
+    /** @param cx the context hash
+        @param params the completion parameters including:
+            - ref: hash with type (ref/prompt or ref/resource) and name/uri
+            - argument: hash with name and value for the argument being completed
+        @return hash with completion results including values array
+    */
+    private hash<auto> completionComplete(hash<auto> cx, *hash<auto> params) {
+        try {
+            return completionCompleteIntern(cx, params);
+        } catch (hash<ExceptionInfo> ex) {
+            error("Error in completion/complete with params %y: %s", params, get_exception_string(ex));
+            return {
+                "completion": {
+                    "values": (),
+                    "hasMore": False,
+                },
+            };
+        }
+    }
+
+    #! Internal completion handler - can be overridden by subclasses
+    private hash<auto> completionCompleteIntern(hash<auto> cx, *hash<auto> params) {
+        *hash<auto> ref = params."ref";
+        if (!ref) {
+            throw "MCP-SERVER-ARG-ERROR", "Missing 'ref' parameter in completion request";
+        }
+
+        list<string> values = ();
+        int total;
+        bool hasMore = False;
+
+        if (ref.type == McpCompletionRef_Prompt) {
+            # Complete prompt argument
+            *hash<McpPromptInfo> info = pmap{ref.name};
+            if (info && info.arguments) {
+                # Find matching argument names
+                string prefix = params.argument.value ?? "";
+                foreach hash<auto> arg in (info.arguments) {
+                    if (arg.name.find(prefix) == 0) {
+                        values += arg.name;
+                    }
+                }
+            }
+        } else if (ref.type == McpCompletionRef_Resource) {
+            # Complete resource URI
+            string prefix = params.argument.value ?? "";
+            foreach string uri in (keys rmap) {
+                if (uri.find(prefix) == 0) {
+                    values += uri;
+                }
+            }
+        }
+
+        # Limit to 100 values as per spec
+        if (values.size() > 100) {
+            total = values.size();
+            values = values[0..99];
+            hasMore = True;
+        }
+
+        return {
+            "completion": {
+                "values": values,
+                "total": total,
+                "hasMore": hasMore,
+            },
+        };
+    }
+
+    #! Send a log message to connected clients
+    /** @param level the log level (debug, info, notice, warning, error, critical, alert, emergency)
+        @param logger optional logger name
+        @param data the log message data
+    */
+    sendLogMessage(string level, *string logger, auto data) {
+        hash<auto> params = {
+            "level": level,
+            "data": data,
+        };
+        if (logger.val()) {
+            params.logger = logger;
+        }
+        # Send to all connected SSE clients
+        AutoReadLock al(rwl);
+        foreach string sid in (keys smap) {
+            if (*McpServerConnection conn = smap{sid}.ssemap.firstValue()) {
+                conn.sendNotification("notifications/message", params);
+            }
+        }
+    }
+
+    #! Handle logging/setLevel requests
+    private *hash<auto> loggingSetLevel(hash<auto> cx, *hash<auto> params) {
+        # This is a notification from the client about desired log level
+        # The server can use this to filter what log messages to send
+        # params.level contains the desired level
+        return;
     }
 
     static *hash<McpToolCallContext> getToolCallContext() {
@@ -694,6 +1028,13 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 "include_context": True,
             },
             {
+                "name": "^resources/read$",
+                "text": "resources/read",
+                "function": \resourcesRead(),
+                "help": "MCP server read resource content",
+                "include_context": True,
+            },
+            {
                 "name": "^prompts/list$",
                 "text": "prompts/list",
                 "function": \promptsList(),
@@ -701,10 +1042,31 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 "include_context": True,
             },
             {
+                "name": "^prompts/get$",
+                "text": "prompts/get",
+                "function": \promptsGet(),
+                "help": "MCP server get prompt messages",
+                "include_context": True,
+            },
+            {
                 "name": "^notifications/cancelled$",
                 "text": "notifications/cancelled",
                 "function": \cancelRequest(),
                 "help": "Try to cancel an in-progress request",
+                "include_context": True,
+            },
+            {
+                "name": "^completion/complete$",
+                "text": "completion/complete",
+                "function": \completionComplete(),
+                "help": "MCP server autocompletion for prompts and resources",
+                "include_context": True,
+            },
+            {
+                "name": "^logging/setLevel$",
+                "text": "logging/setLevel",
+                "function": \loggingSetLevel(),
+                "help": "Set the logging level for the server",
                 "include_context": True,
             },
         ));
@@ -719,6 +1081,9 @@ hashdecl McpSessionInfo {
 
     # Active SSE connections; first is always primary
     hash<string, McpServerConnection> ssemap;
+
+    # Last activity timestamp
+    date last_activity;
 }
 
 thread_local *hash<McpToolCallContext> _mcp_call_context;

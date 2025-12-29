@@ -286,6 +286,47 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         }
     }
 
+    #! Remove a method by text name
+    /** @param text the text name of the method to remove (e.g., "system.echo")
+        @return True if the method was removed, False if it was not found or is an internal method
+
+        @note Internal methods (like system.listMethods, system.describe) cannot be removed
+    */
+    bool removeMethod(string text) {
+        auto i = mi{text};
+        if (!exists i) {
+            return False;
+        }
+        # prevent removal of internal methods
+        if (methods[i].internal) {
+            return False;
+        }
+        # remove from methods list
+        splice methods, i, 1;
+        # rebuild method index
+        remove mi{text};
+        # update indices for methods after the removed one
+        foreach string key in (keys mi) {
+            if (mi{key} > i) {
+                --mi{key};
+            }
+        }
+        return True;
+    }
+
+    #! Check if a method exists
+    /** @param text the text name of the method
+        @return True if the method exists
+    */
+    bool hasMethod(string text) {
+        return exists mi{text};
+    }
+
+    #! Returns a list of method text names
+    list<string> getMethodNames() {
+        return keys mi;
+    }
+
     #! turns on or off debugging; when debugging is enabled more verbose error messages are reported
     setDebug(bool dbg = True) {
         debug_flag = dbg;
@@ -310,7 +351,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         }
     }
 
-    #! @conf nodoc
+    #! @cond nodoc
     private addMethodInternal(hash<auto> h) {
         # check for duplicate in method index
         auto i = mi.(h.text);
@@ -320,7 +361,9 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         if (!exists h.name)
             h.name = sprintf("^%s\$", h.text);
         methods[i] = h;
+        mi{h.text} = i;
     }
+    #! @endcond
 
     private hash<auto> help() {
         hash<auto> h;
@@ -410,9 +453,18 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
 
         auto rv;
         try {
-            rv = found.internal
-                ? call_object_method_args(self, found.function, args)
-                : call_function_args(found.function, args);
+            if (found.internal) {
+                # call internal methods directly since they are private
+                switch (found.function) {
+                    case "help": rv = help(); break;
+                    case "listMethods": rv = listMethods(); break;
+                    case "systemDescribe": rv = systemDescribe(); break;
+                    default:
+                        throw "JSON-RPC-INTERNAL-ERROR", sprintf("unknown internal method: %y", found.function);
+                }
+            } else {
+                rv = call_function_args(found.function, args);
+            }
         } catch (hash<ExceptionInfo> ex) {
             # issue #2573: provide a more user-friendly error when the argument cannot be matched to the closure/
             # call ref
@@ -584,7 +636,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
             hash jsonrpc = elem;
             if (!jsonrpc.method.val())
                 throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("element %d of %d: missing \"method\" key in call; "
-                    "got keys: %y", $# + 1, l.size(), jsonrpc.keys(), JRE_InvalidRequest);
+                    "got keys: %y", $# + 1, l.size(), jsonrpc.keys()), JRE_InvalidRequest;
             if (jsonrpc.method.typeCode() != NT_STRING)
                 throw "JSONRPC-HANDLER-INVALID-CALL", sprintf("\"method\" key assigned to type %y; expecting "
                     "\"string\"", jsonrpc.method.type()), JRE_InvalidRequest;

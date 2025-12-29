@@ -1,4 +1,4 @@
-%define mod_ver 1.9.1
+%define mod_ver 1.10
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -97,6 +97,7 @@ rm -rf $RPM_BUILD_ROOT
 qore -l ./json-api-%{module_api}.qmod test/JsonRpcClient.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/JsonRpcHandler.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/McpServerHandler.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/McpClient.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/json.qtest -v
 
 %package doc
@@ -109,9 +110,18 @@ json module.
 
 %files doc
 %defattr(-,root,root,-)
-%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler test examples
+%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler docs/McpClient test examples
 
 %changelog
+* Sun Dec 29 2025 David Nichols <david@qore.org> - 1.10
+- updated to version 1.10
+- added McpClient module for connecting to MCP servers as a client
+- added MCP 2025-11-25 protocol version support
+- added completion/complete, logging/setLevel methods
+- added JSON Pointer (RFC 6901) support
+- added ConnectionProvider integration (mcp://, mcps://)
+- added comprehensive test coverage
+
 * Fri May 9 2025 David Nichols <david@qore.org> - 1.9.1
 - updated to version 1.9.1
 
