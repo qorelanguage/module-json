@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.5.0)
 project(qore-json-module)
 
 set (VERSION_MAJOR 1)
-set (VERSION_MINOR 9)
-set (VERSION_PATCH 1)
+set (VERSION_MINOR 10)
+set (VERSION_PATCH 0)
 
 find_package(Qore 2.0 REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -25,6 +25,7 @@ set(QMOD
     qlib/JsonRpcHandler.qm
     qlib/JsonRpcConnection.qm
     qlib/McpServerHandler
+    qlib/McpClient
 )
 
 # Check for C++11.
@@ -61,6 +62,7 @@ qore_user_modules("${QMOD}")
 qore_external_user_module("qlib/JsonRpcConnection.qm" "")
 qore_external_user_module("qlib/JsonRpcHandler.qm" "")
 qore_external_user_module("qlib/McpServerHandler" "JsonRpcHandler")
+qore_external_user_module("qlib/McpClient" "")
 
 qore_config_info()
 

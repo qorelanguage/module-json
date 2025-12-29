@@ -42,6 +42,21 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
                 "text": "example",
                 "function": string sub (string arg) { return arg; },
                 "help": "example call",
+            }, {
+                "name": "^system\\.withContext\$",
+                "text": "system.withContext",
+                "function": \MyJsonRpcHandler::withContext(),
+                "help": "returns context info",
+                "logopt": 0,
+                "include_context": True,
+            }, {
+                "name": "^system\\.withCmark\$",
+                "text": "system.withCmark",
+                "function": \MyJsonRpcHandler::withCmark(),
+                "help": "returns cmark info",
+                "logopt": 0,
+                "cmark": {"marker": "test-marker"},
+                "include_context": True,
             },
         );
     }
@@ -70,6 +85,21 @@ class MyJsonRpcHandler inherits JsonRpcHandler {
 
     static nothing error(auto arg) {
         throw "TEST-ERROR", arg;
+    }
+
+    static hash<auto> withContext(hash<auto> cx, auto arg) {
+        return {
+            "method": cx.method,
+            "has_peer_info": exists cx."peer-info",
+            "arg": arg,
+        };
+    }
+
+    static hash<auto> withCmark(hash<auto> cx, auto arg) {
+        return {
+            "cmark": cx.cmark,
+            "arg": arg,
+        };
     }
 }
 
@@ -109,6 +139,13 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         addTestCase("Test JSON-RPC 1.0", \testJsonRpc1_0());
         addTestCase("Test JSON-RPC 1.1", \testJsonRpc1_1());
         addTestCase("issue 2573", \issue2573());
+        addTestCase("method management test", \methodManagementTest());
+        addTestCase("internal methods test", \internalMethodsTest());
+        addTestCase("notification test", \notificationTest());
+        addTestCase("context and cmark test", \contextAndCmarkTest());
+        addTestCase("debug flag test", \debugFlagTest());
+        addTestCase("HTTP method test", \httpMethodTest());
+        addTestCase("edge cases test", \edgeCasesTest());
 
         # Return for compatibility with test harness that checks return value.
         set_return_value(main());
@@ -211,6 +248,205 @@ public class JsonRpcHandlerTest inherits QUnit::Test {
         assertEq(JsonRpcHandler::JRE_MethodNotFound, parse_json(json).error.code);
         json = mClient.post("", InternalErrorBody);
         assertEq(JsonRpcHandler::JRE_InternalError, parse_json(json).error.code);
+    }
+
+    methodManagementTest() {
+        # Create a fresh handler for method management tests
+        MyJsonRpcHandler handler();
+
+        # Test hasMethod
+        assertTrue(handler.hasMethod("system.echo"), "should have system.echo");
+        assertTrue(handler.hasMethod("help"), "should have help (internal)");
+        assertTrue(handler.hasMethod("system.listMethods"), "should have system.listMethods (internal)");
+        assertFalse(handler.hasMethod("nonexistent"), "should not have nonexistent");
+
+        # Test getMethodNames
+        list<string> methods = handler.getMethodNames();
+        assertTrue(methods.size() > 0, "should have methods");
+        assertTrue(inlist("system.echo", methods), "methods should include system.echo");
+        assertTrue(inlist("help", methods), "methods should include help");
+
+        # Test addMethod
+        handler.addMethod("^test\\.dynamic\$", auto sub (auto arg) { return "dynamic: " + arg; },
+            "test.dynamic", "A dynamically added method", 0, NOTHING);
+        assertTrue(handler.hasMethod("test.dynamic"), "should have dynamically added method");
+
+        # Test removeMethod - should succeed for non-internal method
+        assertTrue(handler.removeMethod("test.dynamic"), "should remove dynamic method");
+        assertFalse(handler.hasMethod("test.dynamic"), "dynamic method should be removed");
+
+        # Test removeMethod - should fail for internal method
+        assertFalse(handler.removeMethod("help"), "should not remove internal method");
+        assertTrue(handler.hasMethod("help"), "help should still exist");
+
+        # Test removeMethod - should return False for nonexistent method
+        assertFalse(handler.removeMethod("nonexistent"), "should return False for nonexistent");
+    }
+
+    internalMethodsTest() {
+        mClient.setVersion("2.0");
+
+        # Test help method
+        hash<auto> h = mClient.call("help");
+        assertTrue(h.result instanceof hash, "help should return hash");
+        assertTrue(h.result.size() > 0, "help should have entries");
+        assertTrue(exists h.result."system.echo", "help should include system.echo");
+        assertTrue(exists h.result."system.echo".description, "help entry should have description");
+
+        # Test system.listMethods
+        h = mClient.call("system.listMethods");
+        assertTrue(h.result instanceof list, "listMethods should return list");
+        assertTrue(h.result.size() > 0, "listMethods should have entries");
+        assertTrue(inlist("system.echo", h.result), "listMethods should include system.echo");
+        assertTrue(inlist("help", h.result), "listMethods should include help");
+        assertTrue(inlist("system.listMethods", h.result), "listMethods should include itself");
+
+        # Test system.describe
+        h = mClient.call("system.describe");
+        assertTrue(h.result instanceof hash, "describe should return hash");
+        assertEq("1.0", h.result.sdversion, "sdversion should be 1.0");
+        assertEq("Qore JSON-RPC Handler", h.result.name, "name should match");
+        assertTrue(exists h.result.procs, "should have procs");
+        assertTrue(h.result.procs instanceof list, "procs should be list");
+    }
+
+    notificationTest() {
+        mClient.setVersion("2.0");
+
+        # Test notification (no id in request) - should return 202 with no body
+        string body = make_json({"jsonrpc": "2.0", "method": "system.notify", "params": "test"});
+        HTTPClient http({"url": "http://localhost:" + port});
+        hash<auto> info;
+        *string response = http.post("", body, {"Content-Type": MimeTypeJson}, \info);
+        assertEq(202, info."response-headers".status_code, "notification should return 202");
+
+        # Test notification with explicit null id - should be treated as notification
+        body = make_json({"jsonrpc": "2.0", "method": "system.notify", "params": "test", "id": NOTHING});
+        response = http.post("", body, {"Content-Type": MimeTypeJson}, \info);
+        assertEq(202, info."response-headers".status_code, "null id should be treated as notification");
+    }
+
+    contextAndCmarkTest() {
+        mClient.setVersion("2.0");
+
+        # Test method with include_context
+        hash<auto> h = mClient.call("system.withContext", "test-arg");
+        assertEq("system.withContext", h.result.method, "context should have method");
+        assertTrue(h.result.has_peer_info, "context should have peer-info");
+        assertEq("test-arg", h.result.arg, "arg should be passed");
+
+        # Test method with cmark
+        h = mClient.call("system.withCmark", "cmark-arg");
+        assertTrue(exists h.result.cmark, "should have cmark in context");
+        assertEq("test-marker", h.result.cmark.marker, "cmark marker should match");
+        assertEq("cmark-arg", h.result.arg, "arg should be passed");
+    }
+
+    debugFlagTest() {
+        # Test debug flag
+        assertFalse(mHandler.getDebug(), "debug should be False initially");
+
+        mHandler.setDebug(True);
+        assertTrue(mHandler.getDebug(), "debug should be True after setDebug(True)");
+
+        mHandler.setDebug(False);
+        assertFalse(mHandler.getDebug(), "debug should be False after setDebug(False)");
+
+        # Test error response with debug on vs off
+        mClient.setVersion("2.0");
+
+        mHandler.setDebug(False);
+        string json = mClient.post("", InternalErrorBody);
+        hash<auto> err1 = parse_json(json);
+        assertTrue(exists err1.error.message, "should have error message");
+
+        mHandler.setDebug(True);
+        json = mClient.post("", InternalErrorBody);
+        hash<auto> err2 = parse_json(json);
+        assertTrue(exists err2.error.message, "should have error message with debug");
+        # Debug mode should include more info (stack trace)
+        assertTrue(err2.error.message.size() >= err1.error.message.size(),
+            "debug error should be at least as detailed");
+
+        mHandler.setDebug(False);
+    }
+
+    httpMethodTest() {
+        HTTPClient http({"url": "http://localhost:" + port});
+        hash<auto> info;
+
+        # Test unsupported HTTP method (PUT)
+        try {
+            http.send("", "PUT", NOTHING, {"Content-Type": MimeTypeJson}, False, \info);
+        } catch (hash<ExceptionInfo> ex) {
+            # Expected - check status code
+        }
+        assertEq(501, info."response-headers".status_code, "PUT should return 501");
+
+        # Test GET without path - expect 501
+        try {
+            http.get("", NOTHING, \info);
+        } catch (hash<ExceptionInfo> ex) {
+            # Expected - check status code
+        }
+        assertEq(501, info."response-headers".status_code, "GET without path should return 501");
+
+        # Test GET with method in path - GET requests don't support id in query params,
+        # so all GET requests are treated as notifications
+        *string response = http.get("/system.notify?params=\"test\"", NOTHING, \info);
+        assertEq(202, info."response-headers".status_code, "GET notification should return 202");
+
+        # Test GET echo method - still works but returns 202 (notification semantics)
+        response = http.get("/system.echo?params=\"hello\"", NOTHING, \info);
+        assertEq(202, info."response-headers".status_code, "GET echo should return 202");
+    }
+
+    edgeCasesTest() {
+        mClient.setVersion("2.0");
+
+        # Test empty body
+        HTTPClient http({"url": "http://localhost:" + port});
+        hash<auto> info;
+        string response = http.post("", "", {"Content-Type": MimeTypeJson}, \info);
+        # Empty body should be handled gracefully
+        assertEq(200, info."response-headers".status_code, "empty body should return 200");
+
+        # Test array with invalid element
+        string body = '[{"method":"system.echo","params":"abc","id":1}, "invalid"]';
+        response = http.post("", body, {"Content-Type": MimeTypeJson}, \info);
+        hash<auto> result = parse_json(response);
+        assertEq(JsonRpcHandler::JRE_InvalidRequest, result.error.code,
+            "array with invalid element should return InvalidRequest");
+
+        # Test batch with notification mixed in
+        body = '[{"method":"system.echo","params":"abc","id":1},{"method":"system.notify","params":"test"},{"method":"system.echo","params":"def","id":2}]';
+        response = http.post("", body, {"Content-Type": MimeTypeJson}, \info);
+        list<auto> batch_result = parse_json(response);
+        # Should only have 2 responses (notifications don't get responses)
+        assertEq(2, batch_result.size(), "batch should return 2 responses (excluding notification)");
+        assertEq(1, batch_result[0].id, "first response id");
+        assertEq(2, batch_result[1].id, "second response id");
+
+        # Test method with wrong type (integer instead of string)
+        body = '{"jsonrpc":"2.0","method":123,"id":1}';
+        response = http.post("", body, {"Content-Type": MimeTypeJson}, \info);
+        result = parse_json(response);
+        assertEq(JsonRpcHandler::JRE_InvalidRequest, result.error.code,
+            "non-string method should return InvalidRequest");
+
+        # Test non-hash, non-array body
+        body = '"just a string"';
+        response = http.post("", body, {"Content-Type": MimeTypeJson}, \info);
+        result = parse_json(response);
+        assertEq(JsonRpcHandler::JRE_InvalidRequest, result.error.code,
+            "string body should return InvalidRequest");
+
+        # Test integer body
+        body = '42';
+        response = http.post("", body, {"Content-Type": MimeTypeJson}, \info);
+        result = parse_json(response);
+        assertEq(JsonRpcHandler::JRE_InvalidRequest, result.error.code,
+            "integer body should return InvalidRequest");
     }
 
     log(string str) {

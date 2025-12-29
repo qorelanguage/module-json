@@ -14,6 +14,9 @@
     - functions:
       - @ref Qore::Json::make_json() "make_json()"
       - @ref Qore::Json::parse_json() "parse_json()"
+      - @ref Qore::Json::json_pointer_get() "json_pointer_get()"
+      - @ref Qore::Json::json_pointer_exists() "json_pointer_exists()"
+      - @ref Qore::Json::json_pointer_escape() "json_pointer_escape()"
       - @ref Qore::Json::make_jsonrpc_error() "make_jsonrpc_error()"
       - @ref Qore::Json::make_jsonrpc_request() "make_jsonrpc_request()"
       - @ref Qore::Json::make_jsonrpc_response() "make_jsonrpc_response()"
@@ -21,6 +24,7 @@
       - <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a>
       - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
       - <a href="../../McpServerHandler/html/index.html">McpServerHandler</a>
+      - <a href="../../McpClient/html/index.html">McpClient</a>
 
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
@@ -36,6 +40,7 @@
     - <a href="../../JsonRpcConnection/html/index.html">JsonRpcConnection</a> user module
     - <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a> user module
     - <a href="../../McpServerHandler/html/index.html">McpServerHandler</a> user module
+    - <a href="../../McpClient/html/index.html">McpClient</a> user module
 
     @note JSON functionality was included in the main %Qore shared library until version 0.8.1, at which time the code
     was removed to make this module.
@@ -165,6 +170,44 @@
     flag is resolved at parse time, a \c "deprecated" warning is raised (assuming this warning is enabled).
 
     @section jsonreleasenotes Release Notes
+
+    @subsection json_v1_10 json Module Version 1.10
+    - added the <a href="../../McpClient/html/index.html">McpClient</a> module for connecting to MCP servers as a
+      client:
+      - full MCP protocol support with automatic version negotiation (2024-11-05 through 2025-11-25)
+      - HTTP + Server-Sent Events (SSE) transport
+      - tools: list and call server tools
+      - resources: list and read server resources
+      - prompts: list and get server prompts with arguments
+      - completion: autocompletion for prompts and resources
+      - logging: receive server log messages
+      - event callbacks for server notifications
+      - session management with \c Mcp-Session-Id header
+      - ConnectionProvider integration with \c mcp:// and \c mcps:// URL schemes
+    - added MCP 2025-11-25 protocol version support (latest MCP spec) to
+      <a href="../../McpServerHandler/html/index.html">McpServerHandler</a>
+    - added \c completion/complete method for autocompletion of prompts and resources
+    - added logging capability and \c logging/setLevel method
+    - added \c resources/read handler with callback support for custom readers
+    - added \c prompts/get handler with callback support for dynamic prompt generation
+    - added notifications for \c resources/list_changed and \c prompts/list_changed
+    - added \c unregisterTool(), \c unregisterResource(), \c unregisterPrompt() methods
+    - added \c hasTools(), \c getToolNames() methods for tool management
+    - added session timeout configuration and \c cleanupExpiredSessions() method
+    - added \c getSessionCount() and \c getSessionInfo() for session monitoring
+    - added JSON Pointer (RFC 6901) support:
+      - @ref Qore::Json::json_pointer_get() "json_pointer_get()" - navigate JSON structures using JSON Pointer syntax
+      - @ref Qore::Json::json_pointer_exists() "json_pointer_exists()" - check if a JSON Pointer path exists
+      - @ref Qore::Json::json_pointer_escape() "json_pointer_escape()" - escape special characters in JSON Pointer
+        tokens
+    - added \c removeMethod(), \c hasMethod(), \c getMethodNames() to
+      <a href="../../JsonRpcHandler/html/index.html">JsonRpcHandler</a>
+    - fixed JSON number parsing for scientific notation with explicit signs (\c 3e+10, \c 3e-10)
+    - fixed typo in MCP error message (\c 2011-11-05 -> \c 2024-11-05)
+    - fixed thread safety issue with rid counter in McpServerHandler
+    - fixed sprintf bug in JsonRpcHandler batch processing
+    - fixed method index population bug in JsonRpcHandler
+    - fixed internal method dispatch in JsonRpcHandler for private methods
 
     @subsection json_v1_9_1 json Module Version 1.9.1
     - improved MCP server capabilities by making the call context available to tools as well as improving error

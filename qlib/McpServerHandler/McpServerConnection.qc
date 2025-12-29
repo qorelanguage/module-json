@@ -34,6 +34,12 @@ public class McpServerConnection inherits ServerSentEventHandler::ServerSentEven
 
         #! Tools changed notification
         const McpToolsChangedNotification = "notifications/tools/list_changed";
+
+        #! Resources changed notification
+        const McpResourcesChangedNotification = "notifications/resources/list_changed";
+
+        #! Prompts changed notification
+        const McpPromptsChangedNotification = "notifications/prompts/list_changed";
     }
 
     constructor(McpServerHandler handler, Socket sock, hash<auto> cx, hash<auto> hdr, string cid,
@@ -54,6 +60,16 @@ public class McpServerConnection inherits ServerSentEventHandler::ServerSentEven
     #! Send tools changed notification
     sendToolsChangedNotification() {
         sendNotification(McpToolsChangedNotification);
+    }
+
+    #! Send resources changed notification
+    sendResourcesChangedNotification() {
+        sendNotification(McpResourcesChangedNotification);
+    }
+
+    #! Send prompts changed notification
+    sendPromptsChangedNotification() {
+        sendNotification(McpPromptsChangedNotification);
     }
 
     sendNotification(string method, *hash<auto> info) {
@@ -81,7 +97,7 @@ public class McpServerConnection inherits ServerSentEventHandler::ServerSentEven
                     "data": endpoint,
                 });
             } else {
-                throw "MCP-VERSION-ERROR", "This MCP server has no defined endpoint for 2011-11-05-compatible "
+                throw "MCP-VERSION-ERROR", "This MCP server has no defined endpoint for 2024-11-05-compatible "
                     "JSON-RPC commands";
             }
         }

@@ -163,6 +163,7 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
         @throw CONNECTION-OPTION-ERROR missing or invalid connection option or attribute
     */
     constructor(hash<auto> config, *hash<auto> attr) : HttpBasedConnection(config, attr) {
+        real_opts = {"url": real_url} + opts;
     }
 
     #! returns \c "jsonrpc"
