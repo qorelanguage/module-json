@@ -34,7 +34,7 @@ public class McpClientDataProviderFactory inherits DataProvider::AbstractDataPro
     public {
         #! Factory info
         const FactoryInfo = <DataProviderFactoryInfo>{
-            "name": "McpClientDataProvider",
+            "name": "mcpclient",
             "desc": "Data provider factory for MCP (Model Context Protocol) server connections",
             "children_can_support_apis": True,
         };
