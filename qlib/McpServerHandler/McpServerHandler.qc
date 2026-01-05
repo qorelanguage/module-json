@@ -864,7 +864,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 required += name;
             }
             if (*list<hash<AllowedValueInfo>> av = getAllowedValues(field, prov)) {
-                info.enum = map $1.value, av;
+                info."enum" = map $1.value, av;
             }
             if (exists (auto v = field.getDefaultValue())) {
                 info."default" = v;
