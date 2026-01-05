@@ -100,7 +100,8 @@ module JsonRpcConnection {
 public namespace JsonRpcConnection {
 #! class for JSON-RPC connections; returns @ref Qore::Json::JsonRpcClient objects
 /** supports the following options:
-    - \c "http_version": HTTP version to use (\c "1.0" or \c "1.1", defaults to \c "1.1")
+    - \c "http_version": HTTP version to use (\c "auto", \c "1.0", \c "1.1", or \c "2.0", defaults to \c "auto");
+      HTTP/2 (\c "2.0" or \c "auto") requires TLS and is negotiated via ALPN
     - \c "max_redirects": maximum redirects to support
     - \c "proxy": proxy URL to use
     - \c "timeout": transfer timeout to use in milliseconds
