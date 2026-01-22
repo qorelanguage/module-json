@@ -130,6 +130,8 @@ class McpClientTest inherits QUnit::Test {
         addTestCase("callback test", \callbackTest());
         addTestCase("SSE listener test", \sseListenerTest());
         addTestCase("initialization negative test", \initializationNegativeTest());
+        addTestCase("streamable request test", \streamableRequestTest());
+        addTestCase("legacy transport test", \legacyTransportTest());
 
         set_return_value(main());
     }
@@ -653,5 +655,38 @@ class McpClientTest inherits QUnit::Test {
         # If we get here, server accepted empty name - that's okay
         assertTrue(True, "Empty name initialization handled");
         client5.close();
+    }
+
+    streamableRequestTest() {
+        McpClient::McpClient client(base_url, {
+            "enable_streamable": True,
+            "allow_legacy_fallback": False,
+        });
+
+        client.initialize(<McpClientInfo>{
+            "name": "StreamableClient",
+            "version": "1.0",
+        });
+
+        list<auto> tools = client.listTools();
+        assertTrue(tools.size() >= 2, "Streamable client should return tool list");
+
+        client.close();
+    }
+
+    legacyTransportTest() {
+        McpClient::McpClient client(base_url, {
+            "enable_streamable": False,
+        });
+
+        client.initialize(<McpClientInfo>{
+            "name": "LegacyClient",
+            "version": "1.0",
+        });
+
+        list<auto> tools = client.listTools();
+        assertTrue(tools.size() >= 2, "Legacy client should return tool list");
+
+        client.close();
     }
 }

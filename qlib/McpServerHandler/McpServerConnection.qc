@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file McpServerConnection.qc @brief MCP Server class definition for the HttpServer module
 
-/*  McpServerConnection.qc Copyright (C) 2025 Qore Technologies, s.r.o.
+/*  McpServerConnection.qc Copyright (C) 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,10 @@
 
 #! the %McpServerHandler namespace holds all public definitions in the %McpServerHandler module
 public namespace McpServerHandler {
+#! MCP server connection for SSE streams
+/** Provides access to the MCP session and protocol version for the SSE connection,
+    and helper methods to send MCP notifications.
+*/
 public class McpServerConnection inherits ServerSentEventHandler::ServerSentEventConnection {
     private {
         #! The session identifier

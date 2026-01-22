@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! Qore MCP request data types
 
-/*  Copyright 2025 Qore Technologies, s.r.o.
+/*  Copyright 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -123,7 +123,21 @@ public class McpCompletionRequestDataType inherits HashDataType {
                 "display_name": "Reference Type",
                 "short_desc": "Type of completion reference",
                 "desc": "The type of completion reference: 'ref/prompt' or 'ref/resource'",
-                "example_value": "ref/prompt",
+                "example_value": McpCompletionRefType::Prompt,
+                "allowed_values": (
+                    <AllowedValueInfo>{
+                        "display_name": "Prompt",
+                        "short_desc": "Prompt reference",
+                        "desc": "Use a prompt name as the reference",
+                        "value": McpCompletionRefType::Prompt,
+                    },
+                    <AllowedValueInfo>{
+                        "display_name": "Resource",
+                        "short_desc": "Resource reference",
+                        "desc": "Use a resource URI as the reference",
+                        "value": McpCompletionRefType::Resource,
+                    },
+                ),
             },
             "ref_name": {
                 "type": StringType,

@@ -19,10 +19,10 @@ BUILDING
 Requires qore 0.8.1+ and openssl headers and libraries to build and run
 
 to configure the build, execute
-   	configure --disable-debug
+       configure --disable-debug
 
 if the qore library cannot be found, then you can use:
-   	configure --disable-debug --with-qore=<dir>
+       configure --disable-debug --with-qore=<dir>
 
 if openssl cannot be found, then you can use:
         configure --disable-debug --with-openssl-dir=<dir>

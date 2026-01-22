@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file McpClient.qm @brief MCP Client module for connecting to MCP servers
 
-/*  McpClient.qm Copyright (C) 2025 Qore Technologies, s.r.o.
+/*  McpClient.qm Copyright (C) 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,7 @@
 %requires Logger
 %requires DataProvider
 %requires ServerSentEventClient
+%requires HttpStreamClient
 %requires(reexport) ConnectionProvider >= 1.4
 
 # don't use "$" for vars, members, and method calls, assume local var scope
@@ -69,7 +70,8 @@ module McpClient {
     @subsection McpClient_features Features
 
     - Full MCP protocol support with automatic version negotiation
-    - HTTP + Server-Sent Events (SSE) transport
+    - Streamable HTTP transport with legacy HTTP + SSE fallback
+    - Streamable HTTP GET listener for notifications (enabled by default; legacy SSE fallback)
     - Tools: list and call server tools
     - Resources: list and read server resources
     - Prompts: list and get server prompts with arguments
@@ -123,5 +125,5 @@ public namespace McpClient {
 public const McpClientName = "QoreMcpClient";
 
 #! Client version
-public const McpClientVersion = "1.0";
+public const McpClientVersion = "1.1";
 }

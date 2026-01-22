@@ -6,7 +6,7 @@ if [ $? -eq 0 ]; then
 else
     which glibtoolize >/dev/null 2>/dev/null
     if [ $? -eq 0 ]; then
-	lcmd=glibtoolize
+    lcmd=glibtoolize
     fi
 fi
 if [ -z "$lcmd" ]; then

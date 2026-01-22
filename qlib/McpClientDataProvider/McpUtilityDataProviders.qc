@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! Qore MCP utility data providers
 
-/*  Copyright 2025 Qore Technologies, s.r.o.
+/*  Copyright 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -80,7 +80,7 @@ public class McpCompletionDataProvider inherits McpClientDataProviderBase {
         hash<auto> ref = {
             "type": req.ref_type,
         };
-        if (req.ref_type == "ref/prompt") {
+        if (req.ref_type == McpCompletionRefType::Prompt) {
             ref.name = req.ref_name;
         } else {
             ref.uri = req.ref_name;

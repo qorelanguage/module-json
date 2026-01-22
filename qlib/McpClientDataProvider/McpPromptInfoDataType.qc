@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! Qore McpPromptInfoDataType class definition
 
-/*  Copyright 2025 Qore Technologies, s.r.o.
+/*  Copyright 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -113,7 +113,21 @@ public class McpPromptMessageDataType inherits HashDataType {
                 "display_name": "Role",
                 "short_desc": "Message role",
                 "desc": "The role of the message sender: user or assistant",
-                "example_value": "user",
+                "example_value": McpPromptMessageRole::User,
+                "allowed_values": (
+                    <AllowedValueInfo>{
+                        "display_name": "User",
+                        "short_desc": "User message",
+                        "desc": "A message authored by the user",
+                        "value": McpPromptMessageRole::User,
+                    },
+                    <AllowedValueInfo>{
+                        "display_name": "Assistant",
+                        "short_desc": "Assistant message",
+                        "desc": "A message authored by the assistant",
+                        "value": McpPromptMessageRole::Assistant,
+                    },
+                ),
             },
         };
 

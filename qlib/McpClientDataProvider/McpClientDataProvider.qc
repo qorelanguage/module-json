@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! Qore McpClientDataProvider class definition
 
-/*  Copyright 2025 Qore Technologies, s.r.o.
+/*  Copyright 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -61,6 +61,7 @@ public class McpClientDataProvider inherits McpClientDataProviderBase {
             "prompts": Class::forName("McpClientDataProvider::McpPromptsDataProvider"),
             "completion": Class::forName("McpClientDataProvider::McpCompletionDataProvider"),
             "ping": Class::forName("McpClientDataProvider::McpPingDataProvider"),
+            "events": Class::forName("McpClientDataProvider::McpNotificationEventDataProvider"),
         };
     }
 

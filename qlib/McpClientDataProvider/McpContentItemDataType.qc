@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! Qore McpContentItemDataType class definition
 
-/*  Copyright 2025 Qore Technologies, s.r.o.
+/*  Copyright 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -39,7 +39,27 @@ public class McpContentItemDataType inherits HashDataType {
                 "display_name": "Type",
                 "short_desc": "Content type",
                 "desc": "Content type: text, image, or resource",
-                "example_value": "text",
+                "example_value": McpContentItemType::Text,
+                "allowed_values": (
+                    <AllowedValueInfo>{
+                        "display_name": "Text",
+                        "short_desc": "Text content",
+                        "desc": "Text content item",
+                        "value": McpContentItemType::Text,
+                    },
+                    <AllowedValueInfo>{
+                        "display_name": "Image",
+                        "short_desc": "Image content",
+                        "desc": "Image content item with base64 data and MIME type",
+                        "value": McpContentItemType::Image,
+                    },
+                    <AllowedValueInfo>{
+                        "display_name": "Resource",
+                        "short_desc": "Resource content",
+                        "desc": "Content item referencing a resource URI",
+                        "value": McpContentItemType::Resource,
+                    },
+                ),
             },
             "text": {
                 "type": StringOrNothingType,

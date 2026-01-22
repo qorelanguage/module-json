@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file McpServerHandler.qm @brief MCP Server class definition for the HttpServer module
 
-/*  McpServerHandler.qm Copyright (C) 2025 Qore Technologies, s.r.o.
+/*  McpServerHandler.qm Copyright (C) 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -50,17 +50,66 @@ module McpServerHandler {
     license = "MIT";
 }
 
-/** @mainpage McpServer Module
+/** @mainpage McpServerHandler Module
 
     @tableofcontents
 
-    @section McpServerintro Introduction to the McpServer Module
+    @section McpServerHandlerintro Introduction to the McpServerHandler Module
 
-    This module implements support for an MCP server
+    The %McpServerHandler module provides server-side support for the Model Context Protocol (MCP)
+    using the @ref Qore::HttpServer "HttpServer" module. It exposes tools, resources, prompts, and
+    notifications via JSON-RPC over HTTP and Server-Sent Events (SSE).
 
-    @section McpServer_relnotes McpServer Release Notes
+    The following classes are provided by this module:
+    - @ref McpServerHandler::McpServerHandler "McpServerHandler"
+    - @ref McpServerHandler::McpServerConnection "McpServerConnection"
 
-    @subsection McpServer_1_0 McpServer v1.0
+    @subsection McpServer_intro_basic Basic server setup
+    @code{.py}
+    %requires McpServerHandler
+    %requires HttpServer
+
+    Logger logger("mcp-server", LoggerLevel::getLevelInfo());
+    McpServerHandler::McpServerHandler handler(logger);
+
+    # register a tool
+    handler.registerTool("echo", "Echo a message", NOTHING, sub (hash<auto> args) {
+        return {
+            "content": [ { "type": "text", "text": args.message } ],
+        };
+    });
+
+    # register a resource
+    handler.registerResource("file:///hello.txt", "Hello", "Simple text resource", "text/plain",
+        sub (hash<auto> cx, hash<auto> params) {
+            return { "contents": [ { "uri": params.uri, "text": "Hello from MCP" } ] };
+        });
+
+    # register a prompt
+    handler.registerPrompt("greeting", "Greeting prompt", (
+        { "name": "name", "description": "Name to greet", "required": True }
+    ), sub (hash<auto> cx, hash<auto> params) {
+        return {
+            "messages": [
+                { "role": "user", "content": [ { "type": "text", "text": "Hello " + params.arguments.name } ] }
+            ]
+        };
+    });
+
+    # start HTTP server
+    HttpServer http({"logger": logger});
+    http.setHandler("mcp", "", MimeTypeJson, handler);
+    http.setDefaultHandler("mcp", handler);
+    http.addListener({"service": 8080});
+    @endcode
+
+    @subsection McpServer_intro_notifications Notifications
+    The handler supports MCP notifications over SSE. Clients can open a GET request with an
+    \c Accept: \c text/event-stream header to receive notifications and streamed responses.
+
+    @section McpServerHandler_relnotes McpServerHandler Release Notes
+
+    @subsection McpServerHandler_1_0 McpServerHandler v1.0
     - initial release
 */
 

@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! @file McpServerHandler.qc @brief MCP Server class definition for the HttpServer module
 
-/*  McpServerHandler.qc Copyright (C) 2025 Qore Technologies, s.r.o.
+/*  McpServerHandler.qc Copyright (C) 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -737,12 +737,18 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         if (logger.val()) {
             params.logger = logger;
         }
-        # Send to all connected SSE clients
-        AutoReadLock al(rwl);
-        foreach string sid in (keys smap) {
-            if (*McpServerConnection conn = smap{sid}.ssemap.firstValue()) {
-                conn.sendNotification("notifications/message", params);
+        # Collect connections under read lock to avoid lock upgrade deadlocks
+        list<McpServerConnection> conns;
+        {
+            AutoReadLock al(rwl);
+            foreach string sid in (keys smap) {
+                if (*McpServerConnection conn = smap{sid}.ssemap.firstValue()) {
+                    conns += conn;
+                }
             }
+        }
+        foreach McpServerConnection conn in (conns) {
+            conn.sendNotification("notifications/message", params);
         }
     }
 

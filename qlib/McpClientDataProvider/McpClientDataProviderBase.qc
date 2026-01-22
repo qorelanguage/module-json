@@ -1,7 +1,7 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 #! Qore McpClientDataProviderBase class definition
 
-/*  Copyright 2025 Qore Technologies, s.r.o.
+/*  Copyright 2026 Qore Technologies, s.r.o.
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -51,6 +51,18 @@ public class McpClientDataProviderBase inherits DataProvider::AbstractDataProvid
                 "short_desc": "The URL to the MCP server",
                 "type": AbstractDataProviderType::get(StringType),
                 "desc": "The URL to the MCP server (mcp:// or mcps://)",
+            },
+            "client_name": <DataProviderOptionInfo>{
+                "display_name": "Client Name",
+                "short_desc": "Client name for MCP initialization",
+                "type": AbstractDataProviderType::get(StringType),
+                "desc": "The client name to report to the MCP server when using the URL option",
+            },
+            "client_version": <DataProviderOptionInfo>{
+                "display_name": "Client Version",
+                "short_desc": "Client version for MCP initialization",
+                "type": AbstractDataProviderType::get(StringType),
+                "desc": "The client version to report to the MCP server when using the URL option",
             },
         };
     }
