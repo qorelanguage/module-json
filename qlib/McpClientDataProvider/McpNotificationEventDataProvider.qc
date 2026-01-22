@@ -231,9 +231,11 @@ public class McpNotificationEventDataProvider inherits McpClientDataProviderBase
         on_exit m.unlock();
 
         if (started) {
+            @debug("McpNotificationEventDataProvider::start(): already started");
             return;
         }
         started = True;
+        @debug("McpNotificationEventDataProvider::start(): starting notification listener for %s", mcp.getUrl());
         registerCallbacks();
         try {
             mcp.startSseListener();
@@ -243,6 +245,7 @@ public class McpNotificationEventDataProvider inherits McpClientDataProviderBase
             throw "MCP-NOTIFICATION-ERROR", sprintf("Failed to start MCP notification listener: %s: %s",
                 ex.err, ex.desc);
         }
+        @debug("McpNotificationEventDataProvider::start(): notification listener started");
     }
 
     #! Stops the SSE listener and clears callbacks
@@ -251,11 +254,14 @@ public class McpNotificationEventDataProvider inherits McpClientDataProviderBase
         on_exit m.unlock();
 
         if (!started) {
+            @debug("McpNotificationEventDataProvider::stop(): not started");
             return;
         }
+        @debug("McpNotificationEventDataProvider::stop(): stopping notification listener");
         started = False;
         unregisterCallbacks();
         mcp.stopSseListener();
+        @debug("McpNotificationEventDataProvider::stop(): notification listener stopped");
     }
 
     #! Registers MCP callbacks for notifications
@@ -263,6 +269,7 @@ public class McpNotificationEventDataProvider inherits McpClientDataProviderBase
         if (callbacks_set) {
             return;
         }
+        @debug("McpNotificationEventDataProvider: registering callbacks");
         callbacks_set = True;
         mcp.setCallback("onConnected", \onConnected());
         mcp.setCallback("onDisconnected", \onDisconnected());
@@ -277,6 +284,7 @@ public class McpNotificationEventDataProvider inherits McpClientDataProviderBase
         if (!callbacks_set) {
             return;
         }
+        @debug("McpNotificationEventDataProvider: unregistering callbacks");
         callbacks_set = False;
         mcp.removeCallback("onConnected");
         mcp.removeCallback("onDisconnected");

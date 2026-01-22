@@ -9,14 +9,14 @@ endif
 .qpp.cpp:
     $(QPP) -V $<
 
-GENERATED_SOURCES = QC_JsonRpcClient.cpp ql_json.cpp
+GENERATED_SOURCES = QC_JsonRpcClient.cpp QC_JsonSaxParser.cpp QC_JsonSchema.cpp ql_json.cpp
 CLEANFILES = $(GENERATED_SOURCES)
 
 if COND_SINGLE_COMPILATION_UNIT
 single-compilation-unit.cpp: $(GENERATED_SOURCES)
 JSON_SOURCES = single-compilation-unit.cpp
 else
-JSON_SOURCES = json-module.cpp
+JSON_SOURCES = json-module.cpp JsonSchemaImpl.cpp
 nodist_json_la_SOURCES = $(GENERATED_SOURCES)
 endif
 

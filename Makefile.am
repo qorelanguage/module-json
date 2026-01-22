@@ -5,16 +5,24 @@ AUTOMAKE_OPTIONS = foreign
 SUBDIRS = src
 
 noinst_HEADERS = src/QC_JsonRpcClient.h \
+    src/QC_JsonSaxParser.h \
+    src/QC_JsonSchema.h \
     src/ql_json.h \
     src/qore-json-module.h
 
-USER_MODULES = qlib/JsonRpcHandler.qm qlib/JsonRpcConnection.qm qlib/McpServerHandler
+USER_MODULES = qlib/JsonRpcHandler.qm qlib/JsonRpcConnection.qm qlib/McpServerHandler qlib/McpClient qlib/McpClientDataProvider qlib/NdjsonDataProvider
 
 EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
     RELEASE-NOTES \
     src/QC_JsonRpcClient.qpp \
+    src/QC_JsonSaxParser.qpp \
+    src/QC_JsonSchema.qpp \
+    src/JsonSchemaImpl.cpp \
     src/ql_json.qpp \
     test/json.qtest \
+    test/JsonSax.qtest \
+    test/JsonSchema.qtest \
+    test/Ndjson.qtest \
     examples/json-rpc-client.q \
     examples/JsonRpcServerValidation.q \
     qore-json-module.spec \

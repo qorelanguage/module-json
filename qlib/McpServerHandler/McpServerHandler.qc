@@ -99,45 +99,9 @@ public hashdecl McpToolCallContext {
     hash<auto> cx;
 }
 
-#! MCP log level constants
-public const McpLogLevel_Debug = "debug";
-public const McpLogLevel_Info = "info";
-public const McpLogLevel_Notice = "notice";
-public const McpLogLevel_Warning = "warning";
-public const McpLogLevel_Error = "error";
-public const McpLogLevel_Critical = "critical";
-public const McpLogLevel_Alert = "alert";
-public const McpLogLevel_Emergency = "emergency";
-
-#! MCP completion reference types
-public const McpCompletionRef_Prompt = "ref/prompt";
-public const McpCompletionRef_Resource = "ref/resource";
-
-#! Initial version of the MCP protocol
-public const MCP_Version_2024_11_05 = "2024-11-05";
-
-#! Second version of the MCP protocol (March 2025)
-public const MCP_Version_2025_03_26 = "2025-03-26";
-
-#! Third version of the MCP protocol (June 2025 - Enterprise readiness)
-public const MCP_Version_2025_06_18 = "2025-06-18";
-
-#! Fourth version of the MCP protocol (November 2025 - Tasks, Extensions)
-public const MCP_Version_2025_11_25 = "2025-11-25";
-
-#! Latest known version of the MCP protocol
-public const MCP_Version_Latest = MCP_Version_2025_11_25;
-
-#! Map of all known versions of the MCP protocol
-public const AllMcpVersions = {
-    MCP_Version_2024_11_05: True,
-    MCP_Version_2025_03_26: True,
-    MCP_Version_2025_06_18: True,
-    MCP_Version_2025_11_25: True,
-};
-
-#! MCP Session header
-public const McpSessionHeader = "Mcp-Session-Id";
+# NOTE: MCP protocol constants (McpVersion, McpLogLevel, McpCompletionRefType enums,
+# MCP_Version_Latest, AllMcpVersions, AllMcpLogLevels, McpSessionHeader)
+# are imported and re-exported from the McpClient module
 
 #! McpServer class definition; to be registered as a handler in the HttpServer class
 /**
@@ -686,7 +650,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         int total;
         bool hasMore = False;
 
-        if (ref.type == McpCompletionRef_Prompt) {
+        if (ref.type == McpCompletionRefType::Prompt) {
             # Complete prompt argument
             *hash<McpPromptInfo> info = pmap{ref.name};
             if (info && info.arguments) {
@@ -698,7 +662,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                     }
                 }
             }
-        } else if (ref.type == McpCompletionRef_Resource) {
+        } else if (ref.type == McpCompletionRefType::Resource) {
             # Complete resource URI
             string prefix = params.argument.value ?? "";
             foreach string uri in (keys rmap) {

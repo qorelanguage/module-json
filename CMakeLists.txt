@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.5.0)
 project(qore-json-module)
 
 set (VERSION_MAJOR 1)
-set (VERSION_MINOR 10)
+set (VERSION_MINOR 11)
 set (VERSION_PATCH 0)
 
 find_package(Qore 2.0 REQUIRED)
@@ -12,13 +12,37 @@ find_package(OpenSSL REQUIRED)
 include_directories( ${CMAKE_SOURCE_DIR}/src )
 include_directories( ${OPENSSL_INCLUDE_DIR} )
 
+# Find jsoncons (required for JSON Schema support)
+find_path(JSONCONS_INCLUDE_DIR jsoncons/json.hpp
+    PATHS
+        /usr/include
+        /usr/local/include
+        ${CMAKE_SOURCE_DIR}/third-party/jsoncons/include
+)
+
+if(NOT JSONCONS_INCLUDE_DIR)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/third-party/jsoncons/include")
+        set(JSONCONS_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third-party/jsoncons/include")
+        message(STATUS "Using bundled jsoncons")
+    else()
+        message(FATAL_ERROR "jsoncons not found. Please install jsoncons or initialize the submodule: git submodule update --init")
+    endif()
+else()
+    message(STATUS "Found jsoncons: ${JSONCONS_INCLUDE_DIR}")
+endif()
+
+include_directories(${JSONCONS_INCLUDE_DIR})
+
 set(QPP_SRC
     src/QC_JsonRpcClient.qpp
+    src/QC_JsonSaxParser.qpp
+    src/QC_JsonSchema.qpp
     src/ql_json.qpp
 )
 
 set(CPP_SRC
     src/json-module.cpp
+    src/JsonSchemaImpl.cpp
 )
 
 set(QMOD
@@ -27,6 +51,7 @@ set(QMOD
     qlib/McpServerHandler
     qlib/McpClient
     qlib/McpClientDataProvider
+    qlib/NdjsonDataProvider
 )
 
 # Check for C++11.
@@ -65,6 +90,7 @@ qore_external_user_module("qlib/JsonRpcHandler.qm" "")
 qore_external_user_module("qlib/McpServerHandler" "JsonRpcHandler")
 qore_external_user_module("qlib/McpClient" "")
 qore_external_user_module("qlib/McpClientDataProvider" "McpClient")
+qore_external_user_module("qlib/NdjsonDataProvider" "")
 
 qore_config_info()
 

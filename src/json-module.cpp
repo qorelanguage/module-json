@@ -1,7 +1,7 @@
 /*
   Qore json module
 
-  Copyright (C) 2010 - 2021 Qore Technologies
+  Copyright (C) 2010 - 2026 Qore Technologies
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +21,8 @@
 #include "qore-json-module.h"
 
 #include "QC_JsonRpcClient.h"
+#include "QC_JsonSaxParser.h"
+#include "QC_JsonSchema.h"
 
 #include "ql_json.h"
 
@@ -52,6 +54,8 @@ QoreNamespace JNS("Qore::Json");
 
 QoreStringNode *json_module_init() {
    JNS.addSystemClass(initJsonRpcClientClass(JNS));
+   JNS.addSystemClass(initJsonSaxParserClass(JNS));
+   JNS.addSystemClass(initJsonSchemaClass(JNS));
    init_json_functions(JNS);
    init_json_constants(JNS);
 

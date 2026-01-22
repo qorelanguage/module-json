@@ -121,22 +121,24 @@ public namespace McpClientDataProvider {
     #! Application name
     public const AppName = "MCP";
 
-    #! MCP completion reference types
-    public enum McpCompletionRefType : string {
-        Prompt = "ref/prompt",
-        Resource = "ref/resource",
-    }
+    # NOTE: MCP enums (McpVersion, McpLogLevel, McpCompletionRefType) are imported
+    # from McpClient module which is re-exported by this module
 
     #! MCP content item types
     public enum McpContentItemType : string {
+        #! Text content
         Text = "text",
+        #! Image content with base64 data
         Image = "image",
+        #! Resource reference
         Resource = "resource",
     }
 
     #! MCP prompt message roles
     public enum McpPromptMessageRole : string {
+        #! Message from the user
         User = "user",
+        #! Message from the assistant
         Assistant = "assistant",
     }
 

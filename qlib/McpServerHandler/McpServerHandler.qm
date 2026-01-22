@@ -32,6 +32,7 @@
 %requires JsonRpcHandler
 %requires Logger
 %requires DataProvider
+%requires(reexport) McpClient
 %try-module uuid
 %define NoUuid
 %endtry

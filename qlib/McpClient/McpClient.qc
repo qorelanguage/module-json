@@ -25,49 +25,79 @@
 #! the %McpClient namespace holds all public definitions in the %McpClient module
 public namespace McpClient {
 
-#! MCP protocol versions
-public const MCP_Version_2024_11_05 = "2024-11-05";
-public const MCP_Version_2025_03_26 = "2025-03-26";
-public const MCP_Version_2025_06_18 = "2025-06-18";
-public const MCP_Version_2025_11_25 = "2025-11-25";
-public const MCP_Version_Latest = MCP_Version_2025_11_25;
+#! MCP protocol version enum
+/** @since json 1.11
+*/
+public enum McpVersion : string {
+    #! Protocol version 2024-11-05 (initial version)
+    V2024_11_05 = "2024-11-05",
+    #! Protocol version 2025-03-26 (March 2025)
+    V2025_03_26 = "2025-03-26",
+    #! Protocol version 2025-06-18 (June 2025 - Enterprise readiness)
+    V2025_06_18 = "2025-06-18",
+    #! Protocol version 2025-11-25 (November 2025 - Tasks, Extensions)
+    V2025_11_25 = "2025-11-25",
+}
 
-#! Map of all known versions
+#! Latest MCP protocol version
+public const MCP_Version_Latest = McpVersion::V2025_11_25;
+
+#! Map of all known versions for validation
 public const AllMcpVersions = {
-    MCP_Version_2024_11_05: True,
-    MCP_Version_2025_03_26: True,
-    MCP_Version_2025_06_18: True,
-    MCP_Version_2025_11_25: True,
+    McpVersion::V2024_11_05: True,
+    McpVersion::V2025_03_26: True,
+    McpVersion::V2025_06_18: True,
+    McpVersion::V2025_11_25: True,
 };
 
 #! MCP Session header name
 public const McpSessionHeader = "Mcp-Session-Id";
 
-#! MCP log level constants
-public const McpLogLevel_Debug = "debug";
-public const McpLogLevel_Info = "info";
-public const McpLogLevel_Notice = "notice";
-public const McpLogLevel_Warning = "warning";
-public const McpLogLevel_Error = "error";
-public const McpLogLevel_Critical = "critical";
-public const McpLogLevel_Alert = "alert";
-public const McpLogLevel_Emergency = "emergency";
+#! MCP log level enum
+/** Standard syslog-style log levels for MCP logging protocol.
 
-#! Valid log levels
+    @since json 1.11
+*/
+public enum McpLogLevel : string {
+    #! Debug-level messages for detailed troubleshooting
+    Debug = "debug",
+    #! Informational messages about normal operation
+    Info = "info",
+    #! Normal but significant conditions
+    Notice = "notice",
+    #! Warning conditions that may need attention
+    Warning = "warning",
+    #! Error conditions
+    Error = "error",
+    #! Critical conditions requiring immediate attention
+    Critical = "critical",
+    #! Alert conditions requiring action
+    Alert = "alert",
+    #! Emergency: system is unusable
+    Emergency = "emergency",
+}
+
+#! Valid log levels for validation
 public const AllMcpLogLevels = {
-    McpLogLevel_Debug: True,
-    McpLogLevel_Info: True,
-    McpLogLevel_Notice: True,
-    McpLogLevel_Warning: True,
-    McpLogLevel_Error: True,
-    McpLogLevel_Critical: True,
-    McpLogLevel_Alert: True,
-    McpLogLevel_Emergency: True,
+    McpLogLevel::Debug: True,
+    McpLogLevel::Info: True,
+    McpLogLevel::Notice: True,
+    McpLogLevel::Warning: True,
+    McpLogLevel::Error: True,
+    McpLogLevel::Critical: True,
+    McpLogLevel::Alert: True,
+    McpLogLevel::Emergency: True,
 };
 
-#! MCP completion reference types
-public const McpCompletionRef_Prompt = "ref/prompt";
-public const McpCompletionRef_Resource = "ref/resource";
+#! MCP completion reference type enum
+/** @since json 1.11
+*/
+public enum McpCompletionRefType : string {
+    #! Reference a prompt by name
+    Prompt = "ref/prompt",
+    #! Reference a resource by URI
+    Resource = "ref/resource",
+}
 
 #! Client info for the MCP client
 public hashdecl McpClientInfo {

@@ -538,13 +538,13 @@ class McpClientTest inherits QUnit::Test {
         client2.close();
 
         # Verify all known versions are in the constants
-        assertTrue(McpClient::AllMcpVersions{McpClient::MCP_Version_2024_11_05}, "2024-11-05 should be known");
-        assertTrue(McpClient::AllMcpVersions{McpClient::MCP_Version_2025_03_26}, "2025-03-26 should be known");
-        assertTrue(McpClient::AllMcpVersions{McpClient::MCP_Version_2025_06_18}, "2025-06-18 should be known");
-        assertTrue(McpClient::AllMcpVersions{McpClient::MCP_Version_2025_11_25}, "2025-11-25 should be known");
+        assertTrue(McpClient::AllMcpVersions{McpClient::McpVersion::V2024_11_05}, "2024-11-05 should be known");
+        assertTrue(McpClient::AllMcpVersions{McpClient::McpVersion::V2025_03_26}, "2025-03-26 should be known");
+        assertTrue(McpClient::AllMcpVersions{McpClient::McpVersion::V2025_06_18}, "2025-06-18 should be known");
+        assertTrue(McpClient::AllMcpVersions{McpClient::McpVersion::V2025_11_25}, "2025-11-25 should be known");
 
         # Verify latest version constant
-        assertEq(McpClient::MCP_Version_2025_11_25, McpClient::MCP_Version_Latest, "Latest should be 2025-11-25");
+        assertEq(McpClient::McpVersion::V2025_11_25, McpClient::MCP_Version_Latest, "Latest should be 2025-11-25");
 
         # Test that client handles version negotiation correctly
         McpClient::McpClient client3(base_url);

@@ -1,0 +1,165 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%new-style
+%strict-args
+%enable-all-warnings
+%require-types
+
+%requires qore >= 2.0
+%requires json
+%requires QUnit
+
+%exec-class JsonSchemaTest
+
+class JsonSchemaTest inherits QUnit::Test {
+    constructor() : Test("JsonSchemaTest", "1.0", \ARGV) {
+        addTestCase("String type", \testStringType());
+        addTestCase("Integer type", \testIntegerType());
+        addTestCase("Number type", \testNumberType());
+        addTestCase("Boolean type", \testBooleanType());
+        addTestCase("Null type", \testNullType());
+        addTestCase("Array type", \testArrayType());
+        addTestCase("Object type", \testObjectType());
+        addTestCase("Object properties", \testObjectProperties());
+        addTestCase("Required properties", \testRequiredProperties());
+        addTestCase("Enum validation", \testEnumValidation());
+        addTestCase("Numeric constraints", \testNumericConstraints());
+        addTestCase("String constraints", \testStringConstraints());
+        addTestCase("Schema from hash", \testSchemaFromHash());
+        addTestCase("Validation errors", \testValidationErrors());
+        addTestCase("Invalid schema", \testInvalidSchema());
+        addTestCase("Nested objects", \testNestedObjects());
+        set_return_value(main());
+    }
+
+    testStringType() {
+        JsonSchema v('{"type": "string"}');
+        assertTrue(v.validate("hello"));
+        assertTrue(v.validate(""));
+        assertFalse(v.validate(42));
+        assertFalse(v.validate(True));
+        assertFalse(v.validate(NOTHING));
+    }
+
+    testIntegerType() {
+        JsonSchema v('{"type": "integer"}');
+        assertTrue(v.validate(42));
+        assertTrue(v.validate(0));
+        assertTrue(v.validate(-10));
+        assertFalse(v.validate(3.14));
+        assertFalse(v.validate("42"));
+    }
+
+    testNumberType() {
+        JsonSchema v('{"type": "number"}');
+        assertTrue(v.validate(42));
+        assertTrue(v.validate(3.14));
+        assertTrue(v.validate(-10.5));
+        assertFalse(v.validate("3.14"));
+    }
+
+    testBooleanType() {
+        JsonSchema v('{"type": "boolean"}');
+        assertTrue(v.validate(True));
+        assertTrue(v.validate(False));
+        assertFalse(v.validate(1));
+        assertFalse(v.validate("true"));
+    }
+
+    testNullType() {
+        JsonSchema v('{"type": "null"}');
+        assertTrue(v.validate(NOTHING));
+        assertFalse(v.validate(""));
+        assertFalse(v.validate(0));
+    }
+
+    testArrayType() {
+        JsonSchema v('{"type": "array"}');
+        assertTrue(v.validate(()));
+        assertTrue(v.validate((1, 2, 3)));
+        assertTrue(v.validate(("a", "b")));
+        assertFalse(v.validate("array"));
+        assertFalse(v.validate({}));
+    }
+
+    testObjectType() {
+        JsonSchema v('{"type": "object"}');
+        assertTrue(v.validate({}));
+        assertTrue(v.validate({"key": "value"}));
+        assertFalse(v.validate(()));
+        assertFalse(v.validate("object"));
+    }
+
+    testObjectProperties() {
+        JsonSchema v('{"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer", "minimum": 0}}, "required": ["name"]}');
+        assertTrue(v.validate({"name": "Alice", "age": 30}));
+        assertTrue(v.validate({"name": "Bob"}));
+        assertFalse(v.validate({"name": "Dave", "age": -5}));
+        assertFalse(v.validate({"name": "Eve", "age": "thirty"}));
+    }
+
+    testRequiredProperties() {
+        JsonSchema v('{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}');
+        assertFalse(v.validate({"age": 25}));
+        assertFalse(v.validate({}));
+        assertTrue(v.validate({"name": "Test"}));
+    }
+
+    testEnumValidation() {
+        JsonSchema v('{"type": "string", "enum": ["red", "green", "blue"]}');
+        assertTrue(v.validate("red"));
+        assertTrue(v.validate("green"));
+        assertTrue(v.validate("blue"));
+        assertFalse(v.validate("yellow"));
+        assertFalse(v.validate("RED"));
+    }
+
+    testNumericConstraints() {
+        JsonSchema v('{"type": "integer", "minimum": 0, "maximum": 100}');
+        assertTrue(v.validate(0));
+        assertTrue(v.validate(50));
+        assertTrue(v.validate(100));
+        assertFalse(v.validate(-1));
+        assertFalse(v.validate(101));
+    }
+
+    testStringConstraints() {
+        JsonSchema v('{"type": "string", "minLength": 2, "maxLength": 5}');
+        assertTrue(v.validate("ab"));
+        assertTrue(v.validate("abc"));
+        assertTrue(v.validate("abcde"));
+        assertFalse(v.validate("a"));
+        assertFalse(v.validate("abcdef"));
+    }
+
+    testSchemaFromHash() {
+        hash<auto> schema = {"type": "string", "minLength": 1};
+        JsonSchema v(schema);
+        assertTrue(v.validate("hello"));
+        assertFalse(v.validate(""));
+    }
+
+    testValidationErrors() {
+        JsonSchema v('{"type": "string"}');
+        hash<auto> result = v.validateWithErrors(42);
+        assertFalse(result.valid);
+        assertTrue(result.errors.size() > 0);
+        hash<auto> first_error = result.errors[0];
+        assertTrue(exists first_error.path);
+        assertTrue(exists first_error.message);
+        assertTrue(exists first_error.keyword);
+    }
+
+    testInvalidSchema() {
+        assertThrows("JSON-SCHEMA-ERROR", sub() {
+            new JsonSchema('{invalid json}');
+        });
+    }
+
+    testNestedObjects() {
+        JsonSchema v('{"type": "object", "properties": {"address": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}}}');
+        assertTrue(v.validate({"address": {"city": "Springfield"}}));
+        assertFalse(v.validate({"address": {"street": "123 Main St"}}));
+    }
+}

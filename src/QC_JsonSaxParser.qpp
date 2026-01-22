@@ -1,0 +1,628 @@
+/* -*- mode: c++; indent-tabs-mode: nil -*- */
+/** @file QC_JsonSaxParser.qpp JSON SAX Parser implementation */
+/*
+    Qore Programming Language - JSON Module
+
+    Copyright (C) 2026 Qore Technologies, s.r.o.
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+#include "qore-json-module.h"
+#include "QC_JsonSaxParser.h"
+
+#include <ctype.h>
+#include <cmath>
+
+JsonSaxParser::JsonSaxParser(ExceptionSink* xsink) {
+}
+
+JsonSaxParser::~JsonSaxParser() {
+}
+
+void JsonSaxParser::skipWhitespace(ParseState& state) {
+    while (*state.buf) {
+        if (isblank(*state.buf) || (*state.buf) == '\r') {
+            ++state.buf;
+            ++state.column;
+            continue;
+        }
+        if ((*state.buf) == '\n') {
+            ++state.line_number;
+            state.column = 1;
+            ++state.buf;
+            continue;
+        }
+        break;
+    }
+}
+
+bool JsonSaxParser::cmpRestToken(ParseState& state, const char* tok) {
+    state.buf++;
+    state.column++;
+    while (*tok) {
+        if ((*(state.buf++)) != (*(tok++))) {
+            return false;
+        }
+        state.column++;
+    }
+    if (!*state.buf || *state.buf == ',' || *state.buf == ']' || *state.buf == '}') {
+        return true;
+    }
+    if (isblank(*state.buf) || (*state.buf) == '\r' || (*state.buf) == '\n') {
+        return true;
+    }
+    return false;
+}
+
+bool JsonSaxParser::emitEvent(ParseState& state, int type, const QoreStringNode* key, QoreValue value) {
+    // Create event hash
+    ReferenceHolder<QoreHashNode> event(new QoreHashNode(autoTypeInfo), state.xsink);
+    event->setKeyValue("type", type, state.xsink);
+    if (key) {
+        event->setKeyValue("key", key->refSelf(), state.xsink);
+    }
+    if (!value.isNothing()) {
+        // value is passed by the caller who has already released ownership
+        // so we take ownership directly without refSelf
+        event->setKeyValue("value", value, state.xsink);
+    }
+    event->setKeyValue("depth", state.depth, state.xsink);
+    event->setKeyValue("line", state.line_number, state.xsink);
+    event->setKeyValue("column", state.column, state.xsink);
+
+    // Call the callback
+    ReferenceHolder<QoreListNode> args(new QoreListNode(autoTypeInfo), state.xsink);
+    args->push(event.release(), state.xsink);
+    ValueHolder rv(state.callback->execValue(*args, state.xsink), state.xsink);
+
+    return !*state.xsink;
+}
+
+QoreStringNode* JsonSaxParser::parseString(ParseState& state) {
+    // '"' has already been read, buf is at '"'
+    state.buf++;
+    state.column++;
+
+    QoreStringNodeHolder str(new QoreStringNode(state.encoding));
+
+    while (*state.buf) {
+        if (*state.buf == '"') {
+            state.buf++;
+            state.column++;
+            return str.release();
+        }
+        if (*state.buf == '\\') {
+            state.buf++;
+            state.column++;
+            if (*state.buf == '"' || *state.buf == '/' || *state.buf == '\\') {
+                str->concat(*state.buf);
+                ++state.buf;
+                ++state.column;
+                continue;
+            }
+            if (*state.buf == 'a') {
+                str->concat('\a');
+            } else if (*state.buf == 'b') {
+                str->concat('\b');
+            } else if (*state.buf == 'f') {
+                str->concat('\f');
+            } else if (*state.buf == 'n') {
+                str->concat('\n');
+            } else if (*state.buf == 'r') {
+                str->concat('\r');
+            } else if (*state.buf == 't') {
+                str->concat('\t');
+            } else if (*state.buf == 'v') {
+                str->concat('\v');
+            } else if (*state.buf == 'u') {
+                ++state.buf;
+                ++state.column;
+                // check for 4 hex digits
+                if (isxdigit(*state.buf) && isxdigit(*(state.buf + 1)) &&
+                    isxdigit(*(state.buf + 2)) && isxdigit(*(state.buf + 3))) {
+                    char unicode[5];
+                    strncpy(unicode, state.buf, 4);
+                    unicode[4] = '\0';
+                    unsigned code = strtoul(unicode, 0, 16);
+                    if (str->concatUnicode(code, state.xsink)) {
+                        return nullptr;
+                    }
+                    state.buf += 3;
+                    state.column += 3;
+                } else {
+                    str->concat("\\u");
+                }
+            } else {
+                str->concat('\\');
+                str->concat(*state.buf);
+            }
+            ++state.buf;
+            ++state.column;
+            continue;
+        }
+        if (*state.buf == '\n') {
+            state.line_number++;
+            state.column = 0;
+        }
+        str->concat(*state.buf);
+        ++state.buf;
+        ++state.column;
+    }
+
+    state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+        "premature end of input at line %d while parsing JSON string", state.line_number);
+    return nullptr;
+}
+
+bool JsonSaxParser::parseObject(ParseState& state) {
+    // '{' has already been read
+    state.buf++;
+    state.column++;
+    state.depth++;
+
+    if (!emitEvent(state, JSON_SAX_OBJECT_START, nullptr, QoreValue())) {
+        return false;
+    }
+
+    skipWhitespace(state);
+
+    if (*state.buf == '}') {
+        state.buf++;
+        state.column++;
+        state.depth--;
+        return emitEvent(state, JSON_SAX_OBJECT_END, nullptr, QoreValue());
+    }
+
+    while (*state.buf) {
+        if (*state.buf != '"') {
+            state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                "unexpected text at line %d, column %d while parsing JSON object (expecting '\"' for key)",
+                state.line_number, state.column);
+            return false;
+        }
+
+        // Get key
+        SimpleRefHolder<QoreStringNode> key(parseString(state));
+        if (!key) {
+            return false;
+        }
+
+        // Emit key event
+        if (!emitEvent(state, JSON_SAX_KEY, nullptr, key->refSelf())) {
+            return false;
+        }
+
+        skipWhitespace(state);
+        if (*state.buf != ':') {
+            state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                "unexpected text at line %d, column %d while parsing JSON object (expecting ':')",
+                state.line_number, state.column);
+            return false;
+        }
+        state.buf++;
+        state.column++;
+        skipWhitespace(state);
+
+        // Parse value
+        if (!parseValue(state)) {
+            return false;
+        }
+
+        skipWhitespace(state);
+        if (*state.buf == '}') {
+            state.buf++;
+            state.column++;
+            state.depth--;
+            return emitEvent(state, JSON_SAX_OBJECT_END, nullptr, QoreValue());
+        }
+
+        if (*state.buf != ',') {
+            state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                "unexpected text at line %d, column %d while parsing JSON object (expecting ',' or '}')",
+                state.line_number, state.column);
+            return false;
+        }
+        state.buf++;
+        state.column++;
+
+        skipWhitespace(state);
+    }
+
+    state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+        "premature end of input at line %d while parsing JSON object", state.line_number);
+    return false;
+}
+
+bool JsonSaxParser::parseArray(ParseState& state) {
+    // '[' has already been read
+    state.buf++;
+    state.column++;
+    state.depth++;
+
+    if (!emitEvent(state, JSON_SAX_ARRAY_START, nullptr, QoreValue())) {
+        return false;
+    }
+
+    skipWhitespace(state);
+
+    if (*state.buf == ']') {
+        state.buf++;
+        state.column++;
+        state.depth--;
+        return emitEvent(state, JSON_SAX_ARRAY_END, nullptr, QoreValue());
+    }
+
+    while (*state.buf) {
+        if (!parseValue(state)) {
+            return false;
+        }
+
+        skipWhitespace(state);
+        if (*state.buf == ']') {
+            state.buf++;
+            state.column++;
+            state.depth--;
+            return emitEvent(state, JSON_SAX_ARRAY_END, nullptr, QoreValue());
+        }
+
+        if (*state.buf != ',') {
+            state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                "unexpected text at line %d, column %d while parsing JSON array (expecting ',' or ']')",
+                state.line_number, state.column);
+            return false;
+        }
+        state.buf++;
+        state.column++;
+
+        skipWhitespace(state);
+    }
+
+    state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+        "premature end of input at line %d while parsing JSON array", state.line_number);
+    return false;
+}
+
+bool JsonSaxParser::parseValue(ParseState& state) {
+    skipWhitespace(state);
+
+    if (!*state.buf) {
+        state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+            "premature end of input at line %d while parsing JSON value", state.line_number);
+        return false;
+    }
+
+    // Object
+    if (*state.buf == '{') {
+        return parseObject(state);
+    }
+
+    // Array
+    if (*state.buf == '[') {
+        return parseArray(state);
+    }
+
+    // String
+    if (*state.buf == '"') {
+        SimpleRefHolder<QoreStringNode> str(parseString(state));
+        if (!str) {
+            return false;
+        }
+        return emitEvent(state, JSON_SAX_STRING, nullptr, str.release());
+    }
+
+    // Number
+    if (isdigit(*state.buf) || (*state.buf) == '.' || (*state.buf) == '-') {
+        QoreString numstr;
+        bool has_dot = false;
+        bool has_e = false;
+
+        if (*state.buf == '.') {
+            numstr.concat("0.");
+            has_dot = true;
+        } else {
+            numstr.concat(*state.buf);
+        }
+        ++state.buf;
+        ++state.column;
+
+        while (*state.buf) {
+            if (*state.buf == '.') {
+                if (has_dot) {
+                    state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                        "unexpected '.' in number at line %d, column %d", state.line_number, state.column);
+                    return false;
+                }
+                has_dot = true;
+            } else if (*state.buf == ',' || *state.buf == '}' || *state.buf == ']') {
+                break;
+            } else if (isblank(*state.buf) || (*state.buf) == '\r') {
+                ++state.buf;
+                ++state.column;
+                break;
+            } else if ((*state.buf) == '\n') {
+                ++state.buf;
+                ++state.line_number;
+                state.column = 1;
+                break;
+            } else if (*state.buf == 'e' || *state.buf == 'E') {
+                if (has_e) {
+                    state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                        "unexpected second exponent marker '%c' at line %d, column %d",
+                        *state.buf, state.line_number, state.column);
+                    return false;
+                }
+                has_e = true;
+                numstr.concat(*state.buf);
+                ++state.buf;
+                ++state.column;
+                if (*state.buf == '+' || *state.buf == '-') {
+                    numstr.concat(*state.buf);
+                    ++state.buf;
+                    ++state.column;
+                }
+                continue;
+            } else if (!isdigit(*state.buf)) {
+                state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                    "unexpected character '%c' in number at line %d, column %d",
+                    *state.buf, state.line_number, state.column);
+                return false;
+            }
+            numstr.concat(*state.buf);
+            ++state.buf;
+            ++state.column;
+        }
+
+        if (has_dot || has_e) {
+            return emitEvent(state, JSON_SAX_NUMBER, nullptr, q_strtod(numstr.c_str()));
+        }
+        return emitEvent(state, JSON_SAX_NUMBER, nullptr, strtoll(numstr.c_str(), nullptr, 10));
+    }
+
+    // Boolean true
+    if ((*state.buf) == 't') {
+        if (cmpRestToken(state, "rue")) {
+            return emitEvent(state, JSON_SAX_BOOLEAN, nullptr, true);
+        }
+    }
+    // Boolean false
+    else if ((*state.buf) == 'f') {
+        if (cmpRestToken(state, "alse")) {
+            return emitEvent(state, JSON_SAX_BOOLEAN, nullptr, false);
+        }
+    }
+    // Null
+    else if ((*state.buf) == 'n') {
+        if (cmpRestToken(state, "ull")) {
+            return emitEvent(state, JSON_SAX_NULL, nullptr, QoreValue());
+        }
+    }
+
+    state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+        "invalid input at line %d, column %d; unable to parse JSON value",
+        state.line_number, state.column);
+    return false;
+}
+
+int JsonSaxParser::parse(const QoreStringNode* json_str, ResolvedCallReferenceNode* callback, ExceptionSink* xsink) {
+    ParseState state;
+    state.buf = json_str->c_str();
+    state.line_number = 1;
+    state.column = 1;
+    state.depth = 0;
+    state.callback = callback;
+    state.xsink = xsink;
+    state.encoding = json_str->getEncoding();
+
+    // Skip BOM if present
+    const unsigned char* data = reinterpret_cast<const unsigned char*>(state.buf);
+    if (json_str->size() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) {
+        state.buf = reinterpret_cast<const char*>(data + 3);
+    } else if (json_str->size() >= 2) {
+        if ((data[0] == 0xFE && data[1] == 0xFF) || (data[0] == 0xFF && data[1] == 0xFE)) {
+            state.buf = reinterpret_cast<const char*>(data + 2);
+        }
+    }
+
+    skipWhitespace(state);
+    if (!*state.buf) {
+        // Empty input is ok
+        return 0;
+    }
+
+    if (!parseValue(state)) {
+        return -1;
+    }
+
+    // Check for trailing content
+    skipWhitespace(state);
+    if (*state.buf) {
+        xsink->raiseException("JSON-SAX-PARSE-ERROR",
+            "extra text after JSON data at line %d, column %d", state.line_number, state.column);
+        return -1;
+    }
+
+    return 0;
+}
+
+int JsonSaxParser::parseStream(QoreObject* stream, ResolvedCallReferenceNode* callback,
+    const QoreEncoding* encoding, ExceptionSink* xsink) {
+    // Read entire stream into string for simplicity
+    // A more sophisticated implementation could read in chunks
+    SimpleRefHolder<QoreStringNode> data(new QoreStringNode(encoding));
+
+    // Get read method
+    while (true) {
+        ReferenceHolder<QoreListNode> args(new QoreListNode(autoTypeInfo), xsink);
+        args->push(8192, xsink);  // Read 8KB at a time
+
+        ValueHolder rv(stream->evalMethod("read", *args, xsink), xsink);
+        if (*xsink) {
+            return -1;
+        }
+
+        if (rv->isNullOrNothing()) {
+            break;
+        }
+
+        if (rv->getType() == NT_BINARY) {
+            const BinaryNode* bin = rv->get<const BinaryNode>();
+            if (!bin->size()) {
+                break;
+            }
+            data->concat(reinterpret_cast<const char*>(bin->getPtr()), bin->size());
+        } else if (rv->getType() == NT_STRING) {
+            const QoreStringNode* str = rv->get<const QoreStringNode>();
+            if (str->empty()) {
+                break;
+            }
+            data->concat(str);
+        } else {
+            break;
+        }
+    }
+
+    return parse(*data, callback, xsink);
+}
+
+/** @defgroup json_sax_event_constants JSON SAX Event Type Constants
+ */
+///@{
+namespace Qore::Json;
+
+//! SAX event type: start of a JSON object
+const JsonSaxObjectStart = JSON_SAX_OBJECT_START;
+
+//! SAX event type: end of a JSON object
+const JsonSaxObjectEnd = JSON_SAX_OBJECT_END;
+
+//! SAX event type: start of a JSON array
+const JsonSaxArrayStart = JSON_SAX_ARRAY_START;
+
+//! SAX event type: end of a JSON array
+const JsonSaxArrayEnd = JSON_SAX_ARRAY_END;
+
+//! SAX event type: JSON object key
+const JsonSaxKey = JSON_SAX_KEY;
+
+//! SAX event type: JSON string value
+const JsonSaxString = JSON_SAX_STRING;
+
+//! SAX event type: JSON number value
+const JsonSaxNumber = JSON_SAX_NUMBER;
+
+//! SAX event type: JSON boolean value
+const JsonSaxBoolean = JSON_SAX_BOOLEAN;
+
+//! SAX event type: JSON null value
+const JsonSaxNull = JSON_SAX_NULL;
+///@}
+
+//! SAX-style streaming JSON parser
+/** This class provides a SAX-style (event-based) JSON parser that processes JSON data
+    without building a complete in-memory representation. This is useful for:
+    - Processing very large JSON files that don't fit in memory
+    - Extracting specific data from JSON streams
+    - Processing JSON data as it arrives (streaming)
+
+    @par Event Types
+    The parser emits the following event types:
+    - @ref JsonSaxObjectStart - start of a JSON object '{'
+    - @ref JsonSaxObjectEnd - end of a JSON object '}'
+    - @ref JsonSaxArrayStart - start of a JSON array '['
+    - @ref JsonSaxArrayEnd - end of a JSON array ']'
+    - @ref JsonSaxKey - JSON object key
+    - @ref JsonSaxString - JSON string value
+    - @ref JsonSaxNumber - JSON number value (integer or float)
+    - @ref JsonSaxBoolean - JSON boolean value
+    - @ref JsonSaxNull - JSON null value
+
+    @par Event Hash Structure
+    Each event is passed to the callback as a hash with the following keys:
+    - \c type: the event type (one of the constants above)
+    - \c value: the value for value events (string, number, boolean), key for key events
+    - \c depth: the current nesting depth (0 = root)
+    - \c line: the source line number
+    - \c column: the source column number
+
+    @par Example
+    @code{.py}
+    JsonSaxParser parser();
+
+    sub handler(hash<auto> event) {
+        switch (event.type) {
+            case JsonSaxObjectStart:
+                printf("Object start at depth %d\n", event.depth);
+                break;
+            case JsonSaxKey:
+                printf("Key: %s\n", event.value);
+                break;
+            case JsonSaxString:
+                printf("String value: %s\n", event.value);
+                break;
+        }
+    }
+
+    parser.parse(json_string, \handler());
+    @endcode
+
+    @since json 1.11
+*/
+qclass JsonSaxParser [arg=JsonSaxParser* parser; ns=Qore::Json];
+
+//! Creates a new JsonSaxParser object
+/**
+ */
+JsonSaxParser::constructor() {
+    self->setPrivate(CID_JSONSAXPARSER, new JsonSaxParser(xsink));
+}
+
+//! Parses a JSON string with SAX-style event callbacks
+/** @par Example:
+    @code{.py}
+    JsonSaxParser parser();
+    list<hash<auto>> events = ();
+    parser.parse(json_string, sub(hash<auto> e) { push events, e; });
+    @endcode
+
+    @param json_str the JSON string to parse
+    @param callback the callback code to execute for each SAX event; receives a hash with event information
+
+    @throw JSON-SAX-PARSE-ERROR if there is a parsing error
+*/
+nothing JsonSaxParser::parse(string json_str, code callback) {
+    ReferenceHolder<ResolvedCallReferenceNode> holder(callback->refRefSelf(), xsink);
+    parser->parse(json_str, *holder, xsink);
+}
+
+//! Parses JSON from an input stream with SAX-style event callbacks
+/** @par Example:
+    @code{.py}
+    JsonSaxParser parser();
+    FileInputStream fis("large.json");
+    parser.parseStream(fis, sub(hash<auto> e) { process_event(e); });
+    @endcode
+
+    @param stream the input stream to read from (must support read() method)
+    @param callback the callback code to execute for each SAX event
+    @param encoding optional character encoding (default: UTF-8)
+
+    @throw JSON-SAX-PARSE-ERROR if there is a parsing error
+*/
+nothing JsonSaxParser::parseStream(InputStream[QoreObject] stream, code callback, *string encoding) {
+    const QoreEncoding* enc = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
+    ReferenceHolder<ResolvedCallReferenceNode> holder(callback->refRefSelf(), xsink);
+    parser->parseStream(stream, *holder, enc, xsink);
+}

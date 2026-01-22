@@ -47,7 +47,7 @@ public class McpServerConnection inherits ServerSentEventHandler::ServerSentEven
     }
 
     constructor(McpServerHandler handler, Socket sock, hash<auto> cx, hash<auto> hdr, string cid,
-            string version = MCP_Version_Latest)
+            string version = McpClient::MCP_Version_Latest)
             : ServerSentEventConnection(handler, sock, cx, hdr, cid) {
         self.version = version;
         self.session = handler.getSessionId(hdr);
@@ -91,11 +91,11 @@ public class McpServerConnection inherits ServerSentEventHandler::ServerSentEven
     }
 
     registered() {
-        if (version == MCP_Version_2024_11_05) {
+        if (version == McpVersion::V2024_11_05) {
             McpServerHandler mcphandler = cast<McpServerHandler>(handler);
             if ((*string endpoint = mcphandler.getCompatV1Endpoint(cx, hdr)).val()) {
                 endpoint += "?session=" + session;
-                mcphandler.info("Sending %s endpoint to client: %y", MCP_Version_2024_11_05, endpoint);
+                mcphandler.info("Sending %s endpoint to client: %y", McpVersion::V2024_11_05, endpoint);
                 send(<SseMessageInfo>{
                     "event": "endpoint",
                     "data": endpoint,
