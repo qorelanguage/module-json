@@ -44,7 +44,7 @@
 %strict-args
 
 module McpServerHandler {
-    version = "1.0";
+    version = "1.1";
     desc = "McpServerHandler module for use with the Qore HttpServer module";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -60,6 +60,8 @@ module McpServerHandler {
     The %McpServerHandler module provides server-side support for the Model Context Protocol (MCP)
     using the @ref Qore::HttpServer "HttpServer" module. It exposes tools, resources, prompts, and
     notifications via JSON-RPC over HTTP and Server-Sent Events (SSE).
+
+    This module implements the full MCP 2025-11-25 protocol specification.
 
     The following classes are provided by this module:
     - @ref McpServerHandler::McpServerHandler "McpServerHandler"
@@ -108,7 +110,43 @@ module McpServerHandler {
     The handler supports MCP notifications over SSE. Clients can open a GET request with an
     \c Accept: \c text/event-stream header to receive notifications and streamed responses.
 
+    @subsection McpServer_intro_tasks Tasks API
+    The handler supports the MCP Tasks API for background task execution:
+    - \c tasks/get: Get task status by ID
+    - \c tasks/result: Block until task completes and return result
+    - \c tasks/cancel: Cancel a running task
+    - \c tasks/list: List all tasks for the session
+
+    To execute a tool call as a background task, include \c _meta.task: \c true in the request.
+
+    @subsection McpServer_intro_resources Resource Features
+    The handler supports:
+    - Resource subscriptions via \c resources/subscribe and \c resources/unsubscribe
+    - Resource templates via \c resources/templates/list
+    - Resource update notifications via \c notifications/resources/updated
+
+    @subsection McpServer_intro_progress Progress Notifications
+    The server can send progress notifications using the \c sendProgress() method.
+    Include \c _meta.progressToken in requests to enable progress tracking.
+
+    @subsection McpServer_intro_sampling Sampling and Elicitation
+    The server can request LLM completions from the client using \c requestSampling()
+    and user input using \c requestElicitationForm() (requires client capability support).
+
     @section McpServerHandler_relnotes McpServerHandler Release Notes
+
+    @subsection McpServerHandler_1_1 McpServerHandler v1.1
+    - Added full MCP 2025-11-25 protocol support:
+      - Tasks API (\c tasks/get, \c tasks/result, \c tasks/cancel, \c tasks/list)
+      - Task-augmented tool calls (\c _meta.task parameter)
+      - Resource subscriptions (\c resources/subscribe, \c resources/unsubscribe)
+      - Resource templates (\c resources/templates/list)
+      - Progress notifications (\c notifications/progress)
+      - Full request cancellation support
+      - Server-to-client sampling requests
+      - Server-to-client elicitation requests
+    - New data structures: \c McpTaskStatus enum, \c McpTaskInfo, \c McpResourceSubscription,
+      \c McpResourceTemplateInfo, \c McpProgressInfo, \c McpPendingRequest, \c McpCancellationInfo
 
     @subsection McpServerHandler_1_0 McpServerHandler v1.0
     - initial release
@@ -120,5 +158,5 @@ public namespace McpServerHandler {
 public const McpServerName = "QoreMcpServer";
 
 #! Server version
-public const McpServerVersion = "1.0";
+public const McpServerVersion = "1.1";
 }

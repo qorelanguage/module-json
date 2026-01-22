@@ -183,7 +183,7 @@ bool JsonSchema::validate(auto data, bool throw_on_error = False) {
                 QoreStringNode* error_msg = first_error->getKeyValue("message").get<QoreStringNode>();
                 if (error_msg) {
                     msg->concat(": ");
-                    msg->concat(error_msg);
+                    msg->concat(error_msg, xsink);
                 }
             }
         }

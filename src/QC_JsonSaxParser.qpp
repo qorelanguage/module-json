@@ -488,7 +488,7 @@ int JsonSaxParser::parseStream(QoreObject* stream, ResolvedCallReferenceNode* ca
             if (str->empty()) {
                 break;
             }
-            data->concat(str);
+            data->concat(str, xsink);
         } else {
             break;
         }
