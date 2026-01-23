@@ -30,6 +30,7 @@ class JsonSchemaTest inherits QUnit::Test {
         addTestCase("Validation errors", \testValidationErrors());
         addTestCase("Invalid schema", \testInvalidSchema());
         addTestCase("Nested objects", \testNestedObjects());
+        addTestCase("Type safety", \testTypeSafety());
         set_return_value(main());
     }
 
@@ -142,10 +143,10 @@ class JsonSchemaTest inherits QUnit::Test {
 
     testValidationErrors() {
         JsonSchema v('{"type": "string"}');
-        hash<auto> result = v.validateWithErrors(42);
+        hash<JsonSchemaValidationResult> result = v.validateWithErrors(42);
         assertFalse(result.valid);
         assertTrue(result.errors.size() > 0);
-        hash<auto> first_error = result.errors[0];
+        hash<JsonSchemaValidationError> first_error = result.errors[0];
         assertTrue(exists first_error.path);
         assertTrue(exists first_error.message);
         assertTrue(exists first_error.keyword);
@@ -161,5 +162,19 @@ class JsonSchemaTest inherits QUnit::Test {
         JsonSchema v('{"type": "object", "properties": {"address": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}}}');
         assertTrue(v.validate({"address": {"city": "Springfield"}}));
         assertFalse(v.validate({"address": {"street": "123 Main St"}}));
+    }
+
+    testTypeSafety() {
+        JsonSchema v('{"type": "string"}');
+        hash<JsonSchemaValidationResult> result = v.validateWithErrors(42);
+        assertFalse(result.valid);
+        assertThrows("RUNTIME-TYPE-ERROR", sub() {
+            auto bad = "bad";
+            result.errors += bad;
+        });
+        assertThrows("RUNTIME-TYPE-ERROR", sub() {
+            auto bad_list = ("bad");
+            result.errors = bad_list;
+        });
     }
 }

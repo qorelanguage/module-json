@@ -22,6 +22,7 @@
 
 #include "qore-json-module.h"
 #include "QC_JsonSchema.h"
+#include "ql_json.h"
 
 /** @defgroup json_schema_constants JSON Schema Constants
     JSON Schema related constants
@@ -58,15 +59,73 @@ hashdecl JsonSchemaValidationResult {
     //! Whether validation succeeded
     bool valid;
     //! List of validation errors (empty if valid)
-    list<hash<auto>> errors;
+    list<hash<JsonSchemaValidationError>> errors;
+}
+
+//! JWT header parameters
+/** @since json 1.11
+*/
+hashdecl JwtHeader {
+    //! Algorithm (ex: HS256, RS256)
+    string alg;
+    //! Type (ex: "JWT")
+    *string typ;
+    //! Key ID
+    *string kid;
+    //! Content type
+    *string cty;
+    //! Critical header parameters
+    *list<string> crit;
+    //! Custom header parameters
+    *hash<auto> extra;
+}
+
+//! JWT claims
+/** @since json 1.11
+*/
+hashdecl JwtClaims {
+    //! Issuer
+    *string iss;
+    //! Subject
+    *string sub;
+    //! Audience (string)
+    *string aud;
+    //! Expiration time (UNIX epoch seconds)
+    *int exp;
+    //! Not before time (UNIX epoch seconds)
+    *int nbf;
+    //! Issued at time (UNIX epoch seconds)
+    *int iat;
+    //! JWT ID
+    *string jti;
+    //! Custom claims
+    *hash<auto> extra;
+}
+
+//! JWT decode result
+/** @since json 1.11
+*/
+hashdecl JwtDecodeResult {
+    //! Decoded header
+    hash<JwtHeader> header;
+    //! Decoded claims
+    hash<JwtClaims> claims;
+    //! Algorithm used
+    string alg;
+    //! Base64url header + payload used for signing
+    string signing_input;
+    //! Raw signature
+    binary signature;
+    //! Signature validation result
+    bool signature_valid;
 }
 
 //! The JsonSchema class provides JSON Schema validation functionality
 /** This class allows validating JSON/Qore data against a JSON Schema definition.
     It supports JSON Schema draft-07, draft-2019-09, and draft-2020-12.
 
-    @par Example:
-    @code{.py}
+@par Example:
+@code{.py}
 %new-style
 %strict-args
 %require-types
@@ -94,9 +153,9 @@ if (!result.valid) {
         printf("Error at %s: %s\n", err.path, err.message);
     }
 }
-    @endcode
+@endcode
 
-    @since json 1.11
+@since json 1.11
 */
 qclass JsonSchema [arg=JsonSchemaValidator* jschema; ns=Qore::Json];
 
@@ -198,18 +257,18 @@ bool JsonSchema::validate(auto data, bool throw_on_error = False) {
 
     @return a hash with 'valid' (bool) and 'errors' (list of JsonSchemaValidationError hashes)
 
-    @par Example:
-    @code{.py}
+@par Example:
+@code{.py}
 JsonSchema validator(schema);
-hash<auto> result = validator.validateWithErrors(data);
+hash<JsonSchemaValidationResult> result = validator.validateWithErrors(data);
 if (!result.valid) {
-    foreach hash<auto> err in (result.errors) {
+    foreach hash<JsonSchemaValidationError> err in (result.errors) {
         printf("Error at %s: %s\n", err.path, err.message);
     }
 }
-    @endcode
+@endcode
 */
-hash<auto> JsonSchema::validateWithErrors(auto data) {
+hash<JsonSchemaValidationResult> JsonSchema::validateWithErrors(auto data) {
     return jschema->validateWithErrors(data, xsink);
 }
 

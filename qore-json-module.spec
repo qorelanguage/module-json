@@ -100,6 +100,7 @@ qore -l ./json-api-%{module_api}.qmod test/McpServerHandler.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/McpClient.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/McpClientDataProvider.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/json.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/Jwt.qtest -v
 
 %package doc
 Summary: JSON module for Qore
