@@ -56,6 +56,6 @@ done
 # run MCP integration tests with Python SDK
 echo && echo "-- running MCP integration tests --"
 # Install MCP SDK (use --break-system-packages for newer pip)
-pip3 install --break-system-packages mcp httpx || pip3 install mcp httpx
+python3 -m pip install --break-system-packages mcp httpx || python3 -m pip install mcp httpx
 # Run integration tests (test both SSE and Streamable HTTP transports)
 gosu qore:qore ./test/mcp-integration/run_integration_test.sh --transport both
