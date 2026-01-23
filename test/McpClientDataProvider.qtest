@@ -390,7 +390,7 @@ class McpClientDataProviderTest inherits QUnit::Test {
         } catch (hash<ExceptionInfo> ex) {
             gotException = True;
             assertEq("MCP-ERROR", ex.err);
-            assertTrue(ex.arg.content[0].isError);
+            assertTrue(ex.arg.isError);  # isError is at result level per MCP spec
         }
         assertTrue(gotException, "Calling unknown tool should throw exception");
 
@@ -404,7 +404,7 @@ class McpClientDataProviderTest inherits QUnit::Test {
         } catch (hash<ExceptionInfo> ex) {
             gotException = True;
             assertEq("MCP-ERROR", ex.err);
-            assertTrue(ex.arg.content[0].isError);
+            assertTrue(ex.arg.isError);  # isError is at result level per MCP spec
         }
         assertTrue(gotException, "Calling error tool should throw exception");
 
@@ -445,14 +445,14 @@ class McpClientDataProviderTest inherits QUnit::Test {
             "name": "no-args-tool",
         });
         assertEq(Type::List, result.content.type());
-        assertFalse(result.content[0].isError);
+        assertTrue(!result.isError);  # isError is at result level per MCP spec
 
         # Test tool with empty arguments
         result = callProvider.doRequest({
             "name": "no-args-tool",
             "arguments": {},
         });
-        assertFalse(result.content[0].isError);
+        assertTrue(!result.isError);  # isError is at result level per MCP spec
 
         # Test reading empty file resource
         AbstractDataProvider readProvider = provider.getChildProvider("resources").getChildProvider("read");

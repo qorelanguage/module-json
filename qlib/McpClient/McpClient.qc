@@ -974,7 +974,7 @@ public class McpClient {
                         continue;
                     }
                     logDebug("Streamable listener error: %s: %s", ex.err, ex.desc);
-                    invokeCallback("onError", ("Streamable listener error: " + ex.desc));
+                    invokeCallback("onError", (("Streamable listener error: " + ex.desc),));
                     break;
                 }
                 if (!evt) {
@@ -988,7 +988,7 @@ public class McpClient {
                     msg = parse_json(evt.data);
                 } catch (hash<ExceptionInfo> ex) {
                     logDebug("Failed to parse streamable SSE message: %s: %s", ex.err, ex.desc);
-                    invokeCallback("onError", ("Failed to parse SSE message: " + ex.desc));
+                    invokeCallback("onError", (("Failed to parse SSE message: " + ex.desc),));
                     continue;
                 }
                 handleStreamableMessage(msg, -1);
@@ -1219,7 +1219,7 @@ public class McpClient {
                 msg = parse_json(evt.data);
             } catch (hash<ExceptionInfo> ex) {
                 logDebug("Failed to parse SSE message: %s: %s", ex.err, ex.desc);
-                invokeCallback("onError", ("Failed to parse SSE message: " + ex.desc));
+                invokeCallback("onError", (("Failed to parse SSE message: " + ex.desc),));
                 continue;
             }
             *hash<auto> response = handleStreamableMessage(msg, request_id);
