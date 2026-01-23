@@ -55,6 +55,8 @@ done
 
 # run MCP integration tests with Python SDK
 echo && echo "-- running MCP integration tests --"
+# Install pip if not available
+apk add --no-cache py3-pip
 # Install MCP SDK (use --break-system-packages for newer pip)
 python3 -m pip install --break-system-packages mcp httpx || python3 -m pip install mcp httpx
 # Run integration tests (test both SSE and Streamable HTTP transports)
