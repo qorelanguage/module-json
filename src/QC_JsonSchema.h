@@ -33,6 +33,10 @@
 #include <vector>
 
 DLLLOCAL QoreClass* initJsonSchemaClass(QoreNamespace& ns);
+DLLLOCAL TypedHashDecl* init_hashdecl_JsonSchemaValidationError(QoreNamespace& ns);
+DLLLOCAL TypedHashDecl* init_hashdecl_JsonSchemaValidationResult(QoreNamespace& ns);
+DLLLOCAL extern const TypedHashDecl* hashdeclJsonSchemaValidationError;
+DLLLOCAL extern const TypedHashDecl* hashdeclJsonSchemaValidationResult;
 
 //! JSON Schema validation error structure
 struct JsonSchemaError {

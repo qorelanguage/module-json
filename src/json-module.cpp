@@ -53,6 +53,11 @@ DLLEXPORT char qore_module_license_str[] = "MIT";
 QoreNamespace JNS("Qore::Json");
 
 QoreStringNode *json_module_init() {
+   hashdeclJwtHeader = init_hashdecl_JwtHeader(JNS);
+   hashdeclJwtClaims = init_hashdecl_JwtClaims(JNS);
+   hashdeclJwtDecodeResult = init_hashdecl_JwtDecodeResult(JNS);
+   hashdeclJsonSchemaValidationError = init_hashdecl_JsonSchemaValidationError(JNS);
+   hashdeclJsonSchemaValidationResult = init_hashdecl_JsonSchemaValidationResult(JNS);
    JNS.addSystemClass(initJsonRpcClientClass(JNS));
    JNS.addSystemClass(initJsonSaxParserClass(JNS));
    JNS.addSystemClass(initJsonSchemaClass(JNS));

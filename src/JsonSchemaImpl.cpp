@@ -23,6 +23,10 @@
 #include "QC_JsonSchema.h"
 
 #include <sstream>
+#include <cassert>
+
+const TypedHashDecl* hashdeclJsonSchemaValidationError = nullptr;
+const TypedHashDecl* hashdeclJsonSchemaValidationResult = nullptr;
 
 JsonSchemaValidator::JsonSchemaValidator(const QoreStringNode* schema_json, ExceptionSink* xsink)
     : valid(false) {
@@ -237,7 +241,10 @@ bool JsonSchemaValidator::validate(QoreValue data, ExceptionSink* xsink) const {
 }
 
 QoreHashNode* JsonSchemaValidator::validateWithErrors(QoreValue data, ExceptionSink* xsink) const {
-    ReferenceHolder<QoreHashNode> result(new QoreHashNode(autoTypeInfo), xsink);
+    assert(hashdeclJsonSchemaValidationError);
+    assert(hashdeclJsonSchemaValidationResult);
+
+    ReferenceHolder<QoreHashNode> result(new QoreHashNode(hashdeclJsonSchemaValidationResult, xsink), xsink);
 
     if (!valid || !schema) {
         xsink->raiseException("JSON-SCHEMA-ERROR", "Schema is not valid");
@@ -251,9 +258,11 @@ QoreHashNode* JsonSchemaValidator::validateWithErrors(QoreValue data, ExceptionS
         }
 
         // Create an error handler that collects all errors
-        ReferenceHolder<QoreListNode> error_list(new QoreListNode(autoTypeInfo), xsink);
+        ReferenceHolder<QoreListNode> error_list(
+            new QoreListNode(hashdeclJsonSchemaValidationError->getTypeInfo()), xsink
+        );
         auto reporter = [&error_list, xsink](const jsoncons::jsonschema::validation_message& msg) {
-            ReferenceHolder<QoreHashNode> err(new QoreHashNode(autoTypeInfo), xsink);
+            ReferenceHolder<QoreHashNode> err(new QoreHashNode(hashdeclJsonSchemaValidationError, xsink), xsink);
             err->setKeyValue("path", new QoreStringNode(msg.instance_location().string()), xsink);
             err->setKeyValue("schema_path", new QoreStringNode(msg.schema_location().string()), xsink);
             err->setKeyValue("keyword", new QoreStringNode(msg.keyword()), xsink);

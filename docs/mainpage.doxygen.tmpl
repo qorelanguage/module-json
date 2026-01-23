@@ -17,6 +17,8 @@
       - @ref Qore::Json::json_pointer_get() "json_pointer_get()"
       - @ref Qore::Json::json_pointer_exists() "json_pointer_exists()"
       - @ref Qore::Json::json_pointer_escape() "json_pointer_escape()"
+      - @ref Qore::Json::jwt_encode() "jwt_encode()"
+      - @ref Qore::Json::jwt_decode() "jwt_decode()"
       - @ref Qore::Json::make_jsonrpc_error() "make_jsonrpc_error()"
       - @ref Qore::Json::make_jsonrpc_request() "make_jsonrpc_request()"
       - @ref Qore::Json::make_jsonrpc_response() "make_jsonrpc_response()"
@@ -172,6 +174,12 @@
     flag is resolved at parse time, a \c "deprecated" warning is raised (assuming this warning is enabled).
 
     @section jsonreleasenotes Release Notes
+
+    @subsection json_v1_11 json Module Version 1.11
+    - added JWT encode/decode support with HS* and RS* algorithms
+    - added JWT hashdecl examples for typed inputs/outputs in the API docs
+    - jwt_decode() now documents BASE64-PARSE-ERROR and JSON-ERROR for invalid tokens
+    - JsonSchema validation result and error lists now use typed hashdecls for type safety
 
     @subsection json_v1_10_1 json Module Version 1.10.1
     - added enums and allowed values metadata for MCP data provider request/response fields

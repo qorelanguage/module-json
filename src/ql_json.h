@@ -37,5 +37,11 @@ DLLEXPORT QoreValue parse_json(const QoreString* str, ExceptionSink* xsink);
 
 DLLLOCAL void init_json_functions(QoreNamespace& ns);
 DLLLOCAL void init_json_constants(QoreNamespace& ns);
+DLLLOCAL TypedHashDecl* init_hashdecl_JwtHeader(QoreNamespace& ns);
+DLLLOCAL TypedHashDecl* init_hashdecl_JwtClaims(QoreNamespace& ns);
+DLLLOCAL TypedHashDecl* init_hashdecl_JwtDecodeResult(QoreNamespace& ns);
+DLLLOCAL extern const TypedHashDecl* hashdeclJwtHeader;
+DLLLOCAL extern const TypedHashDecl* hashdeclJwtClaims;
+DLLLOCAL extern const TypedHashDecl* hashdeclJwtDecodeResult;
 
 #endif // _QORE_QL_JSON_H
