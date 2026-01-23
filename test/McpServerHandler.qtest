@@ -236,7 +236,7 @@ public class McpServerHandlerTest inherits QUnit::Test {
         assertEq(4, h.id);
         assertEq(1, h.result.content.size());
         assertEq("text", h.result.content[0].type);
-        assertEq(False, h.result.content[0].isError);
+        assertTrue(!h.result.isError);  # isError is omitted/false for success
         # verify the response contains the expected data
         hash<auto> toolResult = parse_json(h.result.content[0].text);
         assertEq("success", toolResult.status);
@@ -247,7 +247,7 @@ public class McpServerHandlerTest inherits QUnit::Test {
         h = jsonrpc.call("tools/call", {"name": "echo", "arguments": {"id": 42, "name": "bar"}});
         assertEq(5, h.id);
         assertEq(1, h.result.content.size());
-        assertEq(False, h.result.content[0].isError);
+        assertTrue(!h.result.isError);  # isError is omitted/false for success
         toolResult = parse_json(h.result.content[0].text);
         assertEq(42, toolResult.id);
         assertEq("bar", toolResult.name);
@@ -256,13 +256,13 @@ public class McpServerHandlerTest inherits QUnit::Test {
         h = jsonrpc.call("tools/call", {"name": "nonexistent", "arguments": {}});
         assertEq(6, h.id);
         assertEq(1, h.result.content.size());
-        assertEq(True, h.result.content[0].isError);
+        assertEq(True, h.result.isError);  # isError at result level for errors
 
         # test tools/call - tool that throws error
         h = jsonrpc.call("tools/call", {"name": "error-tool", "arguments": {}});
         assertEq(7, h.id);
         assertEq(1, h.result.content.size());
-        assertEq(True, h.result.content[0].isError);
+        assertEq(True, h.result.isError);  # isError at result level for errors
 
         h = jsonrpc.call("resources/list");
         assertEq(8, h.id);
@@ -440,11 +440,11 @@ public class McpServerHandlerTest inherits QUnit::Test {
         # test tools/call with missing name
         *hash<auto> h = jsonrpc.call("tools/call", {"arguments": {}});
         assertEq(1, h.result.content.size());
-        assertEq(True, h.result.content[0].isError);
+        assertEq(True, h.result.isError);  # isError at result level for errors
 
         # test tools/call with empty name
         h = jsonrpc.call("tools/call", {"name": "", "arguments": {}});
-        assertEq(True, h.result.content[0].isError);
+        assertEq(True, h.result.isError);  # isError at result level for errors
 
         # test resources/read with missing uri (returns JSON-RPC error)
         h = jsonrpc.call("resources/read", {});
@@ -798,7 +798,7 @@ public class McpServerHandlerTest inherits QUnit::Test {
         response = http.post("", body, {"Content-Type": MimeTypeJson}, \info);
         result = parse_json(response);
         assertEq(200, result.id);
-        assertTrue(result.result.content[0].isError, "error-tool should return error content");
+        assertTrue(result.result.isError, "error-tool should return isError at result level");
 
         # Test that server maintains state across requests
         *hash<auto> h1 = jsonrpc.call("tools/list");

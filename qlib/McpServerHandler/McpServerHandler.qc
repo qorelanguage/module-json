@@ -486,10 +486,15 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 return AbstractHttpRequestHandler::makeResponse(404, "Session %y is invalid", session);
             }
         }
-        if (!session.val && cx.url.path =~ /\?/) {
+        if (!session.val() && cx.url.path =~ /\?/) {
             hash<UriQueryInfo> info = parse_uri_query(cx.url.path);
             if (info.params.session.val()) {
                 session = info.params.session;
+                # Validate session from query parameter
+                AutoReadLock al(rwl);
+                if (!smap{session}) {
+                    return AbstractHttpRequestHandler::makeResponse(404, "Session %y is invalid", session);
+                }
             }
         }
         if (session.val()) {
@@ -520,8 +525,17 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         hash<HttpResponseInfo> rv = JsonRpcHandler::handleRequest(cx, hdr, b);
         # return answer on SSE stream if possible
         if (rv.body.val() && session.val() && ((rv."code" / 100) == 2)) {
-            AutoReadLock al(rwl);
-            if (*McpServerConnection sse = smap{session}.ssemap.firstValue()) {
+            # Get SSE connection reference while holding the lock, then release before sending
+            # to avoid deadlock (send() needs a write lock to get next ID)
+            *McpServerConnection sse;
+            {
+                AutoReadLock al(rwl);
+                # Check session still exists (could have been removed by DELETE or timeout)
+                if (smap{session}) {
+                    sse = smap{session}.ssemap.firstValue();
+                }
+            }
+            if (sse) {
                 sse.send(<SseMessageInfo>{
                    "data": rv.body,
                 });
@@ -532,7 +546,20 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     #! Returns the 2024-11-05 JSON-RPC compatible endpoint, if any
+    /** For SSE clients using the 2024-11-05 protocol, this returns the URL path where
+        clients should POST JSON-RPC requests. The default implementation returns "/"
+        since the McpServerHandler handles POST requests at the same path as SSE
+        connections.
+
+        @param cx the HTTP context
+        @param hdr the HTTP headers
+
+        @return the relative URL path for posting JSON-RPC requests, or NOTHING to disable
+        SSE support for 2024-11-05 protocol
+    */
     *string getCompatV1Endpoint(hash<auto> cx, hash<auto> hdr) {
+        # By default, POST endpoint is the same as the SSE endpoint
+        return "/";
     }
 
     int getNextIdForSession(string session) {
@@ -541,8 +568,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     #! Called when a connection is established; the default implementation creates a ServerSentEventConnection object
+    /** SSE connections use the 2024-11-05 protocol version.
+    */
     ServerSentEventConnection getConnectionImpl(Socket sock, hash<auto> cx, hash<auto> hdr, string cid) {
-        return new McpServerConnection(self, sock, cx, hdr, cid);
+        # SSE connections use the 2024-11-05 protocol
+        return new McpServerConnection(self, sock, cx, hdr, cid, McpVersion::V2024_11_05);
     }
 
     string getSessionId(hash<auto> hdr) {
@@ -684,8 +714,8 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 "content": ({
                     "type": "text",
                     "text": make_json(ex{"err", "desc"}),
-                    "isError": True,
                 },),
+                "isError": True,
             };
         }
     }
@@ -938,7 +968,6 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 "content": ({
                     "type": "text",
                     "text": rv.typeCode() == NT_STRING ? rv : make_json(rv),
-                    "isError": False,
                 },),
             };
         } catch (hash<ExceptionInfo> ex) {
