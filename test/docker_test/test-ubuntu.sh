@@ -27,6 +27,8 @@ export MAKE_JOBS=4
 
 # build module and install
 echo && echo "-- building module --"
+cd ${MODULE_SRC_DIR}
+git submodule update --init
 mkdir -p ${MODULE_SRC_DIR}/build
 cd ${MODULE_SRC_DIR}/build
 cmake .. -DCMAKE_BUILD_TYPE=debug -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX}
