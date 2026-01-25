@@ -1174,6 +1174,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         @param method the method that created this task
         @param params the original request parameters
         @param ttl optional TTL in milliseconds (defaults to defaultTaskTtl)
+        @param requestId optional request ID from the original request
         @return the new task info
     */
     private hash<McpTaskInfo> createTask(string sessionId, string method, *hash<auto> params, *int ttl,

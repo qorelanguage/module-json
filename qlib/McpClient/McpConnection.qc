@@ -32,7 +32,7 @@ public namespace McpClient {
     - \c "client_name": the client name to use for initialization (default: "QoreMcpClient")
     - \c "client_version": the client version to use for initialization (default: "1.0")
 
-    @see @ref McpClient::McpClient::constructor() "McpClient::constructor()" for more information on the above options
+    @see @ref McpClient::McpClient "McpClient::constructor()" for more information on the above options
 */
 public class McpConnection inherits ConnectionProvider::HttpBasedConnection {
     public {
@@ -79,7 +79,7 @@ public class McpConnection inherits ConnectionProvider::HttpBasedConnection {
         @param attributes various attributes. See below
         @param options connection options
 
-        See @ref AbstractConnection::constructor() for \c attributes and \c options reference.
+        See \c AbstractConnection::constructor() for \c attributes and \c options reference.
     */
     constructor(string name, string description, string url, hash<auto> attributes = {}, hash<auto> options = {})
             : HttpBasedConnection(name, description, url, attributes, options) {
@@ -114,7 +114,7 @@ public class McpConnection inherits ConnectionProvider::HttpBasedConnection {
     }
 
     #! returns a @ref McpClient object
-    /** @param connect if @ref Qore::True "True", then the connection is returned already initialized
+    /** @param connect if \c True, then the connection is returned already initialized
         @param rtopts this connection type does not accept any runtime options, so this parameter is ignored
 
         @return a @ref McpClient object

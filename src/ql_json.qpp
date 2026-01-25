@@ -1356,7 +1356,7 @@ namespace Qore::Json;
     - json 1.5 added this function as a replacement for deprecated camel-case makeJSONRPCRequestString() and makeFormattedJSONRPCRequestString()
     - json 1.7 added support for JSON-RPC 2.0 and corrections for JSON-RPC 1.0 support
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization
@@ -1388,7 +1388,7 @@ string make_jsonrpc_request(string method_name, auto version, auto id, auto requ
 
     @deprecated use make_jsonrpc_request(); camel-case function names were deprecated in json 1.5
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization
@@ -1420,7 +1420,7 @@ string makeJSONRPCRequestString(string method_name, auto version, auto id, auto 
 
     @deprecated use make_jsonrpc_request(); camel-case function names were deprecated in json 1.5
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization
@@ -1456,7 +1456,7 @@ string makeFormattedJSONRPCRequestString(string method_name, auto version, auto 
     - json 1.5 added this function as a replacement for deprecated camel-case makeJSONRPCResponseString() and makeFormattedJSONRPCResponseString()
     - json 1.7 added support for JSON-RPC 2.0 and corrections for JSON-RPC 1.0 support
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization
@@ -1486,7 +1486,7 @@ string make_jsonrpc_response(auto version, auto id, auto response_msg, *int form
 
     @deprecated use make_jsonrpc_response(); camel-case function names were deprecated in json 1.5
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization
@@ -1516,7 +1516,7 @@ string makeJSONRPCResponseString(auto version, auto id, auto response_msg) [flag
 
     @deprecated use make_jsonrpc_response(); camel-case function names were deprecated in json 1.5
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization
@@ -1552,7 +1552,7 @@ string makeFormattedJSONRPCResponseString(auto version, auto id, auto response_m
     - json 1.5 added this function as a replacement for deprecated camel-case makeJSONRPCErrorString() and makeFormattedJSONRPCErrorString()
     - json 1.7 added support for JSON-RPC 2.0 and corrections for JSON-RPC 1.0 support
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization
@@ -1582,7 +1582,7 @@ string make_jsonrpc_error(auto version, auto id, auto error_msg, *int format) [f
 
     @deprecated use make_jsonrpc_error(); camel-case function names were deprecated in json 1.5
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization
@@ -1612,7 +1612,7 @@ string makeJSONRPCErrorString(auto version, auto id, auto error_msg) [flags=RET_
 
     @deprecated use make_jsonrpc_error(); camel-case function names were deprecated in json 1.5
 
-    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as @ref nothing "NOTHING")
+    @note do not use the \c version argument for strict JSON-RPC 1.0 compatibility (send as \c NOTHING)
 
     @see
     - @ref jsonserialization

@@ -200,7 +200,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         HttpServer::AbstractHttpRequestHandler::handleRequest() for a description of the context hash), the method
         definition as passed in the methods argument to this constructor, and a reference to the arguments in this
         call
-        @param dbg this parameter is set to @ref Qore::True "True", then additional information will be logged
+        @param dbg this parameter is set to \c True, then additional information will be logged
         when errors occur
         @param get_prefix prefix to add to derived methods with GET requests if no "." characters are in the
         path
@@ -231,7 +231,7 @@ public class JsonRpcHandler inherits public AbstractHttpRequestHandler, Logger::
         HttpServer::AbstractHttpRequestHandler::handleRequest() for a description of the context hash), the method
         definition as passed in the methods argument to this constructor, and a reference to the arguments in this
         call
-        @param dbg this parameter is set to @ref Qore::True "True", then additional information will be logged
+        @param dbg this parameter is set to \c True, then additional information will be logged
         when errors occur
         @param get_prefix prefix to add to derived methods with GET requests if no "." characters are in the
         path

@@ -57,8 +57,7 @@ module JsonRpcConnection {
     @section jsonrpcconnectionintro Introduction to the JsonRpcConnection Module
 
     The %JsonRpcConnection module provides an JSON-RPC client connection definition
-    for the @ref connectionproviderintro "ConnectionProvider"
-    module in %Qore.
+    for the ConnectionProvider module in %Qore.
 
     To use this module, use \c "%requires JsonRpcConnection" in your code.
 
@@ -84,7 +83,7 @@ module JsonRpcConnection {
     - new AbstractConnection infrastructure
 
     @subsection jsonrpcconnection_v1_1 JsonRpcConnection v1.1
-    - the @ref JsonRpcConnection::JsonRpcConnection::getConstructorInfo() "JsonRpcConnection::getConstructorInfo()"
+    - the \c JsonRpcConnection::getConstructorInfo()
       method was added to allow connections to be created dynamically, potentially in another process from a network
       call (<a href="https://github.com/qorelanguage/qore/issues/2628">issue 2628</a>)
 
@@ -138,7 +137,7 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
         @param attributes various attributes. See below
         @param options connection options
 
-        See @ref AbstractConnection::constructor() for \c attributes and \c options reference.
+        See \c AbstractConnection::constructor() for \c attributes and \c options reference.
     */
     constructor(string name, string description, string url, hash<auto> attributes = {}, hash<auto> options = {})
             : HttpBasedConnection(name, description, url, attributes, options) {
@@ -173,7 +172,7 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
     }
 
     #! returns a @ref Qore::Json::JsonRpcClient object
-    /** @param connect if @ref Qore::True "True", then the connection is returned already connected
+    /** @param connect if \c True, then the connection is returned already connected
         @param rtopts this connection type does not accept any runtime options, so this parameter is ignored
 
         @return a @ref Qore::Json::JsonRpcClient object

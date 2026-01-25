@@ -62,7 +62,7 @@ public class McpPromptsDataProvider inherits McpClientDataProviderBase {
         return ("list", "get");
     }
 
-    #! Returns the given child provider or @ref nothing if the given child is unknown
+    #! Returns the given child provider or \c NOTHING if the given child is unknown
     private *DataProvider::AbstractDataProvider getChildProviderImpl(string name) {
         switch (name) {
             case "list":

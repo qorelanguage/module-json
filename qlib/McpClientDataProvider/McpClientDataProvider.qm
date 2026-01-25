@@ -48,7 +48,7 @@ module McpClientDataProvider {
 
     @section mcpclientdataproviderintro Introduction to the McpClientDataProvider Module
 
-    The %McpClientDataProvider module provides a @ref dataproviders "data provider" API for
+    The %McpClientDataProvider module provides a data provider API for
     MCP (Model Context Protocol) servers, enabling integration with AI tools, resources, and prompts.
 
     The following classes are provided by this module:

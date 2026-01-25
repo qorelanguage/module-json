@@ -58,7 +58,7 @@ module McpServerHandler {
     @section McpServerHandlerintro Introduction to the McpServerHandler Module
 
     The %McpServerHandler module provides server-side support for the Model Context Protocol (MCP)
-    using the @ref Qore::HttpServer "HttpServer" module. It exposes tools, resources, prompts, and
+    using the HttpServer module. It exposes tools, resources, prompts, and
     notifications via JSON-RPC over HTTP and Server-Sent Events (SSE).
 
     This module implements the full MCP 2025-11-25 protocol specification.
