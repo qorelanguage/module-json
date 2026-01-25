@@ -1,5 +1,7 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
-/** @file QC_JsonSaxParser.qpp JSON SAX Parser implementation */
+/** @file
+    @brief JSON SAX Parser implementation
+*/
 /*
     Qore Programming Language - JSON Module
 

@@ -1,5 +1,7 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
-/** @file QC_JsonSchema.qpp JSON Schema validation class definition */
+/** @file
+    @brief JSON Schema validation class definition
+*/
 /*
     Qore Programming Language - JSON Module
 

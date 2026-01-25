@@ -1,5 +1,7 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
-/** @file JsonRpcClient.qpp defines the JsonRpcClient class */
+/** @file
+    @brief defines the JsonRpcClient class
+*/
 /*
     QC_JsonRpcClient.qpp
 

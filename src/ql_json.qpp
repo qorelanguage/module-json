@@ -1,5 +1,7 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
-/** @file ql_json.qpp defines JSON functions */
+/** @file
+    @brief defines JSON functions
+*/
 /*
     lib/ql_json.qpp
 
