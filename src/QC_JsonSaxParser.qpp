@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <cmath>
 
+/** @cond INTERNAL */
 JsonSaxParser::JsonSaxParser(ExceptionSink* xsink) {
 }
 
@@ -496,6 +497,8 @@ int JsonSaxParser::parseStream(QoreObject* stream, ResolvedCallReferenceNode* ca
 
     return parse(*data, callback, xsink);
 }
+
+/** @endcond */
 
 /** @defgroup json_sax_event_constants JSON SAX Event Type Constants
  */
