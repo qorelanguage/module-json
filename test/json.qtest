@@ -58,6 +58,9 @@ class JsonTest inherits QUnit::Test {
         addTestCase("parse_json UTF-8/Unicode BOM skipping test", \parseJsonBom());
         addTestCase("issue 2655", \issue2655());
         addTestCase("JSON Pointer test", \jsonPointerTest());
+        addTestCase("deeply nested structures", \testDeeplyNested());
+        addTestCase("sandbox depth limit parse_json", \testSandboxDepthLimitParse());
+        addTestCase("sandbox depth limit make_json", \testSandboxDepthLimitMake());
         set_return_value(main());
     }
 
@@ -320,5 +323,122 @@ class JsonTest inherits QUnit::Test {
         # error cases
         assertThrows("JSON-POINTER-ERROR", \json_pointer_get(), (data, "no-leading-slash"));
         assertThrows("JSON-POINTER-ERROR", \json_pointer_exists(), (data, "no-slash"));
+    }
+
+    #! Test parsing and serialization of deeply nested structures
+    /** Without a sandbox, arbitrary nesting depth is allowed.
+        This test verifies that moderate nesting works correctly for both
+        parse_json() and make_json().
+    */
+    testDeeplyNested() {
+        # Test round-trip for moderately nested structures
+        hash<auto> nested50 = makeNestedHash(50);
+        string json50 = make_json(nested50);
+        hash<auto> parsed50 = parse_json(json50);
+        assertEq(nested50, parsed50, "50-level nested structure should round-trip correctly");
+
+        hash<auto> nested100 = makeNestedHash(100);
+        string json100 = make_json(nested100);
+        hash<auto> parsed100 = parse_json(json100);
+        assertEq(nested100, parsed100, "100-level nested structure should round-trip correctly");
+
+        # Test with formatted output (more complex structure)
+        string formatted = make_json(nested50, JGF_ADD_FORMATTING);
+        hash<auto> parsedFormatted = parse_json(formatted);
+        assertEq(nested50, parsedFormatted, "Formatted 50-level nested structure should round-trip correctly");
+
+        # Test deeply nested arrays
+        list<auto> nestedList50 = makeNestedList(50);
+        string listJson = make_json(nestedList50);
+        list<auto> parsedList = parse_json(listJson);
+        assertEq(nestedList50, parsedList, "50-level nested list should round-trip correctly");
+    }
+
+    private static hash<auto> makeNestedHash(int depth) {
+        hash<auto> result = {"value": depth};
+        for (int i = depth - 1; i >= 0; i--) {
+            result = {"nested": result, "level": i};
+        }
+        return result;
+    }
+
+    private static list<auto> makeNestedList(int depth) {
+        list<auto> result = (depth,);
+        for (int i = depth - 1; i >= 0; i--) {
+            result = (result, i);
+        }
+        return result;
+    }
+
+    #! Test that parse_json enforces depth limit when sandbox is active
+    testSandboxDepthLimitParse() {
+        # Create JSON with exactly 256 levels of nesting (should succeed)
+        string json256 = makeNestedJsonString(256);
+        # Create JSON with 257 levels of nesting (should fail)
+        string json257 = makeNestedJsonString(257);
+
+        # Test in sandboxed program
+        string code = "
+%new-style
+%require-types
+%strict-args
+%requires json
+
+auto sub test(string json_str) {
+    return parse_json(json_str);
+}
+";
+        Program p(PO_NEW_STYLE | PO_REQUIRE_TYPES | PO_STRICT_ARGS);
+        p.setSandboxManager(new SandboxManager());
+        p.parse(code, "sandbox-test");
+
+        # 256 levels should succeed
+        auto result = p.callFunction("test", json256);
+        assertTrue(exists result, "256 levels of nesting should be allowed in sandbox");
+
+        # 257 levels should fail with depth error
+        assertThrows("JSON-PARSE-ERROR", "depth", \p.callFunction(), ("test", json257));
+    }
+
+    #! Test that make_json enforces depth limit when sandbox is active
+    testSandboxDepthLimitMake() {
+        # makeNestedHash(n) creates n+1 containers, so use 255 for 256 containers
+        # Create data with exactly 256 levels of nesting (should succeed)
+        hash<auto> data256 = makeNestedHash(255);
+        # Create data with 257 levels of nesting (should fail)
+        hash<auto> data257 = makeNestedHash(256);
+
+        # Test in sandboxed program
+        string code = "
+%new-style
+%require-types
+%strict-args
+%requires json
+
+string sub test(auto data) {
+    return make_json(data);
+}
+";
+        Program p(PO_NEW_STYLE | PO_REQUIRE_TYPES | PO_STRICT_ARGS);
+        p.setSandboxManager(new SandboxManager());
+        p.parse(code, "sandbox-test");
+
+        # 256 levels should succeed
+        auto result = p.callFunction("test", data256);
+        assertTrue(exists result, "256 levels of nesting should be allowed in sandbox for make_json");
+
+        # 257 levels should fail with depth error
+        assertThrows("JSON-SERIALIZATION-ERROR", "depth", \p.callFunction(), ("test", data257));
+    }
+
+    #! Helper to create deeply nested JSON string
+    private static string makeNestedJsonString(int depth) {
+        string open = "";
+        string close = "";
+        for (int i = 0; i < depth; i++) {
+            open += "{\"a\":";
+            close += "}";
+        }
+        return open + "1" + close;
     }
 }

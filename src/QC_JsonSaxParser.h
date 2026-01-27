@@ -55,13 +55,13 @@ public:
     DLLLOCAL int parse(const QoreStringNode* json_str, ResolvedCallReferenceNode* callback, ExceptionSink* xsink);
 
     //! Parse JSON from an input stream with SAX callbacks
-    /** @param stream the input stream to read from
+    /** @param is the input stream to read from
         @param callback the Qore callback code to call for each event
         @param encoding the character encoding (default UTF-8)
         @param xsink exception sink
         @return 0 on success, -1 on error
     */
-    DLLLOCAL int parseStream(QoreObject* stream, ResolvedCallReferenceNode* callback,
+    DLLLOCAL int parseStream(InputStream* is, ResolvedCallReferenceNode* callback,
         const QoreEncoding* encoding, ExceptionSink* xsink);
 
 private:
@@ -71,10 +71,18 @@ private:
         int line_number;
         int column;
         int depth;
+        int iteration;              //!< counter for interrupt checks
+        QoreSandboxManager* sm;     //!< cached sandbox manager (nullptr = no sandbox)
         ResolvedCallReferenceNode* callback;
         ExceptionSink* xsink;
         const QoreEncoding* encoding;
     };
+
+    //! Check sandbox depth limit - no-op if no sandbox
+    DLLLOCAL bool checkSandboxLimits(ParseState& state);
+
+    //! Check for sandbox interrupt (periodic) - no-op if no sandbox
+    DLLLOCAL bool checkInterrupt(ParseState& state);
 
     //! Emit a SAX event to the callback
     DLLLOCAL bool emitEvent(ParseState& state, int type, const QoreStringNode* key, QoreValue value);

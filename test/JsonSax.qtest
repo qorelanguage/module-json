@@ -12,6 +12,38 @@
 
 %exec-class JsonSaxTest
 
+#! Input stream that returns data in small fixed-size chunks
+/** Used to test streaming parser's ability to handle tokens split across chunks */
+class ChunkedInputStream inherits InputStream {
+    private {
+        string data;
+        int pos = 0;
+        int chunk_size;
+    }
+
+    constructor(string d, int size = 4) {
+        data = d;
+        chunk_size = size;
+    }
+
+    int peek() {
+        if (pos >= data.size()) {
+            return -1;
+        }
+        return ord(data[pos]);
+    }
+
+    *binary read(int limit) {
+        if (pos >= data.size()) {
+            return NOTHING;
+        }
+        int to_read = min(limit, chunk_size, data.size() - pos);
+        string chunk = data.substr(pos, to_read);
+        pos += to_read;
+        return binary(chunk);
+    }
+}
+
 class JsonSaxTest inherits QUnit::Test {
     public {}
 
@@ -31,10 +63,12 @@ class JsonSaxTest inherits QUnit::Test {
         addTestCase("SAX parser escaped strings", \testEscapedStrings());
         addTestCase("SAX parser empty input", \testEmptyInput());
         addTestCase("SAX parser error handling", \testErrorHandling());
-        # TODO: Fix parseStream implementation
-        # addTestCase("SAX parser stream input", \testStreamInput());
+        addTestCase("SAX parser stream input", \testStreamInput());
+        addTestCase("SAX parser chunked stream", \testChunkedStream());
         addTestCase("SAX parser large data", \testLargeData());
         addTestCase("SAX event constants", \testEventConstants());
+        addTestCase("Depth limit consistency DOM vs SAX", \testDepthLimitConsistency());
+        addTestCase("SAX sandbox depth limit", \testSaxSandboxDepthLimit());
         set_return_value(main());
     }
 
@@ -175,6 +209,67 @@ class JsonSaxTest inherits QUnit::Test {
         assertEq(JsonSaxObjectStart, events[0].type);
     }
 
+    #! Test streaming with small chunks that split tokens
+    /** This test verifies that the parser correctly handles tokens
+        split across chunk boundaries, which is essential for true
+        streaming behavior.
+    */
+    testChunkedStream() {
+        # Test data with various token types
+        string json = '{"name": "Alice Johnson", "age": 12345, "active": true, "data": null}';
+
+        # Use a custom stream that returns small chunks (simulates slow network)
+        ChunkedInputStream cis(json, 3);  # 3 bytes per chunk
+
+        JsonSaxParser parser();
+        list<hash<auto>> events = ();
+        parser.parseStream(cis, sub(hash<auto> e) { push events, e; });
+
+        # Verify all events were received correctly
+        assertEq(JsonSaxObjectStart, events[0].type, "Object start");
+
+        # Find key events
+        list<string> found_keys = ();
+        list<auto> found_values = ();
+        foreach hash<auto> e in (events) {
+            if (e.type == JsonSaxKey) {
+                push found_keys, e.value;
+            } else if (e.type == JsonSaxString || e.type == JsonSaxNumber ||
+                       e.type == JsonSaxBoolean || e.type == JsonSaxNull) {
+                push found_values, e.value;
+            }
+        }
+
+        assertEq(("name", "age", "active", "data"), found_keys, "Keys should be parsed correctly");
+        assertEq("Alice Johnson", found_values[0], "String value should be complete");
+        assertEq(12345, found_values[1], "Number value should be complete");
+        assertEq(True, found_values[2], "Boolean should be parsed");
+
+        # Test with nested structure
+        string nested = '{"arr": [1, 2, 3], "obj": {"x": "test"}}';
+        ChunkedInputStream cis2(nested, 2);  # 2 bytes per chunk
+        events = ();
+        parser.parseStream(cis2, sub(hash<auto> e) { push events, e; });
+
+        # Count structure events
+        int array_starts = 0;
+        int array_ends = 0;
+        int obj_starts = 0;
+        int obj_ends = 0;
+        foreach hash<auto> e in (events) {
+            switch (e.type) {
+                case JsonSaxArrayStart: array_starts++; break;
+                case JsonSaxArrayEnd: array_ends++; break;
+                case JsonSaxObjectStart: obj_starts++; break;
+                case JsonSaxObjectEnd: obj_ends++; break;
+            }
+        }
+        assertEq(1, array_starts, "One array");
+        assertEq(1, array_ends, "Array closed");
+        assertEq(2, obj_starts, "Two objects");
+        assertEq(2, obj_ends, "Objects closed");
+    }
+
     testLargeData() {
         # Create a large JSON array
         list<hash<auto>> items = ();
@@ -234,5 +329,95 @@ class JsonSaxTest inherits QUnit::Test {
             assertFalse(seen{key} ?? False, sprintf("Constant value %d should be unique", c));
             seen{key} = True;
         }
+    }
+
+    #! Test that SAX and DOM parsers have consistent depth limit behavior
+    /** Both parse_json() and JsonSaxParser should allow the same maximum nesting depth.
+        This test ensures no off-by-one errors between the two implementations.
+
+        Note: The sandbox depth limit (256) is only enforced when a sandbox manager is
+        active. Without a sandbox, unlimited depth is allowed. This test verifies
+        basic parsing behavior works for moderately nested structures.
+    */
+    testDepthLimitConsistency() {
+        # Test moderate nesting works for both
+        string json50 = makeNestedJson(50);
+
+        # DOM parser should handle it
+        auto dom_result = parse_json(json50);
+        assertTrue(exists dom_result, "DOM parser should handle 50 levels of nesting");
+
+        # SAX parser should handle it
+        JsonSaxParser parser();
+        int sax_max_depth = 0;
+        parser.parse(json50, sub(hash<auto> e) {
+            if (e.depth > sax_max_depth) {
+                sax_max_depth = e.depth;
+            }
+        });
+        assertEq(50, sax_max_depth, "SAX parser should report max depth of 50");
+
+        # Test that both parsers can handle the same structure
+        # (without sandbox, both should succeed for any depth)
+        string json100 = makeNestedJson(100);
+
+        dom_result = parse_json(json100);
+        assertTrue(exists dom_result, "DOM parser should handle 100 levels of nesting");
+
+        sax_max_depth = 0;
+        parser.parse(json100, sub(hash<auto> e) {
+            if (e.depth > sax_max_depth) {
+                sax_max_depth = e.depth;
+            }
+        });
+        assertEq(100, sax_max_depth, "SAX parser should report max depth of 100");
+    }
+
+    #! Helper to create deeply nested JSON string
+    private static string makeNestedJson(int depth) {
+        string open = "";
+        string close = "";
+        for (int i = 0; i < depth; i++) {
+            open += "{\"a\":";
+            close += "}";
+        }
+        return open + "1" + close;
+    }
+
+    #! Test that JsonSaxParser enforces depth limit when sandbox is active
+    testSaxSandboxDepthLimit() {
+        # Create JSON with exactly 256 levels of nesting (should succeed)
+        string json256 = makeNestedJson(256);
+        # Create JSON with 257 levels of nesting (should fail)
+        string json257 = makeNestedJson(257);
+
+        # Test in sandboxed program
+        string code = "
+%new-style
+%require-types
+%strict-args
+%requires json
+
+int sub test(string json_str) {
+    JsonSaxParser parser();
+    int max_depth = 0;
+    parser.parse(json_str, sub(hash<auto> e) {
+        if (e.depth > max_depth) {
+            max_depth = e.depth;
+        }
+    });
+    return max_depth;
+}
+";
+        Program p(PO_NEW_STYLE | PO_REQUIRE_TYPES | PO_STRICT_ARGS);
+        p.setSandboxManager(new SandboxManager());
+        p.parse(code, "sandbox-test");
+
+        # 256 levels should succeed
+        auto result = p.callFunction("test", json256);
+        assertEq(256, result, "256 levels of nesting should be allowed in sandbox for SAX parser");
+
+        # 257 levels should fail with depth error
+        assertThrows("JSON-SAX-PARSE-ERROR", "depth", \p.callFunction(), ("test", json257));
     }
 }

@@ -487,10 +487,18 @@ static int get_json_string_token(QoreString& str, const char*& buf, int& line_nu
 }
 
 static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEncoding* enc, bool& empty,
-        ExceptionSink* xsink);
+        int depth, QoreSandboxManager* sm, ExceptionSink* xsink);
 
 // '{' has already been read and the buffer is set to this character
-static QoreHashNode* get_json_object(const char*& buf, int& line_number, const QoreEncoding* enc, ExceptionSink* xsink) {
+static QoreHashNode* get_json_object(const char*& buf, int& line_number, const QoreEncoding* enc,
+        int depth, QoreSandboxManager* sm, ExceptionSink* xsink) {
+    // Check sandbox-conditional depth limit
+    if (sm && depth >= JSON_MAX_NESTING_DEPTH) {
+        xsink->raiseException("JSON-PARSE-ERROR",
+            "maximum nesting depth (%d) exceeded at line %d",
+            JSON_MAX_NESTING_DEPTH, line_number);
+        return nullptr;
+    }
     // increment buffer to first character of object description
     buf++;
     ReferenceHolder<QoreHashNode> h(new QoreHashNode(autoTypeInfo), xsink);
@@ -535,7 +543,7 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
 
         // get value
         bool empty = false;
-        QoreValue val = get_json_value(buf, line_number, enc, empty, xsink);
+        QoreValue val = get_json_value(buf, line_number, enc, empty, depth + 1, sm, xsink);
         if (*xsink) {
             break;
         }
@@ -566,7 +574,14 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
 
 // '[' has already been read and the buffer is set to this character
 static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, const QoreEncoding* enc,
-        ExceptionSink* xsink) {
+        int depth, QoreSandboxManager* sm, ExceptionSink* xsink) {
+    // Check sandbox-conditional depth limit
+    if (sm && depth >= JSON_MAX_NESTING_DEPTH) {
+        xsink->raiseException("JSON-PARSE-ERROR",
+            "maximum nesting depth (%d) exceeded at line %d",
+            JSON_MAX_NESTING_DEPTH, line_number);
+        return nullptr;
+    }
     // increment buffer to first character of array description
     ++buf;
     ReferenceHolder<QoreListNode> l(new QoreListNode(autoTypeInfo), xsink);
@@ -580,7 +595,7 @@ static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, cons
     while (*buf) {
         //printd(5, "before get_json_value() buf=%s\n", buf);
         bool empty = false;
-        QoreValue val = get_json_value(buf, line_number, enc, empty, xsink);
+        QoreValue val = get_json_value(buf, line_number, enc, empty, depth + 1, sm, xsink);
         if (*xsink) {
             break;
         }
@@ -612,7 +627,7 @@ static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, cons
 }
 
 static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEncoding* enc, bool& empty,
-        ExceptionSink* xsink) {
+        int depth, QoreSandboxManager* sm, ExceptionSink* xsink) {
     assert(!empty);
     // skip whitespace
     skip_whitespace(buf, line_number);
@@ -623,11 +638,11 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
 
     // can expect: 't'rue, 'f'alse, '{', '[', '"'string...", integer, '.'digits
     if (*buf == '{') {
-        return get_json_object(buf, line_number, enc, xsink);
+        return get_json_object(buf, line_number, enc, depth, sm, xsink);
     }
 
     if (*buf == '[') {
-        return get_json_array(buf, line_number, enc, xsink);
+        return get_json_array(buf, line_number, enc, depth, sm, xsink);
     }
 
     if (*buf == '"') {
@@ -713,10 +728,11 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
     return QoreValue();
 }
 
-static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink* xsink);
+static int do_json_value(QoreString* str, QoreValue v, int format, int depth,
+        QoreSandboxManager* sm, ExceptionSink* xsink);
 
 static int do_json_list(ExceptionSink* xsink, QoreString* str, const QoreListNode* l, int format,
-        unsigned offset = 0) {
+        int depth, QoreSandboxManager* sm, unsigned offset = 0) {
     assert(l);
     str->concat("[");
     ConstListIterator li(l);
@@ -726,7 +742,7 @@ static int do_json_list(ExceptionSink* xsink, QoreString* str, const QoreListNod
             continue;
         }
         tmp.clear();
-        if (do_json_value(&tmp, li.getValue(), format < 0 ? format : format + 2, xsink)) {
+        if (do_json_value(&tmp, li.getValue(), format < 0 ? format : format + 2, depth + 1, sm, xsink)) {
             return -1;
         }
         if (format >= 0) {
@@ -796,7 +812,8 @@ static int do_json_string(ExceptionSink* xsink, QoreString* str, const QoreStrin
    return do_json_string_intern(xsink, str, t->c_str(), format);
 }
 
-static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink* xsink) {
+static int do_json_value(QoreString* str, QoreValue v, int format, int depth,
+        QoreSandboxManager* sm, ExceptionSink* xsink) {
     if (v.isNullOrNothing()) {
         str->concat("null");
         return 0;
@@ -804,17 +821,32 @@ static int do_json_value(QoreString* str, QoreValue v, int format, ExceptionSink
 
     qore_type_t vtype = v.getType();
 
-    if (vtype == NT_LIST)
-        return do_json_list(xsink, str, v.get<const QoreListNode>(), format);
+    if (vtype == NT_LIST) {
+        // Check sandbox-conditional depth limit (containers only)
+        if (sm && depth >= JSON_MAX_NESTING_DEPTH) {
+            xsink->raiseException("JSON-SERIALIZATION-ERROR",
+                "maximum nesting depth (%d) exceeded during serialization",
+                JSON_MAX_NESTING_DEPTH);
+            return -1;
+        }
+        return do_json_list(xsink, str, v.get<const QoreListNode>(), format, depth, sm);
+    }
 
     if (vtype == NT_HASH) {
+        // Check sandbox-conditional depth limit (containers only)
+        if (sm && depth >= JSON_MAX_NESTING_DEPTH) {
+            xsink->raiseException("JSON-SERIALIZATION-ERROR",
+                "maximum nesting depth (%d) exceeded during serialization",
+                JSON_MAX_NESTING_DEPTH);
+            return -1;
+        }
         const QoreHashNode* h = v.get<const QoreHashNode>();
         str->concat("{");
         ConstHashIterator hi(h);
         QoreString tmp(str->getEncoding());
         while (hi.next()) {
             tmp.clear();
-            if (do_json_value(&tmp, hi.get(), format == -1 ? format : format + 2, xsink)) {
+            if (do_json_value(&tmp, hi.get(), format == -1 ? format : format + 2, depth + 1, sm, xsink)) {
                 return -1;
             }
             if (format != -1) {
@@ -984,19 +1016,22 @@ QoreStringNode* make_jsonrpc_request_args(const std::string& version, const Qore
     const QoreValue p1 = get_param_value(args, offset + 1);
     QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
+    // Get sandbox manager for depth checks
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
+
     // write version key first
     if (version == "1.0") {
         str->concat("{\"method\": ");
     } else {
         str->sprintf("{\"%s\":\"%s\",\"method\":", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
     }
-    if (do_json_value(*str, p0, -1, xsink)) {
+    if (do_json_value(*str, p0, -1, 0, sm, xsink)) {
         return 0;
     }
 
     if (!id.isNullOrNothing()) {
         str->concat(",\"id\":");
-        if (do_json_value(*str, id, -1, xsink)) {
+        if (do_json_value(*str, id, -1, 0, sm, xsink)) {
             return 0;
         }
     }
@@ -1005,7 +1040,7 @@ QoreStringNode* make_jsonrpc_request_args(const std::string& version, const Qore
         // params key should come last
         str->concat(",\"params\":");
         if (!p1.isNullOrNothing()) {
-            if (do_json_value(*str, p1, -1, xsink)) {
+            if (do_json_value(*str, p1, -1, 0, sm, xsink)) {
                 return 0;
             }
         } else {
@@ -1022,19 +1057,22 @@ QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreListN
 
     QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
+    // Get sandbox manager for depth checks
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
+
     // write version key first
     if (version == "1.0") {
         str->concat("{\"method\":");
     } else {
         str->sprintf("{\"%s\":\"%s\",\"method\":", version[0] == '1' ? "version" : "jsonrpc", version.c_str());
     }
-    if (do_json_value(*str, p0, -1, xsink)) {
+    if (do_json_value(*str, p0, -1, 0, sm, xsink)) {
         return 0;
     }
 
     if (!id.isNullOrNothing()) {
         str->concat(",\"id\":");
-        if (do_json_value(*str, id, -1, xsink)) {
+        if (do_json_value(*str, id, -1, 0, sm, xsink)) {
             return 0;
         }
     }
@@ -1044,7 +1082,7 @@ QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreListN
         // params key should come last
         str->concat(",\"params\":");
         if (has_args) {
-            if (do_json_list(xsink, *str, args, 0, offset + 1)) {
+            if (do_json_list(xsink, *str, args, 0, 0, sm, offset + 1)) {
                 return 0;
             }
         } else {
@@ -1068,9 +1106,12 @@ QoreValue parse_json(const QoreString* str, ExceptionSink* xsink) {
         }
     }
 
+    // Get sandbox manager for depth checks
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
+
     // ignore empty values; return NOTHIN in this case
     bool empty = false;
-    ValueHolder rv(get_json_value(buf, line_number, str->getEncoding(), empty, xsink), xsink);
+    ValueHolder rv(get_json_value(buf, line_number, str->getEncoding(), empty, 0, sm, xsink), xsink);
     if (rv && *buf) {
         // check for excess text after JSON data
         skip_whitespace(buf, line_number);
@@ -1087,6 +1128,9 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, c
         const char* version, QoreValue id, QoreValue request_msg, int format, ExceptionSink* xsink) {
     QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
+    // Get sandbox manager for depth checks
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
+
     bool fmt = format & JGF_ADD_FORMATTING;
 
     // write version key first if present
@@ -1101,13 +1145,13 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, c
     }
 
     str->concat("\"method\":");
-    if (do_json_value(*str, method_name, fmt ? 2 : -1, xsink)) {
+    if (do_json_value(*str, method_name, fmt ? 2 : -1, 0, sm, xsink)) {
         return nullptr;
     }
 
     if (!id.isNullOrNothing()) {
         str->sprintf(",%s\"id\":", fmt ? "\n  " : "");
-        if (do_json_value(*str, id, fmt ? 2 : -1, xsink)) {
+        if (do_json_value(*str, id, fmt ? 2 : -1, 0, sm, xsink)) {
             return nullptr;
         }
     }
@@ -1115,7 +1159,7 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, c
     if (!request_msg.isNullOrNothing() || (strcmp(version, "2.0"))) {
         // params key should come last
         str->sprintf(",%s\"params\":", fmt ? "\n  " : "");
-        if (do_json_value(*str, request_msg, fmt ? 2 : -1, xsink)) {
+        if (do_json_value(*str, request_msg, fmt ? 2 : -1, 0, sm, xsink)) {
             return nullptr;
         }
     }
@@ -1128,6 +1172,9 @@ static QoreStringNode* make_jsonrpc_request(const QoreStringNode* method_name, c
 static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, const char* version_name, const char* version,
         QoreValue id, QoreValue msg, const char* type = "result", int format = 0) {
     QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
+
+    // Get sandbox manager for depth checks
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
 
     bool fmt = format & JGF_ADD_FORMATTING;
 
@@ -1144,7 +1191,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, const char* v
 
     if (!id.isNullOrNothing()) {
         str->concat("\"id\":");
-        if (do_json_value(*str, id, fmt ? 2 : -1, xsink)) {
+        if (do_json_value(*str, id, fmt ? 2 : -1, 0, sm, xsink)) {
             return nullptr;
         }
         str->concat(fmt ? ",\n  " : ",");
@@ -1152,7 +1199,7 @@ static QoreStringNode* make_jsonrpc_response(ExceptionSink* xsink, const char* v
 
     // result/error key should come last
     str->sprintf("\"%s\":", type);
-    if (do_json_value(*str, msg, fmt ? 2 : -1, xsink)) {
+    if (do_json_value(*str, msg, fmt ? 2 : -1, 0, sm, xsink)) {
         return nullptr;
     }
 
@@ -1176,6 +1223,9 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
 
     QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
+    // Get sandbox manager for depth checks
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
+
     bool fmt = format & JGF_ADD_FORMATTING;
 
     str->concat(fmt ? "{\n  \"version\": \"1.1\",\n  " : "{\"version\":\"1.1\",");
@@ -1183,7 +1233,7 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
     // get optional "id" value
     if (!id.isNullOrNothing()) {
         str->concat(fmt ? "\"id\": " : "\"id\":");
-        if (do_json_value(*str, id, fmt ? 2 : -1, xsink)) {
+        if (do_json_value(*str, id, fmt ? 2 : -1, 0, sm, xsink)) {
             return nullptr;
         }
         str->concat(fmt ? ",\n  " : ",");
@@ -1205,7 +1255,7 @@ static QoreStringNode* make_jsonrpc11_error(int64 code, const QoreStringNode* er
     // get optional "error" value
     if (!error_msg.isNullOrNothing()) {
         str->sprintf(",%s\"error\":", fmt ? "\n   " : "");
-        if (do_json_value(*str, error_msg, fmt ? 4 : -1, xsink)) {
+        if (do_json_value(*str, error_msg, fmt ? 4 : -1, 0, sm, xsink)) {
             return nullptr;
         }
     }
@@ -1254,7 +1304,8 @@ namespace Qore::Json;
 string make_json(auto data, *int format, *string encoding) [flags=RET_VALUE_ONLY] {
    const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
-   return do_json_value(*str, data, format & JGF_ADD_FORMATTING ? 0 : -1, xsink) ? 0 : str.release();
+   QoreSandboxManager* sm = runtime_get_sandbox_manager();
+   return do_json_value(*str, data, format & JGF_ADD_FORMATTING ? 0 : -1, 0, sm, xsink) ? 0 : str.release();
 }
 
 //! Serializes qore data into a JSON string, without any line breaks
@@ -1273,7 +1324,8 @@ string make_json(auto data, *int format, *string encoding) [flags=RET_VALUE_ONLY
 string makeJSONString(auto data, *string encoding) [flags=RET_VALUE_ONLY,DEPRECATED] {
    const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
-   return do_json_value(*str, data, -1, xsink) ? 0 : str.release();
+   QoreSandboxManager* sm = runtime_get_sandbox_manager();
+   return do_json_value(*str, data, -1, 0, sm, xsink) ? 0 : str.release();
 }
 
 //! Serializes qore data into a JSON string, formatted with line breaks for easier readability
@@ -1292,7 +1344,8 @@ string makeJSONString(auto data, *string encoding) [flags=RET_VALUE_ONLY,DEPRECA
 string makeFormattedJSONString(auto data, *string encoding) [flags=RET_VALUE_ONLY,DEPRECATED] {
     const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
     QoreStringNodeHolder str(new QoreStringNode(qe));
-    return do_json_value(*str, data, 0, xsink) ? 0 : str.release();
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
+    return do_json_value(*str, data, 0, 0, sm, xsink) ? 0 : str.release();
 }
 
 //! Parses a JSON string and returns the corresponding %Qore data structure
@@ -1988,12 +2041,15 @@ string jwt_encode(hash<auto> claims, string key, *string alg, *hash<auto> header
         return 0;
     }
 
+    // Get sandbox manager for depth checks
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
+
     QoreStringNodeHolder header_json(new QoreStringNode(QCS_UTF8));
-    if (do_json_value(*header_json, *header_hash, -1, xsink)) {
+    if (do_json_value(*header_json, *header_hash, -1, 0, sm, xsink)) {
         return 0;
     }
     QoreStringNodeHolder payload_json(new QoreStringNode(QCS_UTF8));
-    if (do_json_value(*payload_json, *payload_hash, -1, xsink)) {
+    if (do_json_value(*payload_json, *payload_hash, -1, 0, sm, xsink)) {
         return 0;
     }
 
