@@ -26,6 +26,9 @@
 #include "QC_JsonSchema.h"
 #include "ql_json.h"
 
+#include <sys/stat.h>
+#include <cerrno>
+
 /** @defgroup json_schema_constants JSON Schema Constants
     JSON Schema related constants
 */
@@ -287,20 +290,43 @@ JsonSchema validator = JsonSchema::load("/path/to/schema.json");
     @throw JSON-SCHEMA-ERROR if the schema cannot be loaded or is invalid
 */
 static JsonSchema JsonSchema::load(string location) [flags=RET_VALUE_ONLY] {
-    // Read the file content
     SimpleRefHolder<QoreStringNode> content;
     if (location->find("://") != -1) {
-        // URL - not implemented in this basic version
         xsink->raiseException("JSON-SCHEMA-ERROR", "URL loading not yet implemented; use file paths");
         return QoreValue();
     }
 
-    // Read file
+    // Check sandbox restrictions (only when sandbox active)
+    QoreSandboxManager* sm = runtime_get_sandbox_manager();
+    if (sm) {
+        // Check for interrupt
+        if (qore_check_io_interrupt(xsink, "loading JSON schema file")) {
+            return QoreValue();
+        }
+
+        // Check filesystem sandbox permissions
+        if (!sm->checkFilesystemAccess(location->c_str(), QSEC_READ, xsink)) {
+            return QoreValue();  // Exception already raised
+        }
+    }
+
+    // Open file first
     QoreFile f;
     if (f.open(location->c_str(), O_RDONLY, 0, QCS_DEFAULT)) {
         xsink->raiseException("JSON-SCHEMA-ERROR", "Cannot open schema file '%s'",
             location->c_str());
         return QoreValue();
+    }
+
+    // Check file size limit using fstat() on opened file to avoid TOCTOU
+    if (sm) {
+        struct stat st;
+        if (fstat(f.getFD(), &st) == 0 && st.st_size > JSON_MAX_SCHEMA_FILE_SIZE) {
+            xsink->raiseException("JSON-SCHEMA-ERROR",
+                "Schema file '%s' size (%lld bytes) exceeds sandbox maximum (%d bytes)",
+                location->c_str(), (long long)st.st_size, JSON_MAX_SCHEMA_FILE_SIZE);
+            return QoreValue();
+        }
     }
 
     content = f.read(-1, xsink);

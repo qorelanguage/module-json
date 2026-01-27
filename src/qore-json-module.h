@@ -27,5 +27,17 @@
 #include "../config.h"
 #endif
 #include <qore/Qore.h>
+#include <qore/InputStream.h>
+#include <qore/OutputStream.h>
+#include <qore/QoreSandboxManager.h>
+
+//! Maximum file size for JsonSchema::load() (sandbox only) - 10MB
+#define JSON_MAX_SCHEMA_FILE_SIZE (10 * 1024 * 1024)
+
+//! Maximum JSON nesting depth (sandbox only)
+#define JSON_MAX_NESTING_DEPTH 256
+
+//! Interrupt check interval (iterations between checks)
+#define JSON_INTERRUPT_CHECK_INTERVAL 100
 
 #endif

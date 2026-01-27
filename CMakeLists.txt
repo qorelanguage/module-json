@@ -37,6 +37,7 @@ set(QPP_SRC
     src/QC_JsonRpcClient.qpp
     src/QC_JsonSaxParser.qpp
     src/QC_JsonSchema.qpp
+    src/QC_JsonStreamWriter.qpp
     src/ql_json.qpp
 )
 

@@ -35,6 +35,34 @@ JsonSaxParser::JsonSaxParser(ExceptionSink* xsink) {
 JsonSaxParser::~JsonSaxParser() {
 }
 
+bool JsonSaxParser::checkSandboxLimits(ParseState& state) {
+    // Fast path: no sandbox = no restrictions
+    if (!state.sm) {
+        return true;
+    }
+
+    // Check depth limit (allow up to JSON_MAX_NESTING_DEPTH, reject anything above)
+    if (state.depth > JSON_MAX_NESTING_DEPTH) {
+        state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+            "maximum nesting depth (%d) exceeded at line %d, column %d",
+            JSON_MAX_NESTING_DEPTH, state.line_number, state.column);
+        return false;
+    }
+    return true;
+}
+
+bool JsonSaxParser::checkInterrupt(ParseState& state) {
+    if (!state.sm) {
+        return true;
+    }
+    if ((++state.iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
+        if (qore_check_io_interrupt(state.xsink, "parsing JSON")) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void JsonSaxParser::skipWhitespace(ParseState& state) {
     while (*state.buf) {
         if (isblank(*state.buf) || (*state.buf) == '\r') {
@@ -176,6 +204,11 @@ bool JsonSaxParser::parseObject(ParseState& state) {
     state.column++;
     state.depth++;
 
+    // Check sandbox depth limit
+    if (!checkSandboxLimits(state)) {
+        return false;
+    }
+
     if (!emitEvent(state, JSON_SAX_OBJECT_START, nullptr, QoreValue())) {
         return false;
     }
@@ -255,6 +288,11 @@ bool JsonSaxParser::parseArray(ParseState& state) {
     state.column++;
     state.depth++;
 
+    // Check sandbox depth limit
+    if (!checkSandboxLimits(state)) {
+        return false;
+    }
+
     if (!emitEvent(state, JSON_SAX_ARRAY_START, nullptr, QoreValue())) {
         return false;
     }
@@ -299,6 +337,9 @@ bool JsonSaxParser::parseArray(ParseState& state) {
 }
 
 bool JsonSaxParser::parseValue(ParseState& state) {
+    if (!checkInterrupt(state)) {
+        return false;
+    }
     skipWhitespace(state);
 
     if (!*state.buf) {
@@ -425,6 +466,8 @@ int JsonSaxParser::parse(const QoreStringNode* json_str, ResolvedCallReferenceNo
     state.line_number = 1;
     state.column = 1;
     state.depth = 0;
+    state.iteration = 0;
+    state.sm = runtime_get_sandbox_manager();
     state.callback = callback;
     state.xsink = xsink;
     state.encoding = json_str->getEncoding();
@@ -460,41 +503,23 @@ int JsonSaxParser::parse(const QoreStringNode* json_str, ResolvedCallReferenceNo
     return 0;
 }
 
-int JsonSaxParser::parseStream(QoreObject* stream, ResolvedCallReferenceNode* callback,
+int JsonSaxParser::parseStream(InputStream* is, ResolvedCallReferenceNode* callback,
     const QoreEncoding* encoding, ExceptionSink* xsink) {
     // Read entire stream into string for simplicity
     // A more sophisticated implementation could read in chunks
     SimpleRefHolder<QoreStringNode> data(new QoreStringNode(encoding));
 
-    // Get read method
     while (true) {
-        ReferenceHolder<QoreListNode> args(new QoreListNode(autoTypeInfo), xsink);
-        args->push(8192, xsink);  // Read 8KB at a time
-
-        ValueHolder rv(stream->evalMethod("read", *args, xsink), xsink);
+        SimpleRefHolder<BinaryNode> bin(is->readHelper(8192, xsink));
         if (*xsink) {
             return -1;
         }
 
-        if (rv->isNullOrNothing()) {
+        if (!bin || !bin->size()) {
             break;
         }
 
-        if (rv->getType() == NT_BINARY) {
-            const BinaryNode* bin = rv->get<const BinaryNode>();
-            if (!bin->size()) {
-                break;
-            }
-            data->concat(reinterpret_cast<const char*>(bin->getPtr()), bin->size());
-        } else if (rv->getType() == NT_STRING) {
-            const QoreStringNode* str = rv->get<const QoreStringNode>();
-            if (str->empty()) {
-                break;
-            }
-            data->concat(str, xsink);
-        } else {
-            break;
-        }
+        data->concat(reinterpret_cast<const char*>(bin->getPtr()), bin->size());
     }
 
     return parse(*data, callback, xsink);
@@ -626,8 +651,9 @@ nothing JsonSaxParser::parse(string json_str, code callback) {
 
     @throw JSON-SAX-PARSE-ERROR if there is a parsing error
 */
-nothing JsonSaxParser::parseStream(InputStream[QoreObject] stream, code callback, *string encoding) {
+nothing JsonSaxParser::parseStream(Qore::InputStream[InputStream] is, code callback, *string encoding) {
+    ReferenceHolder<InputStream> is_holder(is, xsink);
     const QoreEncoding* enc = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
     ReferenceHolder<ResolvedCallReferenceNode> holder(callback->refRefSelf(), xsink);
-    parser->parseStream(stream, *holder, enc, xsink);
+    parser->parseStream(is, *holder, enc, xsink);
 }

@@ -23,6 +23,7 @@
 #include "QC_JsonRpcClient.h"
 #include "QC_JsonSaxParser.h"
 #include "QC_JsonSchema.h"
+#include "QC_JsonStreamWriter.h"
 
 #include "ql_json.h"
 
@@ -61,6 +62,7 @@ QoreStringNode *json_module_init() {
    JNS.addSystemClass(initJsonRpcClientClass(JNS));
    JNS.addSystemClass(initJsonSaxParserClass(JNS));
    JNS.addSystemClass(initJsonSchemaClass(JNS));
+   JNS.addSystemClass(initJsonStreamWriterClass(JNS));
    init_json_functions(JNS);
    init_json_constants(JNS);
 
