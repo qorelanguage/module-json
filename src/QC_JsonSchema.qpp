@@ -308,23 +308,25 @@ static JsonSchema JsonSchema::load(string location) [flags=RET_VALUE_ONLY] {
         if (!sm->checkFilesystemAccess(location->c_str(), QSEC_READ, xsink)) {
             return QoreValue();  // Exception already raised
         }
-
-        // Check file size limit
-        struct stat st;
-        if (stat(location->c_str(), &st) == 0 && st.st_size > JSON_MAX_SCHEMA_FILE_SIZE) {
-            xsink->raiseException("JSON-SCHEMA-ERROR",
-                "Schema file '%s' size (%lld bytes) exceeds sandbox maximum (%d bytes)",
-                location->c_str(), (long long)st.st_size, JSON_MAX_SCHEMA_FILE_SIZE);
-            return QoreValue();
-        }
     }
 
-    // Read file
+    // Open file first
     QoreFile f;
     if (f.open(location->c_str(), O_RDONLY, 0, QCS_DEFAULT)) {
         xsink->raiseException("JSON-SCHEMA-ERROR", "Cannot open schema file '%s'",
             location->c_str());
         return QoreValue();
+    }
+
+    // Check file size limit using fstat() on opened file to avoid TOCTOU
+    if (sm) {
+        struct stat st;
+        if (fstat(f.getFD(), &st) == 0 && st.st_size > JSON_MAX_SCHEMA_FILE_SIZE) {
+            xsink->raiseException("JSON-SCHEMA-ERROR",
+                "Schema file '%s' size (%lld bytes) exceeds sandbox maximum (%d bytes)",
+                location->c_str(), (long long)st.st_size, JSON_MAX_SCHEMA_FILE_SIZE);
+            return QoreValue();
+        }
     }
 
     content = f.read(-1, xsink);

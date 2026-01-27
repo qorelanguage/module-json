@@ -419,6 +419,7 @@ int JsonStreamWriter::value(QoreValue v, ExceptionSink* xsink) {
         }
 
         case NT_NUMBER: {
+            if (!checkSandboxLimits(xsink)) return -1;
             const QoreNumberNode* num = v.get<const QoreNumberNode>();
             QoreString str;
             num->toString(str, QORE_NF_SCIENTIFIC);
@@ -427,10 +428,7 @@ int JsonStreamWriter::value(QoreValue v, ExceptionSink* xsink) {
                 if (writeNewlineIndent(xsink)) return -1;
             }
             if (writeRaw(str, xsink)) return -1;
-            if (!stack.empty()) {
-                stack.back().needComma = true;
-                stack.back().expectValue = false;
-            }
+            markValueWritten();
             return flush(xsink);
         }
 

@@ -511,7 +511,17 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
         return h.release();
     }
 
+    // Iteration counter for periodic interrupt checks (sandbox only)
+    unsigned iteration = 0;
+
     while (*buf) {
+        // Periodic interrupt check in sandbox mode
+        if (sm && (++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
+            if (qore_check_io_interrupt(xsink, "parsing JSON object")) {
+                return nullptr;
+            }
+        }
+
         if (*buf != '"') {
             //printd(5, "*buf='%c'\n", *buf);
             if (h->size()) {
@@ -592,7 +602,16 @@ static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, cons
         return l.release();
     }
 
+    // Iteration counter for periodic interrupt checks (sandbox only)
+    unsigned iteration = 0;
+
     while (*buf) {
+        // Periodic interrupt check in sandbox mode
+        if (sm && (++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
+            if (qore_check_io_interrupt(xsink, "parsing JSON array")) {
+                return nullptr;
+            }
+        }
         //printd(5, "before get_json_value() buf=%s\n", buf);
         bool empty = false;
         QoreValue val = get_json_value(buf, line_number, enc, empty, depth + 1, sm, xsink);
@@ -737,9 +756,17 @@ static int do_json_list(ExceptionSink* xsink, QoreString* str, const QoreListNod
     str->concat("[");
     ConstListIterator li(l);
     QoreString tmp(str->getEncoding());
+    // Iteration counter for periodic interrupt checks (sandbox only)
+    unsigned iteration = 0;
     while (li.next()) {
         if (li.index() < offset) {
             continue;
+        }
+        // Periodic interrupt check in sandbox mode
+        if (sm && (++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
+            if (qore_check_io_interrupt(xsink, "serializing JSON list")) {
+                return -1;
+            }
         }
         tmp.clear();
         if (do_json_value(&tmp, li.getValue(), format < 0 ? format : format + 2, depth + 1, sm, xsink)) {
@@ -844,7 +871,15 @@ static int do_json_value(QoreString* str, QoreValue v, int format, int depth,
         str->concat("{");
         ConstHashIterator hi(h);
         QoreString tmp(str->getEncoding());
+        // Iteration counter for periodic interrupt checks (sandbox only)
+        unsigned iteration = 0;
         while (hi.next()) {
+            // Periodic interrupt check in sandbox mode
+            if (sm && (++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
+                if (qore_check_io_interrupt(xsink, "serializing JSON object")) {
+                    return -1;
+                }
+            }
             tmp.clear();
             if (do_json_value(&tmp, hi.get(), format == -1 ? format : format + 2, depth + 1, sm, xsink)) {
                 return -1;

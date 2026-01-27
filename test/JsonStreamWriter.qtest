@@ -319,7 +319,7 @@ class JsonStreamWriterTest inherits QUnit::Test {
         writer1.startObject();
         writer1.endObject();
         assertEq("{}", sos1.getData());
-        # parse_json("{}") returns NOTHING in Qore, not empty hash
+        assertEq({}, parse_json("{}"));
 
         # Empty array
         StringOutputStream sos2();
@@ -327,7 +327,7 @@ class JsonStreamWriterTest inherits QUnit::Test {
         writer2.startArray();
         writer2.endArray();
         assertEq("[]", sos2.getData());
-        # parse_json("[]") returns NOTHING in Qore, not empty list
+        assertEq((), parse_json("[]"));
 
         # Nested empty containers
         StringOutputStream sos3();

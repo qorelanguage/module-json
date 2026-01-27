@@ -31,6 +31,7 @@ class JsonSchemaTest inherits QUnit::Test {
         addTestCase("Invalid schema", \testInvalidSchema());
         addTestCase("Nested objects", \testNestedObjects());
         addTestCase("Type safety", \testTypeSafety());
+        addTestCase("Sandbox load file", \testSandboxLoadFile());
         set_return_value(main());
     }
 
@@ -176,5 +177,55 @@ class JsonSchemaTest inherits QUnit::Test {
             auto bad_list = ("bad");
             result.errors = bad_list;
         });
+    }
+
+    #! Test JsonSchema::load() in sandbox mode exercises the fstat-based file size check
+    /** Note: The sandbox file size limit is 10MB (JSON_MAX_SCHEMA_FILE_SIZE).
+        Creating a 10MB+ file for unit tests would be wasteful, so this test verifies
+        that loading works correctly in sandbox mode with a small file.
+
+        The TOCTOU-safe fstat() check is used after the file is opened to ensure
+        the actual opened file's size is checked, not a potentially different file.
+    */
+    testSandboxLoadFile() {
+        # Create a temporary schema file
+        string tmpDir = ENV.TMPDIR ?? "/tmp";
+        string schemaPath = tmpDir + "/test_schema_" + string(getpid()) + ".json";
+        string schemaContent = '{"type": "object", "properties": {"name": {"type": "string"}}}';
+
+        # Write the schema file
+        File f();
+        f.open(schemaPath, O_WRONLY | O_CREAT | O_TRUNC);
+        f.write(schemaContent);
+        f.close();
+
+        on_exit {
+            unlink(schemaPath);
+        }
+
+        # Test loading in sandboxed program - exercises the fstat() check path
+        string code = sprintf("
+%%new-style
+%%require-types
+%%strict-args
+%%requires json
+
+auto sub test_load() {
+    JsonSchema schema = JsonSchema::load(\"%s\");
+    return schema.validate({\"name\": \"test\"});
+}
+", schemaPath);
+
+        Program p(PO_NEW_STYLE | PO_REQUIRE_TYPES | PO_STRICT_ARGS);
+        SandboxManager sm();
+        # Allow access to the temp directory for the schema file
+        sm.setFilesystemSandboxRoot(tmpDir);
+        sm.addFilesystemAllowedPath(schemaPath, 0);  # 0 = read access
+        p.setSandboxManager(sm);
+        p.parse(code, "sandbox-schema-test");
+
+        # Should succeed - file is small and allowed
+        auto result = p.callFunction("test_load");
+        assertTrue(result, "Schema should validate successfully in sandbox mode");
     }
 }
