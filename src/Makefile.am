@@ -16,7 +16,7 @@ if COND_SINGLE_COMPILATION_UNIT
 single-compilation-unit.cpp: $(GENERATED_SOURCES)
 JSON_SOURCES = single-compilation-unit.cpp
 else
-JSON_SOURCES = json-module.cpp JsonSchemaImpl.cpp
+JSON_SOURCES = json-module.cpp JsonSchemaImpl.cpp JsonStreamReadHandler.cpp
 nodist_json_la_SOURCES = $(GENERATED_SOURCES)
 endif
 

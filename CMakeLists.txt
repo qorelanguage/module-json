@@ -44,6 +44,7 @@ set(QPP_SRC
 set(CPP_SRC
     src/json-module.cpp
     src/JsonSchemaImpl.cpp
+    src/JsonStreamReadHandler.cpp
 )
 
 set(QMOD
