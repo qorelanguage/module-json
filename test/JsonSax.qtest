@@ -34,13 +34,56 @@ class ChunkedInputStream inherits InputStream {
     }
 
     *binary read(int limit) {
+        if (limit <= 0) {
+            return NOTHING;
+        }
         if (pos >= data.size()) {
             return NOTHING;
         }
         int to_read = min(limit, chunk_size, data.size() - pos);
+        if (to_read <= 0) {
+            return NOTHING;
+        }
         string chunk = data.substr(pos, to_read);
         pos += to_read;
         return binary(chunk);
+    }
+}
+
+#! Input stream that returns binary data in small fixed-size chunks
+class ChunkedBinaryInputStream inherits InputStream {
+    private {
+        binary data;
+        int pos = 0;
+        int chunk_size;
+    }
+
+    constructor(binary d, int size = 4) {
+        data = d;
+        chunk_size = size;
+    }
+
+    int peek() {
+        if (pos >= data.size()) {
+            return -1;
+        }
+        return data[pos];
+    }
+
+    *binary read(int limit) {
+        if (limit <= 0) {
+            return NOTHING;
+        }
+        if (pos >= data.size()) {
+            return NOTHING;
+        }
+        int to_read = min(limit, chunk_size, data.size() - pos);
+        if (to_read <= 0) {
+            return NOTHING;
+        }
+        binary chunk = data.substr(pos, to_read);
+        pos += to_read;
+        return chunk;
     }
 }
 
@@ -65,6 +108,11 @@ class JsonSaxTest inherits QUnit::Test {
         addTestCase("SAX parser error handling", \testErrorHandling());
         addTestCase("SAX parser stream input", \testStreamInput());
         addTestCase("SAX parser chunked stream", \testChunkedStream());
+        addTestCase("SAX parser stream UTF-8 BOM", \testStreamBom());
+        addTestCase("SAX parser stream encoding conversion", \testStreamEncodingConversion());
+        addTestCase("SAX parser stream encoding split", \testStreamEncodingSplit());
+        addTestCase("SAX parser chunked unicode escape", \testChunkedUnicodeEscape());
+        addTestCase("SAX parser chunked UTF-8 split", \testChunkedUtf8Split());
         addTestCase("SAX parser large data", \testLargeData());
         addTestCase("SAX event constants", \testEventConstants());
         addTestCase("Depth limit consistency DOM vs SAX", \testDepthLimitConsistency());
@@ -194,6 +242,46 @@ class JsonSaxTest inherits QUnit::Test {
         assertThrows("JSON-SAX-PARSE-ERROR", sub() {
             parser.parse('{"key": }', sub(hash<auto> e) { });
         });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse('{"key": "unterminated}', sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            binary bad_unicode = <7b226b6579223a20225c753132227d>;
+            BinaryInputStream bis(bad_unicode);
+            parser.parseStream(bis, sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            binary bad_escape = <7b226b6579223a20225c78227d>;
+            BinaryInputStream bis(bad_escape);
+            parser.parseStream(bis, sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse('{"key": 1.2.3}', sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse('{"key": true} trailing', sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse('{"n": -}', sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse('{"n": 1e}', sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse('{"n": 1e+}', sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse('{"n": .1}', sub(hash<auto> e) { });
+        });
     }
 
     testStreamInput() {
@@ -268,6 +356,98 @@ class JsonSaxTest inherits QUnit::Test {
         assertEq(1, array_ends, "Array closed");
         assertEq(2, obj_starts, "Two objects");
         assertEq(2, obj_ends, "Objects closed");
+
+        # Test number with exponent split across chunks
+        string exp_json = '{"n": 1.23e-4}';
+        ChunkedInputStream cis3(exp_json, 1);
+        events = ();
+        parser.parseStream(cis3, sub(hash<auto> e) { push events, e; });
+        float exp_value = 0;
+        foreach hash<auto> e in (events) {
+            if (e.type == JsonSaxNumber) {
+                exp_value = e.value;
+                break;
+            }
+        }
+        assertTrue(abs(exp_value - 0.000123) < 1e-12, "Exponent number should parse correctly");
+    }
+
+    testStreamBom() {
+        JsonSaxParser parser();
+        list<hash<auto>> events = ();
+
+        binary data = <EFBBBF> + binary('{"k": 1}');
+        BinaryInputStream bis(data);
+        parser.parseStream(bis, sub(hash<auto> e) { push events, e; });
+
+        assertGt(0, events.size());
+        assertEq(JsonSaxObjectStart, events[0].type);
+        assertEq(JsonSaxObjectEnd, events[events.size() - 1].type);
+    }
+
+    testStreamEncodingConversion() {
+        JsonSaxParser parser();
+        list<string> values = ();
+
+        binary data = binary('{"text":"caf') + <e9> + binary('"}');
+        BinaryInputStream bis(data);
+        parser.parseStream(bis, sub(hash<auto> e) {
+            if (e.type == JsonSaxString) {
+                push values, e.value;
+            }
+        }, "ISO-8859-1");
+
+        assertEq(1, values.size());
+        assertEq("café", values[0]);
+    }
+
+    testStreamEncodingSplit() {
+        JsonSaxParser parser();
+        list<string> values = ();
+
+        string utf16le_str = convert_encoding('{"s": "€"}', "UTF16LE");
+        binary utf16le = binary(utf16le_str);
+        ChunkedBinaryInputStream cis(utf16le, 1);
+        parser.parseStream(cis, sub(hash<auto> e) {
+            if (e.type == JsonSaxString) {
+                push values, e.value;
+            }
+        }, "UTF16LE");
+
+        assertEq(1, values.size());
+        assertEq("€", values[0]);
+    }
+
+    testChunkedUnicodeEscape() {
+        JsonSaxParser parser();
+        list<string> values = ();
+
+        binary json = <7b2275223a20225c7530303431227d>;
+        ChunkedBinaryInputStream cis(json, 1);
+        parser.parseStream(cis, sub(hash<auto> e) {
+            if (e.type == JsonSaxString) {
+                push values, e.value;
+            }
+        });
+
+        assertEq(1, values.size());
+        assertEq("A", values[0]);
+    }
+
+    testChunkedUtf8Split() {
+        JsonSaxParser parser();
+        list<string> values = ();
+
+        binary json = <7b2273223a2022e282ac227d>;
+        ChunkedBinaryInputStream cis(json, 1);
+        parser.parseStream(cis, sub(hash<auto> e) {
+            if (e.type == JsonSaxString) {
+                push values, e.value;
+            }
+        });
+
+        assertEq(1, values.size());
+        assertEq("€", values[0]);
     }
 
     testLargeData() {

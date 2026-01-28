@@ -24,6 +24,7 @@
 #define _QORE_QC_JSONSAXPARSER_H
 
 #include "qore-json-module.h"
+#include "JsonStreamReadHandler.h"
 
 // SAX Event Types
 #define JSON_SAX_OBJECT_START   1
@@ -40,6 +41,8 @@ DLLEXPORT extern qore_classid_t CID_JSONSAXPARSER;
 DLLEXPORT extern QoreClass* QC_JSONSAXPARSER;
 
 DLLLOCAL QoreClass* initJsonSaxParserClass(QoreNamespace& ns);
+
+class JsonStreamReader;
 
 class JsonSaxParser : public AbstractPrivateData {
 public:
@@ -61,18 +64,18 @@ public:
         @param xsink exception sink
         @return 0 on success, -1 on error
     */
-    DLLLOCAL int parseStream(InputStream* is, ResolvedCallReferenceNode* callback,
+    DLLLOCAL int parseStream(QoreObject* stream, ResolvedCallReferenceNode* callback,
         const QoreEncoding* encoding, ExceptionSink* xsink);
 
 private:
     //! Internal parsing state
     struct ParseState {
-        const char* buf;
         int line_number;
         int column;
         int depth;
         int iteration;              //!< counter for interrupt checks
         QoreSandboxManager* sm;     //!< cached sandbox manager (nullptr = no sandbox)
+        class JsonStreamReader* reader;
         ResolvedCallReferenceNode* callback;
         ExceptionSink* xsink;
         const QoreEncoding* encoding;
@@ -90,6 +93,15 @@ private:
     //! Skip whitespace
     DLLLOCAL void skipWhitespace(ParseState& state);
 
+    //! Peek next character
+    DLLLOCAL int peek(ParseState& state);
+
+    //! Get next character
+    DLLLOCAL int get(ParseState& state);
+
+    //! Skip UTF-8 BOM if present
+    DLLLOCAL void skipBom(ParseState& state);
+
     //! Parse a JSON value with SAX events
     DLLLOCAL bool parseValue(ParseState& state);
 
@@ -101,6 +113,9 @@ private:
 
     //! Parse a JSON string
     DLLLOCAL QoreStringNode* parseString(ParseState& state);
+
+    //! Parse a JSON number
+    DLLLOCAL bool parseNumber(ParseState& state);
 
     //! Compare rest of token
     DLLLOCAL bool cmpRestToken(ParseState& state, const char* tok);

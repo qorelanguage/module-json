@@ -6,6 +6,7 @@ SUBDIRS = src
 
 noinst_HEADERS = src/QC_JsonRpcClient.h \
     src/QC_JsonSaxParser.h \
+    src/JsonStreamReadHandler.h \
     src/QC_JsonSchema.h \
     src/ql_json.h \
     src/qore-json-module.h
@@ -16,6 +17,7 @@ EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
     RELEASE-NOTES \
     src/QC_JsonRpcClient.qpp \
     src/QC_JsonSaxParser.qpp \
+    src/JsonStreamReadHandler.cpp \
     src/QC_JsonSchema.qpp \
     src/JsonSchemaImpl.cpp \
     src/ql_json.qpp \
