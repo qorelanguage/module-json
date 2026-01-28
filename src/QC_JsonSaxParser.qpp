@@ -240,7 +240,11 @@ bool JsonSaxParser::emitEvent(ParseState& state, int type, const QoreStringNode*
 
 QoreStringNode* JsonSaxParser::parseString(ParseState& state) {
     // '"' has already been read, reader is at '"'
-    if (get(state) != '"') {
+    int open_ch = get(state);
+    if (*state.xsink) {
+        return nullptr;
+    }
+    if (open_ch != '"') {
         state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
             "unexpected text at line %d, column %d while parsing JSON string",
             state.line_number, state.column);
@@ -251,6 +255,9 @@ QoreStringNode* JsonSaxParser::parseString(ParseState& state) {
 
     while (true) {
         int ch = get(state);
+        if (*state.xsink) {
+            return nullptr;
+        }
         if (ch == -1) {
             state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
                 "premature end of input at line %d while parsing JSON string", state.line_number);
@@ -263,6 +270,9 @@ QoreStringNode* JsonSaxParser::parseString(ParseState& state) {
 
         if (ch == '\\') {
             int esc = get(state);
+            if (*state.xsink) {
+                return nullptr;
+            }
             if (esc == -1) {
                 state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
                     "premature end of input at line %d while parsing JSON string",
@@ -290,13 +300,13 @@ QoreStringNode* JsonSaxParser::parseString(ParseState& state) {
                 case 't':
                     str->concat('\t');
                     break;
-                case 'v':
-                    str->concat('\v');
-                    break;
                 case 'u': {
                     char unicode[5];
                     for (int i = 0; i < 4; ++i) {
                         int hx = get(state);
+                        if (*state.xsink) {
+                            return nullptr;
+                        }
                         if (hx == -1 || !isxdigit((unsigned char)hx)) {
                             state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
                                 "invalid unicode escape at line %d, column %d",
@@ -321,6 +331,12 @@ QoreStringNode* JsonSaxParser::parseString(ParseState& state) {
             continue;
         }
 
+        if (ch >= 0 && ch <= 0x1F) {
+            state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                "invalid control character 0x%02x in JSON string at line %d, column %d",
+                ch, state.line_number, state.column);
+            return nullptr;
+        }
         str->concat((char)ch);
     }
 }
@@ -357,9 +373,21 @@ bool JsonSaxParser::parseNumber(ParseState& state) {
         return false;
     }
 
-    while (isdigit((unsigned char)peek(state))) {
+    // parse integer part; enforce JSON rule against leading zeros
+    if (ch == '0') {
         ch = get(state);
         numstr.concat((char)ch);
+        int next_ch = peek(state);
+        if (next_ch != -1 && isdigit((unsigned char)next_ch)) {
+            state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                "invalid number at line %d, column %d", state.line_number, state.column);
+            return false;
+        }
+    } else {
+        while (isdigit((unsigned char)peek(state))) {
+            ch = get(state);
+            numstr.concat((char)ch);
+        }
     }
 
     while (true) {
@@ -648,6 +676,9 @@ bool JsonSaxParser::parseValue(ParseState& state) {
         }
     }
 
+    if (*state.xsink) {
+        return false;
+    }
     state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
         "invalid input at line %d, column %d; unable to parse JSON value",
         state.line_number, state.column);
@@ -870,7 +901,7 @@ nothing JsonSaxParser::parse(string json_str, code callback) {
     parser.parseStream(fis, sub(hash<auto> e) { process_event(e); });
     @endcode
 
-    @param stream the input stream to read from (must support read() method)
+    @param is the input stream to read from (must support read() method)
     @param callback the callback code to execute for each SAX event
     @param encoding optional character encoding (default: UTF-8)
 

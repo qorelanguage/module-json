@@ -282,6 +282,20 @@ class JsonSaxTest inherits QUnit::Test {
         assertThrows("JSON-SAX-PARSE-ERROR", sub() {
             parser.parse('{"n": .1}', sub(hash<auto> e) { });
         });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse('{"n": 01}', sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            binary bad_v = <7b2273223a20225c76227d>;
+            BinaryInputStream bis(bad_v);
+            parser.parseStream(bis, sub(hash<auto> e) { });
+        });
+
+        assertThrows("JSON-SAX-PARSE-ERROR", sub() {
+            parser.parse("{\"s\": \"line1\nline2\"}", sub(hash<auto> e) { });
+        });
     }
 
     testStreamInput() {

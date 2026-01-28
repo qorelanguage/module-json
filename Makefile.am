@@ -24,6 +24,7 @@ EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
     test/json.qtest \
     test/JsonSax.qtest \
     test/JsonSchema.qtest \
+    test/JsonStreamWriter.qtest \
     test/Jwt.qtest \
     test/Ndjson.qtest \
     examples/json-rpc-client.q \
