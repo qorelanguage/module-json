@@ -24,6 +24,8 @@
 
 #include <sstream>
 #include <cassert>
+#include <set>
+#include <functional>
 
 const TypedHashDecl* hashdeclJsonSchemaValidationError = nullptr;
 const TypedHashDecl* hashdeclJsonSchemaValidationResult = nullptr;
@@ -51,6 +53,11 @@ JsonSchemaValidator::JsonSchemaValidator(const QoreHashNode* schema_hash, Except
             return;
         }
 
+        // Check for circular $ref before compiling
+        if (checkCircularRefs(json_schema, xsink)) {
+            return;
+        }
+
         // Compile the schema
         schema = std::make_shared<JsonSchemaType>(jsoncons::jsonschema::make_json_schema(json_schema));
         valid = true;
@@ -68,6 +75,11 @@ void JsonSchemaValidator::initFromJsonString(const std::string& json_str, Except
     try {
         // Parse the JSON string
         jsoncons::json json_schema = jsoncons::json::parse(json_str);
+
+        // Check for circular $ref before compiling
+        if (checkCircularRefs(json_schema, xsink)) {
+            return;
+        }
 
         // Compile the schema
         schema = std::make_shared<JsonSchemaType>(jsoncons::jsonschema::make_json_schema(json_schema));
@@ -281,4 +293,133 @@ QoreHashNode* JsonSchemaValidator::validateWithErrors(QoreValue data, ExceptionS
         xsink->raiseException("JSON-SCHEMA-ERROR", "Validation error: %s", e.what());
         return nullptr;
     }
+}
+
+// Resolve a JSON Pointer (e.g. "#/$defs/foo") against a root JSON document
+static const jsoncons::json* resolveJsonPointer(const jsoncons::json& root, const std::string& ref) {
+    // Must start with '#'
+    if (ref.empty() || ref[0] != '#') {
+        return nullptr;
+    }
+    // "#" alone refers to root
+    if (ref.size() == 1) {
+        return &root;
+    }
+    // Must be "#/" followed by path
+    if (ref.size() < 2 || ref[1] != '/') {
+        return nullptr;
+    }
+
+    const jsoncons::json* current = &root;
+    std::string path = ref.substr(2); // skip "#/"
+
+    size_t pos = 0;
+    while (pos < path.size()) {
+        size_t next = path.find('/', pos);
+        std::string segment = (next == std::string::npos) ? path.substr(pos) : path.substr(pos, next - pos);
+
+        // JSON Pointer unescaping: ~1 -> /, ~0 -> ~
+        std::string unescaped;
+        for (size_t i = 0; i < segment.size(); ++i) {
+            if (segment[i] == '~' && i + 1 < segment.size()) {
+                if (segment[i + 1] == '1') {
+                    unescaped += '/';
+                    ++i;
+                    continue;
+                } else if (segment[i + 1] == '0') {
+                    unescaped += '~';
+                    ++i;
+                    continue;
+                }
+            }
+            unescaped += segment[i];
+        }
+
+        if (current->is_object()) {
+            auto it = current->find(unescaped);
+            if (it == current->object_range().end()) {
+                return nullptr;
+            }
+            current = &(it->value());
+        } else if (current->is_array()) {
+            try {
+                size_t idx = std::stoul(unescaped);
+                if (idx >= current->size()) {
+                    return nullptr;
+                }
+                current = &((*current)[idx]);
+            } catch (...) {
+                return nullptr;
+            }
+        } else {
+            return nullptr;
+        }
+
+        pos = (next == std::string::npos) ? path.size() : next + 1;
+    }
+
+    return current;
+}
+
+// Follow a pure $ref chain to detect unconditional cycles.
+// A "pure $ref" node is one where the schema object's only meaningful keyword is "$ref"
+// (i.e., it resolves to another schema purely by reference with no other constraints).
+// This detects cycles like: A -> B -> A, or self -> self.
+// It does NOT flag recursive schemas where $ref appears inside "properties", "items", etc.,
+// since those are data-driven and terminate naturally.
+static bool detectPureRefCycle(const jsoncons::json& root, const jsoncons::json& node,
+                               std::set<const jsoncons::json*>& visited) {
+    if (!node.is_object()) {
+        return false;
+    }
+
+    // Check if this node has a $ref
+    auto ref_it = node.find("$ref");
+    if (ref_it == node.object_range().end() || !ref_it->value().is_string()) {
+        // No $ref at this level; recurse into sub-schema keywords to find nested pure-ref chains
+        // Check allOf/anyOf/oneOf arrays
+        static const char* array_keywords[] = {"allOf", "anyOf", "oneOf", nullptr};
+        for (const char** kw = array_keywords; *kw; ++kw) {
+            auto it = node.find(*kw);
+            if (it != node.object_range().end() && it->value().is_array()) {
+                for (const auto& item : it->value().array_range()) {
+                    if (detectPureRefCycle(root, item, visited)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    std::string ref = ref_it->value().as<std::string>();
+
+    // Only handle local refs
+    if (ref.empty() || ref[0] != '#') {
+        return false;
+    }
+
+    const jsoncons::json* target = resolveJsonPointer(root, ref);
+    if (!target) {
+        return false;
+    }
+
+    if (visited.count(target)) {
+        return true; // cycle detected
+    }
+    visited.insert(target);
+    bool result = detectPureRefCycle(root, *target, visited);
+    visited.erase(target);
+    return result;
+}
+
+bool JsonSchemaValidator::checkCircularRefs(const jsoncons::json& schema_json, ExceptionSink* xsink) {
+    std::set<const jsoncons::json*> visited;
+    visited.insert(&schema_json);
+    if (detectPureRefCycle(schema_json, schema_json, visited)) {
+        xsink->raiseException("JSON-SCHEMA-ERROR",
+            "Schema contains circular $ref references that would cause infinite recursion during validation");
+        return true;
+    }
+    return false;
 }

@@ -93,6 +93,13 @@ private:
     //! Initialize schema from JSON string
     DLLLOCAL void initFromJsonString(const std::string& json_str, ExceptionSink* xsink);
 
+    //! Check for circular $ref references in the schema
+    /** @param schema_json the parsed JSON schema
+        @param xsink exception sink
+        @return true if circular refs detected (exception raised), false if OK
+    */
+    DLLLOCAL static bool checkCircularRefs(const jsoncons::json& schema_json, ExceptionSink* xsink);
+
     //! The compiled JSON schema validator (heap allocated for easier management)
     std::shared_ptr<JsonSchemaType> schema;
 
