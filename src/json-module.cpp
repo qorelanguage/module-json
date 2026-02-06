@@ -29,31 +29,28 @@
 
 #include <stdarg.h>
 
-static QoreStringNode *json_module_init();
-static void json_module_ns_init(QoreNamespace *rns, QoreNamespace *qns);
+static void json_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink);
+static void json_module_ns_init(QoreNamespace* rns, QoreNamespace* qns, ExceptionSink& xsink);
 static void json_module_delete();
 
-// qore module symbols
-DLLEXPORT char qore_module_name[] = "json";
-DLLEXPORT char qore_module_version[] = PACKAGE_VERSION;
-DLLEXPORT char qore_module_description[] = "json module";
-DLLEXPORT char qore_module_author[] = "David Nichols";
-DLLEXPORT char qore_module_url[] = "http://qore.org";
-DLLEXPORT int qore_module_api_major = QORE_MODULE_API_MAJOR;
-DLLEXPORT int qore_module_api_minor = QORE_MODULE_API_MINOR;
-DLLEXPORT qore_module_init_t qore_module_init = json_module_init;
-DLLEXPORT qore_module_ns_init_t qore_module_ns_init = json_module_ns_init;
-DLLEXPORT qore_module_delete_t qore_module_delete = json_module_delete;
-#ifdef _QORE_HAS_QL_MIT
-DLLEXPORT qore_license_t qore_module_license = QL_MIT;
-#else
-DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
-#endif
-DLLEXPORT char qore_module_license_str[] = "MIT";
+extern "C" DLLEXPORT void json_qore_module_desc(QoreModuleInfo& mod_info) {
+    mod_info.name = "json";
+    mod_info.version = PACKAGE_VERSION;
+    mod_info.desc = "json module";
+    mod_info.author = "David Nichols";
+    mod_info.url = "http://qore.org";
+    mod_info.api_major = QORE_MODULE_API_MAJOR;
+    mod_info.api_minor = QORE_MODULE_API_MINOR;
+    mod_info.init = json_module_init;
+    mod_info.ns_init = json_module_ns_init;
+    mod_info.del = json_module_delete;
+    mod_info.license = QL_MIT;
+    mod_info.license_str = "MIT";
+}
 
 QoreNamespace JNS("Qore::Json");
 
-QoreStringNode *json_module_init() {
+void json_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) {
    hashdeclJwtHeader = init_hashdecl_JwtHeader(JNS);
    hashdeclJwtClaims = init_hashdecl_JwtClaims(JNS);
    hashdeclJwtDecodeResult = init_hashdecl_JwtDecodeResult(JNS);
@@ -65,11 +62,9 @@ QoreStringNode *json_module_init() {
    JNS.addSystemClass(initJsonStreamWriterClass(JNS));
    init_json_functions(JNS);
    init_json_constants(JNS);
-
-   return 0;
 }
 
-void json_module_ns_init(QoreNamespace* rns, QoreNamespace* qns) {
+void json_module_ns_init(QoreNamespace* rns, QoreNamespace* qns, ExceptionSink& xsink) {
    qns->addNamespace(JNS.copy());
 }
 
