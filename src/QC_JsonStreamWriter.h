@@ -130,7 +130,7 @@ private:
     int iteration;
 
     //! Cached sandbox manager
-    QoreSandboxManager* sm;
+    QoreSandboxManagerHelper smh;
 };
 
 #endif // _QORE_QC_JSONSTREAMWRITER_H

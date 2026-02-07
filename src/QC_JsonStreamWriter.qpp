@@ -30,14 +30,14 @@
 
 /** @cond INTERNAL */
 JsonStreamWriter::JsonStreamWriter(OutputStream* os, int format, ExceptionSink* xsink)
-    : os(os), format(format), iteration(0), sm(runtime_get_sandbox_manager()) {
+    : os(os), format(format), iteration(0) {
 }
 
 JsonStreamWriter::~JsonStreamWriter() {
 }
 
 bool JsonStreamWriter::checkSandboxLimits(ExceptionSink* xsink) {
-    if (!sm) {
+    if (!smh) {
         return true;
     }
 

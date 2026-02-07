@@ -126,7 +126,7 @@ JsonSaxParser::~JsonSaxParser() {
 
 bool JsonSaxParser::checkSandboxLimits(ParseState& state) {
     // Fast path: no sandbox = no restrictions
-    if (!state.sm) {
+    if (!state.smh) {
         return true;
     }
 
@@ -141,7 +141,7 @@ bool JsonSaxParser::checkSandboxLimits(ParseState& state) {
 }
 
 bool JsonSaxParser::checkInterrupt(ParseState& state) {
-    if (!state.sm) {
+    if (!state.smh) {
         return true;
     }
     if ((++state.iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
@@ -697,7 +697,6 @@ int JsonSaxParser::parse(const QoreStringNode* json_str, ResolvedCallReferenceNo
     state.column = 1;
     state.depth = 0;
     state.iteration = 0;
-    state.sm = runtime_get_sandbox_manager();
     state.reader = &reader;
     state.callback = callback;
     state.xsink = xsink;
@@ -742,7 +741,6 @@ int JsonSaxParser::parseStream(QoreObject* stream, ResolvedCallReferenceNode* ca
     state.column = 1;
     state.depth = 0;
     state.iteration = 0;
-    state.sm = runtime_get_sandbox_manager();
     state.reader = &reader;
     state.callback = callback;
     state.xsink = xsink;

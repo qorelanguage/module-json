@@ -74,7 +74,7 @@ private:
         int column;
         int depth;
         int iteration;              //!< counter for interrupt checks
-        QoreSandboxManager* sm;     //!< cached sandbox manager (nullptr = no sandbox)
+        QoreSandboxManagerHelper smh; //!< cached sandbox manager helper (RAII ref-counted)
         class JsonStreamReader* reader;
         ResolvedCallReferenceNode* callback;
         ExceptionSink* xsink;

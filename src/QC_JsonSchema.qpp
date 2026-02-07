@@ -297,15 +297,15 @@ static JsonSchema JsonSchema::load(string location) [flags=RET_VALUE_ONLY] {
     }
 
     // Check sandbox restrictions (only when sandbox active)
-    QoreSandboxManager* sm = runtime_get_sandbox_manager();
-    if (sm) {
+    QoreSandboxManagerHelper smh;
+    if (smh) {
         // Check for interrupt
         if (qore_check_io_interrupt(xsink, "loading JSON schema file")) {
             return QoreValue();
         }
 
         // Check filesystem sandbox permissions
-        if (!sm->checkFilesystemAccess(location->c_str(), QSEC_READ, xsink)) {
+        if (!smh->checkFilesystemAccess(location->c_str(), QSEC_READ, xsink)) {
             return QoreValue();  // Exception already raised
         }
     }
@@ -319,7 +319,7 @@ static JsonSchema JsonSchema::load(string location) [flags=RET_VALUE_ONLY] {
     }
 
     // Check file size limit using fstat() on opened file to avoid TOCTOU
-    if (sm) {
+    if (smh) {
         struct stat st;
         if (fstat(f.getFD(), &st) == 0 && st.st_size > JSON_MAX_SCHEMA_FILE_SIZE) {
             xsink->raiseException("JSON-SCHEMA-ERROR",
