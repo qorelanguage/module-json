@@ -1,16 +1,9 @@
 #!/usr/bin/env qore
 # -*- mode: qore; indent-tabs-mode: nil -*-
 
-# do not use "$" for vars, etc, assume local var scope
-%new-style
-# do not allow access to "noop" function variants
-%strict-args
-# enable all warnings
-%enable-all-warnings
+%modern
 # child programs do not inherit parent's restrictions
 %no-child-restrictions
-# require types to be declared
-%require-types
 # test deprecated functions as well
 %disable-warning deprecated
 

@@ -22,11 +22,6 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-%require-types
-%enable-all-warnings
-%new-style
-%strict-args
-
 #! Contains all public definitions in the McpClientDataProvider module
 public namespace McpClientDataProvider {
 #! MCP resources container data provider

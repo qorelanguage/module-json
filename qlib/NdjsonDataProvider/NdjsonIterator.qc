@@ -22,11 +22,6 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-%require-types
-%enable-all-warnings
-%new-style
-%strict-args
-
 #! Contains all public definitions in the NdjsonDataProvider module
 public namespace NdjsonDataProvider {
 #! Iterator for reading NDJSON (Newline Delimited JSON) data from a string

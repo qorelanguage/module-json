@@ -27,10 +27,7 @@
 %requires(reexport) DataProvider
 %requires json
 
-%new-style
-%strict-args
-%require-types
-%enable-all-warnings
+%modern
 
 module NdjsonDataProvider {
     version = "1.0";

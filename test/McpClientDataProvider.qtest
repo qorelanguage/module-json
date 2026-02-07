@@ -2,10 +2,6 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 
 %modern
-%new-style
-%strict-args
-%require-types
-%enable-all-warnings
 
 %requires QUnit
 %requires HttpServer

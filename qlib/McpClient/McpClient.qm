@@ -33,11 +33,7 @@
 %requires HttpStreamClient
 %requires(reexport) ConnectionProvider >= 1.4
 
-# don't use "$" for vars, members, and method calls, assume local var scope
-%new-style
-%require-types
-%enable-all-warnings
-%strict-args
+%modern
 
 module McpClient {
     version = "1.0";

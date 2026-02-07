@@ -28,10 +28,7 @@
 %requires(reexport) ConnectionProvider
 %requires(reexport) McpClient
 
-%new-style
-%strict-args
-%require-types
-%enable-all-warnings
+%modern
 
 module McpClientDataProvider {
     version = "1.0";

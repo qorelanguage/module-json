@@ -40,8 +40,7 @@
 # need HttpServerUtil definitions
 %requires HttpServerUtil >= 0.3.12
 
-# don't use "$" for vars, members, and method calls, assume local var scope
-%new-style
+%modern
 
 module JsonRpcHandler {
     version = "2.0";

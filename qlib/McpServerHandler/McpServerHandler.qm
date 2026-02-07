@@ -37,11 +37,7 @@
 %define NoUuid
 %endtry
 
-# don't use "$" for vars, members, and method calls, assume local var scope
-%new-style
-%require-types
-%enable-all-warnings
-%strict-args
+%modern
 
 module McpServerHandler {
     version = "1.1";

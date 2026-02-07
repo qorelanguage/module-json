@@ -3,10 +3,7 @@
 
 # MCP Test Server for integration testing with official MCP clients
 
-%new-style
-%require-types
-%strict-args
-%enable-all-warnings
+%modern
 
 %requires json
 %requires HttpServer
