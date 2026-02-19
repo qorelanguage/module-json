@@ -40,7 +40,7 @@ public class McpToolCallRequestDataType inherits HashDataType {
                 "type": AutoHashOrNothingType,
                 "display_name": "Arguments",
                 "short_desc": "Tool arguments",
-                "desc": "Arguments to pass to the tool (structure depends on the tool's inputSchema)",
+                "desc": "Arguments to pass to the tool (structure depends on the tool's `inputSchema`)",
             },
         };
     }
@@ -117,7 +117,7 @@ public class McpCompletionRequestDataType inherits HashDataType {
                 "type": StringType,
                 "display_name": "Reference Type",
                 "short_desc": "Type of completion reference",
-                "desc": "The type of completion reference: 'ref/prompt' or 'ref/resource'",
+                "desc": "The type of completion reference: `ref/prompt` or `ref/resource`",
                 "example_value": McpCompletionRefType::Prompt,
                 "allowed_values": (
                     <AllowedValueInfo>{

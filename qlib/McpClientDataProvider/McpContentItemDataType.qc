@@ -33,7 +33,7 @@ public class McpContentItemDataType inherits HashDataType {
                 "type": StringType,
                 "display_name": "Type",
                 "short_desc": "Content type",
-                "desc": "Content type: text, image, or resource",
+                "desc": "Content type: `text`, `image`, or `resource`",
                 "example_value": McpContentItemType::Text,
                 "allowed_values": (
                     <AllowedValueInfo>{
@@ -60,7 +60,7 @@ public class McpContentItemDataType inherits HashDataType {
                 "type": StringOrNothingType,
                 "display_name": "Text",
                 "short_desc": "Text content",
-                "desc": "Text content (for type=text)",
+                "desc": "Text content (for `type=text`)",
             },
             "mimeType": {
                 "type": StringOrNothingType,
@@ -73,13 +73,13 @@ public class McpContentItemDataType inherits HashDataType {
                 "type": StringOrNothingType,
                 "display_name": "Data",
                 "short_desc": "Binary data",
-                "desc": "Base64-encoded binary data (for type=image)",
+                "desc": "Base64-encoded binary data (for `type=image`)",
             },
             "uri": {
                 "type": StringOrNothingType,
                 "display_name": "URI",
                 "short_desc": "Resource URI",
-                "desc": "Resource URI (for type=resource)",
+                "desc": "Resource URI (for `type=resource`)",
             },
             "isError": {
                 "type": SoftBoolOrNothingType,

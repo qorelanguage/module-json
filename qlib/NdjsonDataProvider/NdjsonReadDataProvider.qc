@@ -96,14 +96,14 @@ public class NdjsonReadDataProvider inherits DataProvider::AbstractDataProvider 
                 "display_name": "Skip Empty Lines",
                 "short_desc": "Skip empty lines in the input",
                 "type": AbstractDataProviderTypeMap."bool",
-                "desc": "If True (default), empty lines are skipped during iteration",
+                "desc": "If `True` (default), empty lines are skipped during iteration",
                 "default_value": True,
             },
             "skip_invalid_json": <DataProviderOptionInfo>{
                 "display_name": "Skip Invalid JSON",
                 "short_desc": "Skip invalid JSON lines instead of throwing",
                 "type": AbstractDataProviderTypeMap."bool",
-                "desc": "If True, lines that fail to parse as JSON are skipped; if False (default), "
+                "desc": "If `True`, lines that fail to parse as JSON are skipped; if `False` (default), "
                     "an exception is thrown",
                 "default_value": False,
             },

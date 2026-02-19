@@ -45,7 +45,7 @@ public class McpClientDataProviderBase inherits DataProvider::AbstractDataProvid
                 "display_name": "URL",
                 "short_desc": "The URL to the MCP server",
                 "type": AbstractDataProviderType::get(StringType),
-                "desc": "The URL to the MCP server (mcp:// or mcps://)",
+                "desc": "The URL to the MCP server (`mcp://` or `mcps://`)",
             },
             "client_name": <DataProviderOptionInfo>{
                 "display_name": "Client Name",
