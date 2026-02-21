@@ -300,7 +300,7 @@ static JsonSchema JsonSchema::load(string location) [flags=RET_VALUE_ONLY] {
     QoreSandboxManagerHelper smh;
     if (smh) {
         // Check for interrupt
-        if (qore_check_io_interrupt(xsink, "loading JSON schema file")) {
+        if (qore_check_cancel(xsink, "loading JSON schema file")) {
             return QoreValue();
         }
 

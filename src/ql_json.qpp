@@ -517,7 +517,7 @@ static QoreHashNode* get_json_object(const char*& buf, int& line_number, const Q
     while (*buf) {
         // Periodic interrupt check in sandbox mode
         if (sm && (++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
-            if (qore_check_io_interrupt(xsink, "parsing JSON object")) {
+            if (qore_check_cancel(xsink, "parsing JSON object")) {
                 return nullptr;
             }
         }
@@ -608,7 +608,7 @@ static AbstractQoreNode* get_json_array(const char*& buf, int& line_number, cons
     while (*buf) {
         // Periodic interrupt check in sandbox mode
         if (sm && (++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
-            if (qore_check_io_interrupt(xsink, "parsing JSON array")) {
+            if (qore_check_cancel(xsink, "parsing JSON array")) {
                 return nullptr;
             }
         }
@@ -764,7 +764,7 @@ static int do_json_list(ExceptionSink* xsink, QoreString* str, const QoreListNod
         }
         // Periodic interrupt check in sandbox mode
         if (sm && (++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
-            if (qore_check_io_interrupt(xsink, "serializing JSON list")) {
+            if (qore_check_cancel(xsink, "serializing JSON list")) {
                 return -1;
             }
         }
@@ -876,7 +876,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, int depth,
         while (hi.next()) {
             // Periodic interrupt check in sandbox mode
             if (sm && (++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
-                if (qore_check_io_interrupt(xsink, "serializing JSON object")) {
+                if (qore_check_cancel(xsink, "serializing JSON object")) {
                     return -1;
                 }
             }

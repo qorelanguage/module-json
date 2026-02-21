@@ -145,7 +145,7 @@ bool JsonSaxParser::checkInterrupt(ParseState& state) {
         return true;
     }
     if ((++state.iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
-        if (qore_check_io_interrupt(state.xsink, "parsing JSON")) {
+        if (qore_check_cancel(state.xsink, "parsing JSON")) {
             return false;
         }
     }

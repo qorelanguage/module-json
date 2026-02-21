@@ -51,7 +51,7 @@ bool JsonStreamWriter::checkSandboxLimits(ExceptionSink* xsink) {
 
     // Check for interrupt periodically
     if ((++iteration % JSON_INTERRUPT_CHECK_INTERVAL) == 0) {
-        if (qore_check_io_interrupt(xsink, "writing JSON stream")) {
+        if (qore_check_cancel(xsink, "writing JSON stream")) {
             return false;
         }
     }
