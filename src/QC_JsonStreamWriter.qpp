@@ -486,8 +486,7 @@ qclass JsonStreamWriter [arg=JsonStreamWriter* writer; ns=Qore::Json];
            - @ref JGF_ADD_FORMATTING: pretty-printed output with indentation
 */
 JsonStreamWriter::constructor(Qore::OutputStream[OutputStream] os, int format = JGF_NONE) {
-    ReferenceHolder<OutputStream> os_holder(os, xsink);
-    self->setPrivate(CID_JSONSTREAMWRITER, new JsonStreamWriter(os, format, xsink));
+    self->setPrivate(CID_JSONSTREAMWRITER, new JsonStreamWriter(*os, format, xsink));
     // Store reference to output stream in the object to prevent GC
     self->setValue("os", obj_os->refSelf(), xsink);
 }

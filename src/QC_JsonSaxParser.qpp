@@ -906,7 +906,6 @@ nothing JsonSaxParser::parse(string json_str, code callback) {
     @throw JSON-SAX-PARSE-ERROR if there is a parsing error
 */
 nothing JsonSaxParser::parseStream(Qore::InputStream[InputStream] is, code callback, *string encoding) {
-    ReferenceHolder<InputStream> is_holder(is, xsink);
     const QoreEncoding* enc = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
     ReferenceHolder<ResolvedCallReferenceNode> holder(callback->refRefSelf(), xsink);
     parser->parseStream(const_cast<QoreObject*>(obj_is), *holder, enc, xsink);

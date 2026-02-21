@@ -452,7 +452,7 @@ jrc.setEventQueue(queue);
  */
 nothing JsonRpcClient::setEventQueue(Queue[Queue] queue) {
     // pass reference from QoreObject::getReferencedPrivateData() to function
-    client->setEventQueue(queue, xsink);
+    client->setEventQueue(queue.release(), xsink);
 }
 
 //! Sets the JSON-RPC protocol version
