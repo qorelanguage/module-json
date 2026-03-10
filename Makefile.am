@@ -9,6 +9,7 @@ noinst_HEADERS = src/QC_JsonRpcClient.h \
     src/JsonStreamReadHandler.h \
     src/QC_JsonSchema.h \
     src/ql_json.h \
+    src/ql_cbor.h \
     src/qore-json-module.h
 
 USER_MODULES = qlib/JsonRpcHandler.qm qlib/JsonRpcConnection.qm qlib/McpServerHandler qlib/McpClient qlib/McpClientDataProvider qlib/NdjsonDataProvider
@@ -21,7 +22,9 @@ EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
     src/QC_JsonSchema.qpp \
     src/JsonSchemaImpl.cpp \
     src/ql_json.qpp \
+    src/ql_cbor.qpp \
     test/json.qtest \
+    test/Cbor.qtest \
     test/JsonSax.qtest \
     test/JsonSchema.qtest \
     test/JsonStreamWriter.qtest \
