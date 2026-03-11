@@ -1,4 +1,4 @@
-%define mod_ver 1.8.2
+%define mod_ver 1.8.3
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -111,6 +111,9 @@ json module.
 %doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler test examples
 
 %changelog
+* Wed Mar 11 2026 David Nichols <david@qore.org> - 1.8.3
+- updated to version 1.8.3
+- fixed JSON number parsing for signed exponents and malformed numeric input validation
 * Mon May 9 2022 David Nichols <david@qore.org> - 1.8.2
 - updated to version 1.8.2
 - use cmake instead of autotools

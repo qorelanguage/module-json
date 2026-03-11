@@ -164,6 +164,10 @@
 
     @section jsonreleasenotes Release Notes
 
+    @subsection json_v1_8_3 json Module Version 1.8.3
+    - fixed JSON number parsing for signed exponents such as \c 1.2e-05
+    - tightened JSON number validation to reject malformed inputs with invalid decimals, leading zeros, or incomplete
+      exponents
     @subsection json_v1_8_2 json Module Version 1.8.2
     - fixed minor formatting issues in formatted JSON output for better readability and consistency
       (<a href="https://github.com/qorelanguage/qore/issues/4499">issue 4499</a>)
