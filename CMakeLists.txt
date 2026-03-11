@@ -4,7 +4,7 @@ project(qore-json-module)
 
 set (VERSION_MAJOR 1)
 set (VERSION_MINOR 9)
-set (VERSION_PATCH 1)
+set (VERSION_PATCH 2)
 
 find_package(Qore 2.0 REQUIRED)
 find_package(OpenSSL REQUIRED)

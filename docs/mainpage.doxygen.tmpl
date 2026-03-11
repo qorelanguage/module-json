@@ -166,6 +166,11 @@
 
     @section jsonreleasenotes Release Notes
 
+    @subsection json_v1_9_2 json Module Version 1.9.2
+    - fixed JSON number parsing for signed exponents such as \c 1.2e-05
+    - tightened JSON number validation to reject malformed inputs with invalid decimals, leading zeros, or incomplete
+      exponents
+
     @subsection json_v1_9_1 json Module Version 1.9.1
     - improved MCP server capabilities by making the call context available to tools as well as improving error
       handling in tool calls to provide more relevant information to the AI for error correction

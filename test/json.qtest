@@ -96,10 +96,20 @@ class JsonTest inherits QUnit::Test {
         # issue #3707
         assertEq(30.0, parse_json("3E1"));
         assertEq(30.0, parse_json("3e1"));
+        assertEq(0.00001, parse_json("1e-5"));
+        assertEq(100000.0, parse_json("1e+5"));
+        assertEq(-0.000012, parse_json("-1.2e-05"));
+        assertEqSoft(("AMOUNT": 1.2e-05), parse_json(make_json(("AMOUNT": 1.2e-05))));
         assertThrows("JSON-PARSE-ERROR", \parse_json(), "3e1e2");
         assertThrows("JSON-PARSE-ERROR", \parse_json(), "3e1E2");
         assertThrows("JSON-PARSE-ERROR", \parse_json(), "3E1e2");
         assertThrows("JSON-PARSE-ERROR", \parse_json(), "3E1E2");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "1e");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "1e+");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "1e-");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), ".5");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "1.");
+        assertThrows("JSON-PARSE-ERROR", \parse_json(), "01");
     }
 
     jsonRpcTestCase() {

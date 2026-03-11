@@ -1,4 +1,4 @@
-%define mod_ver 1.9.1
+%define mod_ver 1.9.2
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -112,6 +112,10 @@ json module.
 %doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler test examples
 
 %changelog
+* Wed Mar 11 2026 David Nichols <david@qore.org> - 1.9.2
+- updated to version 1.9.2
+- fixed JSON number parsing for signed exponents and malformed numeric input validation
+
 * Fri May 9 2025 David Nichols <david@qore.org> - 1.9.1
 - updated to version 1.9.1
 
