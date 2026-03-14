@@ -328,6 +328,8 @@ class A2aClientTest inherits QUnit::Test {
             "token": "test-token-123",
         });
         assertEq(task_id, result.id, "Push config set should return task ID");
+        assertTrue(exists result.pushNotificationConfigId, "Push config set should return config ID");
+        auto config_id = result.pushNotificationConfigId;
 
         # Get push notification config
         result = client.getPushNotificationConfig(task_id);
@@ -338,8 +340,8 @@ class A2aClientTest inherits QUnit::Test {
         assertEq(task_id, result.id, "Push config list should return task ID");
         assertTrue(exists result.pushNotificationConfigs, "Should have push configs list");
 
-        # Delete push notification config
-        result = client.deletePushNotificationConfig(task_id, "config-1");
+        # Delete push notification config using the returned config ID
+        result = client.deletePushNotificationConfig(task_id, config_id);
         assertEq(task_id, result.id, "Push config delete should return task ID");
 
         client.close();

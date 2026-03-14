@@ -109,6 +109,12 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         #! Request ID counter
         int rid = 0;
+
+        #! Per-session ID counter
+        hash<string, int> sidmap;
+
+        #! Push notification config ID counter
+        int push_config_id_counter = 0;
     }
 
     #! Creates the handler with a logger, agent card, and authenticator
@@ -228,9 +234,10 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     #! Creates a new task
     /** @param context_id optional context ID for grouping related tasks
         @param metadata optional task metadata
+        @param session_id optional session ID to associate the task with
         @return the task info hash
     */
-    hash<A2aTaskInfo> createTask(*string context_id, *hash<auto> metadata) {
+    hash<A2aTaskInfo> createTask(*string context_id, *hash<auto> metadata, *string session_id) {
         string task_id = generateTaskId();
         date now = now_us();
 
@@ -244,6 +251,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             "metadata": metadata,
             "createdAt": now,
             "lastUpdatedAt": now,
+            "sessionId": session_id,
             "cond": new Qore::Thread::Condition(),
             "lck": new Qore::Thread::Mutex(),
         };
@@ -383,7 +391,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
 
         # Create a new task
-        hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata);
+        hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
         string task_id = task.id;
 
         # Add the incoming message to history
@@ -523,9 +531,12 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         if (!push_configs{params.id}) {
             push_configs{params.id} = ();
         }
-        push_configs{params.id} += params.pushNotificationConfig;
+        hash<auto> config = params.pushNotificationConfig + {
+            "id": sprintf("%d", ++push_config_id_counter),
+        };
+        push_configs{params.id} += config;
 
-        return {"id": params.id};
+        return {"id": params.id, "pushNotificationConfigId": config.id};
     }
 
     private hash<auto> pushNotificationConfigGet(hash<auto> cx, *hash<auto> params) {
@@ -564,12 +575,32 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         if (!params.id) {
             return makeJsonRpcError(A2A_ERR_INVALID_ARGUMENT, "Missing 'id' parameter");
         }
+        if (!params.pushNotificationConfigId) {
+            return makeJsonRpcError(A2A_ERR_INVALID_ARGUMENT,
+                "Missing 'pushNotificationConfigId' parameter");
+        }
 
         AutoWriteLock al(rwl);
         if (!task_map{params.id}) {
             return makeJsonRpcError(A2A_ERR_NOT_FOUND, sprintf("Task %y not found", params.id));
         }
-        remove push_configs{params.id};
+        *list<hash<auto>> configs = push_configs{params.id};
+        if (!configs) {
+            return makeJsonRpcError(A2A_ERR_NOT_FOUND,
+                sprintf("No push notification configs found for task %y", params.id));
+        }
+        # Filter out the config with the matching ID
+        list<hash<auto>> new_configs = (map $1, configs, $1.id != params.pushNotificationConfigId);
+        if (new_configs.size() == configs.size()) {
+            return makeJsonRpcError(A2A_ERR_NOT_FOUND,
+                sprintf("Push notification config %y not found for task %y",
+                    params.pushNotificationConfigId, params.id));
+        }
+        if (new_configs) {
+            push_configs{params.id} = new_configs;
+        } else {
+            remove push_configs{params.id};
+        }
 
         return {"id": params.id};
     }
@@ -657,14 +688,23 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
     }
 
-    #! Sends an event to all SSE connections
+    #! Sends an event to SSE connections belonging to the task's session
     private notifySseConnections(string task_id, string event_type, hash<auto> event_data) {
         list<A2aServerConnection> conns;
         {
             AutoReadLock al(rwl);
-            foreach string sid in (keys smap) {
-                foreach A2aServerConnection conn in (smap{sid}.ssemap.iterator()) {
+            *string session_id = task_map{task_id}.sessionId;
+            if (session_id && smap{session_id}) {
+                # Only notify SSE connections in the task's session
+                foreach A2aServerConnection conn in (smap{session_id}.ssemap.iterator()) {
                     conns += conn;
+                }
+            } else {
+                # No session ID on task: broadcast to all sessions
+                foreach string sid in (keys smap) {
+                    foreach A2aServerConnection conn in (smap{sid}.ssemap.iterator()) {
+                        conns += conn;
+                    }
                 }
             }
         }
@@ -700,7 +740,8 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     int getNextIdForSession(string session) {
-        return getNextRequestId().toInt();
+        AutoWriteLock al(rwl);
+        return ++sidmap{session};
     }
 
     string getSessionId(hash<auto> hdr) {
@@ -713,6 +754,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         AutoWriteLock al(rwl);
         smap{session} = <A2aSessionInfo>{
             "session": session,
+            "ssemap": {},
             "last_activity": now_us(),
         };
         return session;

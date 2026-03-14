@@ -291,6 +291,8 @@ class A2aClientDataProviderTest inherits QUnit::Test {
             "token": "secret",
         });
         assertEq(task.id, result.id, "Set result should have task ID");
+        assertTrue(exists result.pushNotificationConfigId, "Set result should have config ID");
+        auto config_id = result.pushNotificationConfigId;
 
         # List push configs via data provider
         AbstractDataProvider list_provider = push_prov.getChildProvider("list");
@@ -304,11 +306,11 @@ class A2aClientDataProviderTest inherits QUnit::Test {
         result = get_provider.doRequest({"id": task.id});
         assertEq(task.id, result.id, "Get result should have task ID");
 
-        # Delete push config via data provider
+        # Delete push config via data provider using the returned config ID
         AbstractDataProvider del_provider = push_prov.getChildProvider("delete");
         result = del_provider.doRequest({
             "id": task.id,
-            "pushNotificationConfigId": "config-1",
+            "pushNotificationConfigId": config_id,
         });
         assertEq(task.id, result.id, "Delete result should have task ID");
 

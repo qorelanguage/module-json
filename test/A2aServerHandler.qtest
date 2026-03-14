@@ -566,6 +566,8 @@ class A2aServerHandlerTest inherits QUnit::Test {
             "token": "secret-token",
         });
         assertEq(task.id, result.id, "Set result should have task ID");
+        assertTrue(exists result.pushNotificationConfigId, "Set result should have config ID");
+        auto config_id_1 = result.pushNotificationConfigId;
 
         # List push configs
         result = client.listPushNotificationConfigs(task.id);
@@ -579,17 +581,28 @@ class A2aServerHandlerTest inherits QUnit::Test {
         assertEq(task.id, result.id, "Get result should have task ID");
 
         # Add another config
-        client.setPushNotificationConfig(task.id, {
+        hash<auto> set_result2 = client.setPushNotificationConfig(task.id, {
             "url": "http://example.com/webhook2",
         });
+        auto config_id_2 = set_result2.pushNotificationConfigId;
         result = client.listPushNotificationConfigs(task.id);
         assertEq(2, result.pushNotificationConfigs.size(), "Should have 2 configs");
 
-        # Delete configs
-        result = client.deletePushNotificationConfig(task.id, "config-1");
+        # Delete first config by its ID
+        result = client.deletePushNotificationConfig(task.id, config_id_1);
         assertEq(task.id, result.id, "Delete result should have task ID");
 
-        # After delete, should have no configs
+        # After deleting first config, should have 1 remaining
+        result = client.listPushNotificationConfigs(task.id);
+        assertEq(1, result.pushNotificationConfigs.size(), "Should have 1 config after deleting first");
+        assertEq("http://example.com/webhook2", result.pushNotificationConfigs[0].url,
+            "Remaining config should be the second one");
+
+        # Delete second config
+        result = client.deletePushNotificationConfig(task.id, config_id_2);
+        assertEq(task.id, result.id, "Delete result should have task ID");
+
+        # After deleting both, should have 0 configs
         result = client.listPushNotificationConfigs(task.id);
         assertEq(0, result.pushNotificationConfigs.size(), "Should have 0 configs after delete");
 
@@ -736,16 +749,20 @@ class A2aServerHandlerTest inherits QUnit::Test {
         # PUT should return 405
         try {
             client.send("", "PUT", "/.well-known/agent-card.json", NOTHING, NOTHING, \info);
+            hash<auto> ri = info."response-headers";
+            assertEq(405, ri.status_code, "PUT should return 405");
         } catch (hash<ExceptionInfo> ex) {
-            # 405 error expected
-            assertTrue(True, "PUT should be rejected");
+            # HTTP client may throw for non-2xx responses
+            assertTrue(ex.desc =~ /405/, "PUT exception should indicate 405");
         }
 
         # DELETE should return 405
         try {
             client.send("", "DELETE", "/", NOTHING, NOTHING, \info);
+            hash<auto> ri = info."response-headers";
+            assertEq(405, ri.status_code, "DELETE should return 405");
         } catch (hash<ExceptionInfo> ex) {
-            assertTrue(True, "DELETE should be rejected");
+            assertTrue(ex.desc =~ /405/, "DELETE exception should indicate 405");
         }
 
         # GET agent card should work

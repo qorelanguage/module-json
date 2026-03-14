@@ -113,6 +113,7 @@ public class A2aEventDataProvider inherits A2aClientDataProviderBase, DataProvid
     private {
         bool started;
         bool ready;
+        bool callbacks_set;
         Mutex m();
     }
 
@@ -141,6 +142,35 @@ public class A2aEventDataProvider inherits A2aClientDataProviderBase, DataProvid
 
     stopEvents() {
         stop();
+    }
+
+    #! Emits a task status update event
+    /** Can be called externally to inject events from SSE streams or push notifications.
+    */
+    emitTaskStatusUpdate(string task_id, hash<auto> status_data) {
+        notifyObservers(EVENT_A2A_TASK_STATUS_UPDATE, {
+            "event": EVENT_A2A_TASK_STATUS_UPDATE,
+            "task_id": task_id,
+            "data": status_data,
+        });
+    }
+
+    #! Emits a task artifact update event
+    emitTaskArtifactUpdate(string task_id, hash<auto> artifact_data) {
+        notifyObservers(EVENT_A2A_TASK_ARTIFACT_UPDATE, {
+            "event": EVENT_A2A_TASK_ARTIFACT_UPDATE,
+            "task_id": task_id,
+            "data": artifact_data,
+        });
+    }
+
+    #! Emits a task message update event
+    emitTaskMessageUpdate(string task_id, hash<auto> message_data) {
+        notifyObservers(EVENT_A2A_TASK_MESSAGE_UPDATE, {
+            "event": EVENT_A2A_TASK_MESSAGE_UPDATE,
+            "task_id": task_id,
+            "data": message_data,
+        });
     }
 
     private hash<DataProvider::DataProviderInfo> getStaticInfoImpl() {
@@ -180,6 +210,12 @@ public class A2aEventDataProvider inherits A2aClientDataProviderBase, DataProvid
                     "task_id": "task-123",
                     "data": {"state": "completed", "timestamp": "2026-01-01T00:00:00Z"},
                 };
+            case EVENT_A2A_TASK_ARTIFACT_UPDATE:
+                return {
+                    "event": EVENT_A2A_TASK_ARTIFACT_UPDATE,
+                    "task_id": "task-123",
+                    "data": {"artifactId": "art-1", "name": "result.json"},
+                };
             default:
                 return {
                     "event": event_id,
@@ -187,6 +223,7 @@ public class A2aEventDataProvider inherits A2aClientDataProviderBase, DataProvid
         }
     }
 
+    #! Starts the event provider and registers A2aClient callbacks
     private start() {
         m.lock();
         on_exit m.unlock();
@@ -195,12 +232,14 @@ public class A2aEventDataProvider inherits A2aClientDataProviderBase, DataProvid
             return;
         }
         started = True;
+        registerCallbacks();
 
         notifyObservers(EVENT_A2A_CONNECTED, {
             "event": EVENT_A2A_CONNECTED,
         });
     }
 
+    #! Stops the event provider and unregisters callbacks
     private stop() {
         m.lock();
         on_exit m.unlock();
@@ -209,10 +248,39 @@ public class A2aEventDataProvider inherits A2aClientDataProviderBase, DataProvid
             return;
         }
         started = False;
+        unregisterCallbacks();
 
         notifyObservers(EVENT_A2A_DISCONNECTED, {
             "event": EVENT_A2A_DISCONNECTED,
         });
+    }
+
+    #! Registers A2aClient callbacks for task events
+    private registerCallbacks() {
+        if (callbacks_set) {
+            return;
+        }
+        callbacks_set = True;
+        a2a.setCallback("onTaskStatusUpdate", sub (string task_id, hash<auto> data) {
+            emitTaskStatusUpdate(task_id, data);
+        });
+        a2a.setCallback("onTaskArtifactUpdate", sub (string task_id, hash<auto> data) {
+            emitTaskArtifactUpdate(task_id, data);
+        });
+        a2a.setCallback("onTaskMessageUpdate", sub (string task_id, hash<auto> data) {
+            emitTaskMessageUpdate(task_id, data);
+        });
+    }
+
+    #! Unregisters A2aClient callbacks
+    private unregisterCallbacks() {
+        if (!callbacks_set) {
+            return;
+        }
+        callbacks_set = False;
+        a2a.removeCallback("onTaskStatusUpdate");
+        a2a.removeCallback("onTaskArtifactUpdate");
+        a2a.removeCallback("onTaskMessageUpdate");
     }
 }
 }

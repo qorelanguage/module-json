@@ -595,7 +595,7 @@ namespace Qore::Json;
 
     @see parse_cbor()
 
-    @since json 1.12
+    @since json 1.11
 */
 binary make_cbor(auto data) [flags=RET_VALUE_ONLY] {
     std::vector<uint8_t> buf;
@@ -636,7 +636,7 @@ binary make_cbor(auto data) [flags=RET_VALUE_ONLY] {
 
     @see make_cbor()
 
-    @since json 1.12
+    @since json 1.11
 */
 auto parse_cbor(binary cbor_data) [flags=RET_VALUE_ONLY] {
     QoreSandboxManagerHelper smh;

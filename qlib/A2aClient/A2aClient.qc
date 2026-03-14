@@ -699,9 +699,12 @@ public class A2aClient {
     }
 
     #! Performs a JSON-RPC call with SSE streaming response
-    /** @param method the JSON-RPC method name
+    /** Uses HttpStreamClient for proper incremental SSE event reading so that events
+        are delivered as they arrive rather than waiting for the full response.
+
+        @param method the JSON-RPC method name
         @param params the request parameters
-        @param on_event callback for each SSE event
+        @param on_event callback for each SSE event; receives (event_type, event_data)
     */
     private doRpcStream(string method, hash<auto> params, code<auto (string, hash<auto>)> on_event) {
         int id;
@@ -725,88 +728,60 @@ public class A2aClient {
         on_exit sse_cnt.dec();
 
         hash<auto> info;
+        HttpStreamClient::HTTPResponseStream stream;
         try {
-            # Send request with Accept: text/event-stream to get SSE response
-            string response_body = http.post("", body, {"Accept": MimeTypeSse}, \info);
-
-            hash<auto> response_info = info."response-headers";
-            int status_code = response_info.status_code ?? 0;
-
-            if (status_code < 200 || status_code >= 300) {
-                throw "A2A-HTTP-ERROR", sprintf("HTTP %d %s streaming %y",
-                    status_code, response_info.status_message ?? "", method);
+            stream = HttpStreamClient::sendAndStream(http, "POST", "", body,
+                {"Accept": MimeTypeSse}, \info, timeout);
+        } catch (hash<ExceptionInfo> ex) {
+            if (ex.err == "SOCKET-CONNECT-ERROR" || ex.err == "SOCKET-ERROR"
+                    || ex.err == "SOCKET-CLOSED") {
+                rethrow;
             }
+            throw "A2A-ERROR", sprintf("Stream request failed for %y: %s: %s", method, ex.err, ex.desc);
+        }
 
-            # Check if the response is SSE
-            if (response_info."content-type" =~ /text\/event-stream/) {
-                # Parse SSE events from the response body
-                processStreamEvents(response_body, on_event);
-            } else {
-                # Non-streaming response - treat as single result
+        on_exit stream.close();
+
+        hash<HttpStreamClient::HTTPResponseStreamInfo> resp = stream.getInfo();
+
+        if ((resp.status_code / 100) != 2) {
+            # Read error body
+            string error_body = "";
+            while (*binary chunk = stream.readChunk(timeout)) {
+                error_body += chunk.toString();
+            }
+            throw "A2A-HTTP-ERROR", sprintf("HTTP %d %s streaming %y: %s",
+                resp.status_code, resp.status_message, method, error_body);
+        }
+
+        if (resp.content_type == MimeTypeSse || resp.content_type =~ /text\/event-stream/) {
+            # Read SSE events incrementally
+            while (!stream.isEof() && !sse_stop_flag) {
+                *hash<SseMessageInfo> evt = stream.readServerSentEvent(timeout);
+                if (!evt || !evt.data.val()) {
+                    continue;
+                }
+                try {
+                    hash<auto> data = parse_json(evt.data);
+                    string event_type = evt.event ?? "message";
+                    on_event(event_type, data);
+                } catch (hash<ExceptionInfo> ex) {
+                    logDebug("Error parsing SSE event: %s: %s", ex.err, ex.desc);
+                }
+            }
+        } else {
+            # Non-SSE response — read full body and treat as single result
+            string response_body = "";
+            while (*binary chunk = stream.readChunk(timeout)) {
+                response_body += chunk.toString();
+            }
+            if (response_body.val()) {
                 hash<auto> result = parse_json(response_body);
                 if (result.error) {
                     throw "A2A-ERROR", sprintf("A2A error %d: %s",
                         result.error.code, result.error.message), result.error;
                 }
                 on_event("result", result.result ?? {});
-            }
-        } catch (hash<ExceptionInfo> ex) {
-            if (ex.err == "A2A-ERROR" || ex.err == "A2A-HTTP-ERROR") {
-                rethrow;
-            }
-            throw "A2A-ERROR", sprintf("Error streaming A2A method %y: %s: %s", method, ex.err, ex.desc);
-        }
-    }
-
-    #! Processes SSE events from a streaming response body
-    private processStreamEvents(string body, code<auto (string, hash<auto>)> on_event) {
-        # Parse SSE events line by line
-        string event_type = "message";
-        string event_data = "";
-
-        list<string> lines = body.split("\n");
-        foreach string line in (lines) {
-            if (sse_stop_flag) {
-                break;
-            }
-
-            if (line == "" || line == "\r") {
-                # Empty line = dispatch event
-                if (event_data.val()) {
-                    try {
-                        hash<auto> data = parse_json(event_data);
-                        on_event(event_type, data);
-                    } catch (hash<ExceptionInfo> ex) {
-                        logDebug("Error parsing SSE event data: %s: %s", ex.err, ex.desc);
-                    }
-                    event_data = "";
-                    event_type = "message";
-                }
-                continue;
-            }
-
-            if (line =~ /^event:/) {
-                event_type = trim(line.substr(6));
-            } else if (line =~ /^data:/) {
-                string data_line = line.substr(5);
-                if (data_line =~ /^ /) {
-                    data_line = data_line.substr(1);
-                }
-                if (event_data.val()) {
-                    event_data += "\n";
-                }
-                event_data += data_line;
-            }
-            # Ignore comments (lines starting with :) and other fields
-        }
-
-        # Handle any remaining event data
-        if (event_data.val() && !sse_stop_flag) {
-            try {
-                hash<auto> data = parse_json(event_data);
-                on_event(event_type, data);
-            } catch (hash<ExceptionInfo> ex) {
-                logDebug("Error parsing final SSE event data: %s: %s", ex.err, ex.desc);
             }
         }
     }
