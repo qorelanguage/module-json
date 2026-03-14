@@ -28,6 +28,9 @@
       - <a href="../../McpServerHandler/html/index.html">McpServerHandler</a>
       - <a href="../../McpClient/html/index.html">McpClient</a>
       - <a href="../../McpClientDataProvider/html/index.html">McpClientDataProvider</a>
+      - <a href="../../A2aClient/html/index.html">A2aClient</a>
+      - <a href="../../A2aServerHandler/html/index.html">A2aServerHandler</a>
+      - <a href="../../A2aClientDataProvider/html/index.html">A2aClientDataProvider</a>
 
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
@@ -45,6 +48,9 @@
     - <a href="../../McpServerHandler/html/index.html">McpServerHandler</a> user module
     - <a href="../../McpClient/html/index.html">McpClient</a> user module
     - <a href="../../McpClientDataProvider/html/index.html">McpClientDataProvider</a> user module
+    - <a href="../../A2aClient/html/index.html">A2aClient</a> user module
+    - <a href="../../A2aServerHandler/html/index.html">A2aServerHandler</a> user module
+    - <a href="../../A2aClientDataProvider/html/index.html">A2aClientDataProvider</a> user module
 
     @note JSON functionality was included in the main %Qore shared library until version 0.8.1, at which time the code
     was removed to make this module.
@@ -176,6 +182,29 @@
     @section jsonreleasenotes Release Notes
 
     @subsection json_v1_11 json Module Version 1.11
+    - added CBOR serialization support (make_cbor/parse_cbor)
+    - added the <a href="../../A2aClient/html/index.html">A2aClient</a> module for connecting to A2A agents:
+      - Agent Card discovery via \c /.well-known/agent-card.json
+      - Authenticated extended Agent Card retrieval
+      - Message sending with task lifecycle management
+      - SSE streaming for real-time task updates
+      - Push notification configuration CRUD
+      - Task management (get, cancel, resubscribe)
+      - ConnectionProvider integration with \c a2a:// and \c a2as:// URL schemes
+    - added the <a href="../../A2aServerHandler/html/index.html">A2aServerHandler</a> module for A2A server support:
+      - Agent Card serving via GET \c /.well-known/agent-card.json
+      - JSON-RPC dispatch for \c message/send, \c message/stream
+      - Task lifecycle management with state machine validation
+      - SSE streaming for real-time task updates
+      - Push notification config CRUD
+      - Session management
+    - added the <a href="../../A2aClientDataProvider/html/index.html">A2aClientDataProvider</a> module for DataProvider API:
+      - factory registration for automatic data provider discovery
+      - agent card providers: get and get-extended
+      - message providers: send messages to agents
+      - task providers: get and cancel tasks
+      - event provider: observe task status/artifact/message updates
+      - ConnectionProvider integration with \c a2a:// and \c a2as:// URL schemes
     - added JWT encode/decode support with HS* and RS* algorithms
     - added JWT hashdecl examples for typed inputs/outputs in the API docs
     - jwt_decode() now documents BASE64-PARSE-ERROR and JSON-ERROR for invalid tokens

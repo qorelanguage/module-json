@@ -1,0 +1,115 @@
+# -*- mode: qore; indent-tabs-mode: nil -*-
+#! @file A2aClient.qm @brief A2A Client module for connecting to A2A agents
+
+/*  A2aClient.qm Copyright (C) 2026 Qore Technologies, s.r.o.
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+*/
+
+# minimum qore version
+%requires qore >= 2.0
+%requires json
+%requires Mime
+%requires Util
+%requires Logger
+%requires DataProvider
+%requires ServerSentEventClient
+%requires HttpStreamClient
+%requires(reexport) ConnectionProvider >= 1.4
+
+%modern
+
+module A2aClient {
+    version = "1.0";
+    desc = "A2aClient module for connecting to A2A agents";
+    author = "David Nichols <david@qore.org>";
+    url = "http://qore.org";
+    license = "MIT";
+    init = sub () {
+        ConnectionSchemeCache::registerScheme("a2a", A2aConnection::ConnectionScheme);
+        ConnectionSchemeCache::registerScheme("a2as", A2aConnection::ConnectionScheme);
+    };
+}
+
+/** @mainpage A2aClient Module
+
+    @tableofcontents
+
+    @section a2aclientintro Introduction to the A2aClient Module
+
+    The %A2aClient module provides a client implementation for Google's Agent-to-Agent (A2A)
+    protocol (v0.3.0, now under the Linux Foundation), allowing Qore applications to connect
+    to A2A agents and interact with them via JSON-RPC 2.0 over HTTP(S) with SSE streaming.
+
+    A2A complements MCP (which focuses on tool/resource integration) by enabling agent-to-agent
+    collaboration.
+
+    @subsection A2aClient_features Features
+
+    - Agent Card discovery via \c /.well-known/agent-card.json
+    - Authenticated extended Agent Card retrieval
+    - Message sending with task lifecycle management
+    - SSE streaming for real-time task updates
+    - Push notification configuration
+    - Task management (get, cancel, resubscribe)
+    - Connection provider integration with \c a2a:// and \c a2as:// URL schemes
+
+    @subsection A2aClient_usage Basic Usage
+
+    @code
+    %requires A2aClient
+
+    # Create client
+    A2aClient client("http://localhost:8080");
+
+    # Get agent card
+    hash<auto> card = client.getAgentCard();
+    printf("Agent: %s - %s\n", card.name, card.description);
+
+    # Send a message
+    hash<auto> task = client.sendMessage({
+        "role": "user",
+        "parts": ({"type": "text", "text": "Hello, agent!"},),
+    });
+    printf("Task state: %s\n", task.status.state);
+
+    # Close connection
+    client.close();
+    @endcode
+
+    @section A2aClient_relnotes A2aClient Release Notes
+
+    @subsection A2aClient_1_0 A2aClient v1.0
+    - initial release with full A2A v0.3.0 protocol support
+    - Agent Card discovery and authenticated extended card
+    - message/send, message/stream
+    - tasks/get, tasks/cancel, tasks/resubscribe
+    - push notification config CRUD
+    - SSE streaming for real-time updates
+    - ConnectionProvider integration with a2a:// and a2as:// schemes
+*/
+
+#! the %A2aClient namespace holds all public definitions in the %A2aClient module
+public namespace A2aClient {
+#! Client name
+public const A2aClientName = "QoreA2aClient";
+
+#! Client version
+public const A2aClientVersion = "1.0";
+}

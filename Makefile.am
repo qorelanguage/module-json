@@ -12,7 +12,7 @@ noinst_HEADERS = src/QC_JsonRpcClient.h \
     src/ql_cbor.h \
     src/qore-json-module.h
 
-USER_MODULES = qlib/JsonRpcHandler.qm qlib/JsonRpcConnection.qm qlib/McpServerHandler qlib/McpClient qlib/McpClientDataProvider qlib/NdjsonDataProvider
+USER_MODULES = qlib/JsonRpcHandler.qm qlib/JsonRpcConnection.qm qlib/McpServerHandler qlib/McpClient qlib/McpClientDataProvider qlib/A2aClient qlib/A2aServerHandler qlib/A2aClientDataProvider qlib/NdjsonDataProvider
 
 EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
     RELEASE-NOTES \
@@ -41,11 +41,11 @@ ACLOCAL_AMFLAGS=-I m4
 dist_mod_DATA = $(USER_MODULES)
 
 if COND_DOXYGEN
-DOX = json JsonRpcHandler JsonRpcConnection McpServerHandler
-DOXYGEN_OUTPUT=docs/json/html docs/JsonRpcHandler/html docs/JsonRpcConnection/html docs/McpServerHandler/html
+DOX = json JsonRpcHandler JsonRpcConnection McpServerHandler A2aServerHandler
+DOXYGEN_OUTPUT=docs/json/html docs/JsonRpcHandler/html docs/JsonRpcConnection/html docs/McpServerHandler/html docs/A2aServerHandler/html
 DOXYFILES = docs/doxyfile docs/mainpage.doxygen
 DOXYFILES_SRC = docs/doxyfile.tmpl docs/qlib/Doxyfile.tmpl docs/footer_template.html
-QLIB_TMP_DOXYFILES = docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler docs/qlib/JsonRpcConnection.qm.dox.h docs/qlib/Doxyfile.JsonRpcConnection docs/qlib/McpServerHandler.qm.dox.h docs/qlib/McpServerHandler.qc.dox.h docs/qlib/McpServerConnection.qc.dox.h docs/qlib/Doxyfile.McpServerHandler
+QLIB_TMP_DOXYFILES = docs/qlib/JsonRpcHandler.qm.dox.h docs/qlib/Doxyfile.JsonRpcHandler docs/qlib/JsonRpcConnection.qm.dox.h docs/qlib/Doxyfile.JsonRpcConnection docs/qlib/McpServerHandler.qm.dox.h docs/qlib/McpServerHandler.qc.dox.h docs/qlib/McpServerConnection.qc.dox.h docs/qlib/Doxyfile.McpServerHandler docs/qlib/A2aServerHandler.qm.dox.h docs/qlib/A2aServerHandler.qc.dox.h docs/qlib/A2aServerConnection.qc.dox.h docs/qlib/Doxyfile.A2aServerHandler
 QDX = qdx
 DX_CLEANFILES = ${DOXYFILES} $(QLIB_TMP_DOXYFILES)
 
@@ -89,6 +89,23 @@ docs/qlib/McpServerConnection.qc.dox.h: qlib/McpServerHandler/McpServerConnectio
 docs/McpServerHandler/html: docs/qlib/McpServerHandler.qm.dox.h docs/qlib/Doxyfile.McpServerHandler
     cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.McpServerHandler
     $(QDX) --post docs/McpServerHandler/html docs/McpServerHandler/html/search
+
+docs/qlib/Doxyfile.A2aServerHandler: docs/qlib/Doxyfile.tmp
+    $(QDX) -M=qlib/A2aServerHandler.qm:qlib/A2aServerHandler.qm.dox.h -tjson.tag=../../json/html $< $@
+    echo "INPUT += qlib/A2aServerHandler.qc.dox.h qlib/A2aServerConnection.qc.dox.h" >> $@
+
+docs/qlib/A2aServerHandler.qm.dox.h: qlib/A2aServerHandler.qm
+    $(QDX) $< $@
+
+docs/qlib/A2aServerHandler.qc.dox.h: qlib/A2aServerHandler/A2aServerHandler.qc
+    $(QDX) $< $@
+
+docs/qlib/A2aServerConnection.qc.dox.h: qlib/A2aServerHandler/A2aServerConnection.qc
+    $(QDX) $< $@
+
+docs/A2aServerHandler/html: docs/qlib/A2aServerHandler.qm.dox.h docs/qlib/Doxyfile.A2aServerHandler
+    cd docs; $(DOXYGEN_CMD) qlib/Doxyfile.A2aServerHandler
+    $(QDX) --post docs/A2aServerHandler/html docs/A2aServerHandler/html/search
 
 docs/json/html: $(DOXYFILES)
     cd docs; $(DOXYGEN_CMD) doxyfile;
