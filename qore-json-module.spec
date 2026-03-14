@@ -1,4 +1,4 @@
-%define mod_ver 1.10
+%define mod_ver 1.11
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -99,6 +99,9 @@ qore -l ./json-api-%{module_api}.qmod test/JsonRpcHandler.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/McpServerHandler.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/McpClient.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/McpClientDataProvider.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/A2aClient.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/A2aServerHandler.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/A2aClientDataProvider.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/json.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/Jwt.qtest -v
 
@@ -112,9 +115,18 @@ json module.
 
 %files doc
 %defattr(-,root,root,-)
-%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler docs/McpClient docs/McpClientDataProvider test examples
+%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler docs/McpClient docs/McpClientDataProvider docs/A2aClient docs/A2aServerHandler docs/A2aClientDataProvider test examples
 
 %changelog
+* Sat Mar 14 2026 David Nichols <david@qore.org> - 1.11
+- updated to version 1.11
+- added CBOR serialization support (make_cbor/parse_cbor)
+- added A2aClient module for connecting to A2A agents
+- added A2aServerHandler module for A2A server support
+- added A2aClientDataProvider module for DataProvider API access to A2A agents
+- added A2A Agent Card discovery, message/task lifecycle, push notifications
+- added ConnectionProvider integration (a2a://, a2as://)
+
 * Sun Dec 29 2025 David Nichols <david@qore.org> - 1.10
 - updated to version 1.10
 - added McpClientDataProvider module for DataProvider API access to MCP servers

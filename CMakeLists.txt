@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.5.0)
 project(qore-json-module)
 
 set (VERSION_MAJOR 1)
-set (VERSION_MINOR 12)
+set (VERSION_MINOR 11)
 set (VERSION_PATCH 0)
 
 find_package(Qore 2.0 REQUIRED)
@@ -54,6 +54,9 @@ set(QMOD
     qlib/McpServerHandler
     qlib/McpClient
     qlib/McpClientDataProvider
+    qlib/A2aClient
+    qlib/A2aServerHandler
+    qlib/A2aClientDataProvider
     qlib/NdjsonDataProvider
 )
 
@@ -93,6 +96,9 @@ qore_external_user_module("qlib/JsonRpcHandler.qm" "")
 qore_external_user_module("qlib/McpServerHandler" "JsonRpcHandler")
 qore_external_user_module("qlib/McpClient" "")
 qore_external_user_module("qlib/McpClientDataProvider" "McpClient")
+qore_external_user_module("qlib/A2aClient" "")
+qore_external_user_module("qlib/A2aServerHandler" "JsonRpcHandler;A2aClient")
+qore_external_user_module("qlib/A2aClientDataProvider" "A2aClient")
 qore_external_user_module("qlib/NdjsonDataProvider" "")
 
 # install qpp metadata files
