@@ -108,7 +108,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         int task_id_counter = 0;
 
         #! Request ID counter
-        int rid = 0;
+        int rpc_rid = 0;
 
         #! Per-session ID counter
         hash<string, int> sidmap;
@@ -655,7 +655,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     #! Makes a JSON-RPC error response
     private hash<auto> makeJsonRpcError(int code, string message) {
-        throw "JSONRPC-ERROR", message, {"code": code, "message": message};
+        throw "JSONRPC-ERROR", message, code;
     }
 
     #! Sends push notifications for a task event
@@ -736,7 +736,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     #! Returns the next request ID
     string getNextRequestId() {
         AutoWriteLock al(rwl);
-        return "s" + rid++;
+        return "s" + rpc_rid++;
     }
 
     int getNextIdForSession(string session) {
