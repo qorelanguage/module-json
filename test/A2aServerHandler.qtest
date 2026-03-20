@@ -46,6 +46,14 @@ class A2aServerHandlerTest inherits QUnit::Test {
         addTestCase("message handler error test", \messageHandlerErrorTest());
         addTestCase("http method handling test", \httpMethodHandlingTest());
         addTestCase("task with context and metadata test", \taskWithContextAndMetadataTest());
+        addTestCase("context history multi-turn test", \contextHistoryMultiTurnTest());
+        addTestCase("context history isolation test", \contextHistoryIsolationTest());
+        addTestCase("context history max enforcement test", \contextHistoryMaxEnforcementTest());
+        addTestCase("context history clear and get test", \contextHistoryClearAndGetTest());
+        addTestCase("stream handler basic test", \streamHandlerBasicTest());
+        addTestCase("stream handler error test", \streamHandlerErrorTest());
+        addTestCase("stream handler fallback test", \streamHandlerFallbackTest());
+        addTestCase("stream handler with context test", \streamHandlerWithContextTest());
 
         set_return_value(main());
     }
@@ -791,6 +799,403 @@ class A2aServerHandlerTest inherits QUnit::Test {
         hash<auto> fetched = client.getTask(task.id);
         # contextId is set during creation via the message handler
         assertTrue(exists fetched.id, "Should be able to retrieve task");
+
+        client.close();
+    }
+
+    contextHistoryMultiTurnTest() {
+        # Clear any prior state
+        handler.clearContextHistory();
+
+        A2aClient::A2aClient client(base_url);
+        string ctx_id = "multi-turn-test";
+
+        # Turn 1: send first message
+        hash<auto> task1 = client.sendMessage(
+            {
+                "role": "user",
+                "parts": ({"type": "text", "text": "Hello"},),
+            },
+            {"contextId": ctx_id},
+        );
+        assertEq(A2aTaskState::Completed, task1.status.state, "Turn 1 should complete");
+
+        # After turn 1: context should have 2 messages (user + agent)
+        list<hash<auto>> history1 = handler.getContextHistory(ctx_id);
+        assertEq(2, history1.size(), "After turn 1: should have 2 messages in context");
+        assertEq("user", history1[0].role, "First message should be user");
+        assertEq("agent", history1[1].role, "Second message should be agent");
+
+        # Turn 2: send second message
+        hash<auto> task2 = client.sendMessage(
+            {
+                "role": "user",
+                "parts": ({"type": "text", "text": "How are you?"},),
+            },
+            {"contextId": ctx_id},
+        );
+        assertEq(A2aTaskState::Completed, task2.status.state, "Turn 2 should complete");
+
+        # After turn 2: context should have 4 messages
+        list<hash<auto>> history2 = handler.getContextHistory(ctx_id);
+        assertEq(4, history2.size(), "After turn 2: should have 4 messages in context");
+
+        # Turn 3: send third message
+        hash<auto> task3 = client.sendMessage(
+            {
+                "role": "user",
+                "parts": ({"type": "text", "text": "Goodbye"},),
+            },
+            {"contextId": ctx_id},
+        );
+        assertEq(A2aTaskState::Completed, task3.status.state, "Turn 3 should complete");
+
+        # After turn 3: context should have 6 messages
+        list<hash<auto>> history3 = handler.getContextHistory(ctx_id);
+        assertEq(6, history3.size(), "After turn 3: should have 6 messages in context");
+
+        # Verify the handler received history on subsequent turns by checking task2's history
+        # contains the handler_message with prior context
+        # The task history itself should have user+agent for this turn
+        assertEq(2, task2.history.size(), "Task 2 history should have 2 messages (user+agent for this task)");
+        assertEq(2, task3.history.size(), "Task 3 history should have 2 messages (user+agent for this task)");
+
+        client.close();
+        handler.clearContextHistory();
+    }
+
+    contextHistoryIsolationTest() {
+        handler.clearContextHistory();
+
+        A2aClient::A2aClient client(base_url);
+        string ctx_a = "isolation-ctx-a";
+        string ctx_b = "isolation-ctx-b";
+
+        # Send message to context A
+        client.sendMessage(
+            {"role": "user", "parts": ({"type": "text", "text": "Message A1"},)},
+            {"contextId": ctx_a},
+        );
+
+        # Send message to context B
+        client.sendMessage(
+            {"role": "user", "parts": ({"type": "text", "text": "Message B1"},)},
+            {"contextId": ctx_b},
+        );
+
+        # Send another message to context A
+        client.sendMessage(
+            {"role": "user", "parts": ({"type": "text", "text": "Message A2"},)},
+            {"contextId": ctx_a},
+        );
+
+        # Verify isolation
+        list<hash<auto>> history_a = handler.getContextHistory(ctx_a);
+        list<hash<auto>> history_b = handler.getContextHistory(ctx_b);
+
+        assertEq(4, history_a.size(), "Context A should have 4 messages (2 turns)");
+        assertEq(2, history_b.size(), "Context B should have 2 messages (1 turn)");
+
+        # Verify content isolation
+        assertEq("Message A1", history_a[0].parts[0].text, "Context A first user message");
+        assertEq("Message B1", history_b[0].parts[0].text, "Context B first user message");
+
+        client.close();
+        handler.clearContextHistory();
+    }
+
+    contextHistoryMaxEnforcementTest() {
+        handler.clearContextHistory();
+
+        # Set a small limit: 4 messages max
+        handler.setMaxContextMessages(4);
+        on_exit handler.setMaxContextMessages(100);
+
+        A2aClient::A2aClient client(base_url);
+        string ctx_id = "max-test";
+
+        # Turn 1: generates 2 messages (user + agent) -> total 2
+        client.sendMessage(
+            {"role": "user", "parts": ({"type": "text", "text": "Turn 1"},)},
+            {"contextId": ctx_id},
+        );
+        list<hash<auto>> h1 = handler.getContextHistory(ctx_id);
+        assertEq(2, h1.size(), "After turn 1: 2 messages");
+
+        # Turn 2: generates 2 more messages -> total 4 (at limit)
+        client.sendMessage(
+            {"role": "user", "parts": ({"type": "text", "text": "Turn 2"},)},
+            {"contextId": ctx_id},
+        );
+        list<hash<auto>> h2 = handler.getContextHistory(ctx_id);
+        assertEq(4, h2.size(), "After turn 2: 4 messages (at limit)");
+
+        # Turn 3: generates 2 more -> should trim oldest 2, keeping 4
+        client.sendMessage(
+            {"role": "user", "parts": ({"type": "text", "text": "Turn 3"},)},
+            {"contextId": ctx_id},
+        );
+        list<hash<auto>> h3 = handler.getContextHistory(ctx_id);
+        assertEq(4, h3.size(), "After turn 3: still 4 messages (oldest trimmed)");
+
+        # Oldest messages should be from turn 2, not turn 1
+        assertEq("Turn 2", h3[0].parts[0].text, "Oldest message should be turn 2 user message");
+        assertEq("agent", h3[1].role, "Second message should be turn 2 agent response");
+        assertEq("Turn 3", h3[2].parts[0].text, "Third message should be turn 3 user message");
+
+        # Verify invalid limit is rejected
+        assertThrows("A2A-INVALID-ARGUMENT", sub () {
+            handler.setMaxContextMessages(0);
+        });
+        assertThrows("A2A-INVALID-ARGUMENT", sub () {
+            handler.setMaxContextMessages(-1);
+        });
+
+        client.close();
+        handler.clearContextHistory();
+    }
+
+    contextHistoryClearAndGetTest() {
+        handler.clearContextHistory();
+
+        A2aClient::A2aClient client(base_url);
+
+        # Get history for non-existent context returns empty list
+        list<hash<auto>> empty = handler.getContextHistory("nonexistent");
+        assertEq(0, empty.size(), "Non-existent context should return empty list");
+
+        # Create some context
+        client.sendMessage(
+            {"role": "user", "parts": ({"type": "text", "text": "Ctx1 msg"},)},
+            {"contextId": "clear-test-1"},
+        );
+        client.sendMessage(
+            {"role": "user", "parts": ({"type": "text", "text": "Ctx2 msg"},)},
+            {"contextId": "clear-test-2"},
+        );
+
+        # Verify both exist
+        assertEq(2, handler.getContextHistory("clear-test-1").size(), "Context 1 should have messages");
+        assertEq(2, handler.getContextHistory("clear-test-2").size(), "Context 2 should have messages");
+
+        # Clear specific context
+        handler.clearContextHistory("clear-test-1");
+        assertEq(0, handler.getContextHistory("clear-test-1").size(), "Context 1 should be cleared");
+        assertEq(2, handler.getContextHistory("clear-test-2").size(), "Context 2 should still exist");
+
+        # Clear all contexts
+        handler.clearContextHistory();
+        assertEq(0, handler.getContextHistory("clear-test-2").size(), "Context 2 should be cleared too");
+
+        client.close();
+    }
+
+    streamHandlerBasicTest() {
+        # Register a stream handler that yields 3 tokens
+        handler.setStreamMessageHandler(
+            sub (hash<auto> task_info, hash<auto> msg, code token_callback) {
+                string text = "";
+                foreach hash<auto> part in (msg.parts) {
+                    if (part.type == "text") {
+                        text += part.text;
+                    }
+                }
+                # Yield 3 token chunks
+                token_callback({"parts": ({"type": "text", "text": "Token1"},)});
+                token_callback({"parts": ({"type": "text", "text": " Token2"},)});
+                token_callback({"parts": ({"type": "text", "text": " Token3"},)});
+            });
+        on_exit handler.setStreamMessageHandler(NOTHING);
+
+        A2aClient::A2aClient client(base_url);
+
+        # Use sendMessage via message/stream JSON-RPC call
+        # The POST returns immediately with task in Active state
+        hash<auto> rpc_request = {
+            "jsonrpc": "2.0",
+            "method": "message/stream",
+            "id": 1,
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Stream test"},),
+                },
+            },
+        };
+
+        HTTPClient http_client({"url": base_url});
+        hash<auto> info;
+        string resp = http_client.post("", make_json(rpc_request),
+            {"Content-Type": MimeTypeJson}, \info);
+        hash<auto> result = parse_json(resp);
+
+        assertTrue(exists result.result, "Should have result");
+        assertTrue(exists result.result.id, "Task should have ID");
+        string task_id = result.result.id;
+        # Task should be in Active state initially (background thread running)
+        assertEq(A2aTaskState::Active, result.result.status.state,
+            "Task should be active initially");
+
+        # Wait for background thread to complete the task
+        int retries = 0;
+        hash<auto> task;
+        while (retries < 50) {
+            task = client.getTask(task_id);
+            if (task.status.state == A2aTaskState::Completed) {
+                break;
+            }
+            usleep(100000);
+            ++retries;
+        }
+        assertEq(A2aTaskState::Completed, task.status.state, "Task should complete");
+
+        # Verify assembled response in history
+        assertTrue(task.history.size() >= 2, "Should have user + agent messages");
+        hash<auto> agent_msg = task.history[task.history.size() - 1];
+        assertEq("agent", agent_msg.role, "Last message should be agent");
+        assertEq(3, agent_msg.parts.size(), "Should have 3 assembled parts");
+        assertEq("Token1", agent_msg.parts[0].text, "First token");
+        assertEq(" Token2", agent_msg.parts[1].text, "Second token");
+        assertEq(" Token3", agent_msg.parts[2].text, "Third token");
+
+        client.close();
+    }
+
+    streamHandlerErrorTest() {
+        # Register a stream handler that throws an error
+        handler.setStreamMessageHandler(
+            sub (hash<auto> task_info, hash<auto> msg, code token_callback) {
+                # Send one token before failing
+                token_callback({"parts": ({"type": "text", "text": "partial"},)});
+                throw "STREAM-ERROR", "Intentional stream error";
+            });
+        on_exit handler.setStreamMessageHandler(NOTHING);
+
+        A2aClient::A2aClient client(base_url);
+
+        hash<auto> rpc_request = {
+            "jsonrpc": "2.0",
+            "method": "message/stream",
+            "id": 1,
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Error test"},),
+                },
+            },
+        };
+
+        HTTPClient http_client({"url": base_url});
+        hash<auto> info;
+        string resp = http_client.post("", make_json(rpc_request),
+            {"Content-Type": MimeTypeJson}, \info);
+        hash<auto> result = parse_json(resp);
+        string task_id = result.result.id;
+
+        # Wait for background thread to fail the task
+        int retries = 0;
+        hash<auto> task;
+        while (retries < 50) {
+            task = client.getTask(task_id);
+            if (task.status.state == A2aTaskState::Failed) {
+                break;
+            }
+            usleep(100000);
+            ++retries;
+        }
+        assertEq(A2aTaskState::Failed, task.status.state, "Task should fail on handler error");
+
+        client.close();
+    }
+
+    streamHandlerFallbackTest() {
+        # With no stream handler registered, message/stream should fall back to messageSend
+        # Ensure stream handler is not set (restore echo handler for sync)
+        handler.setStreamMessageHandler(NOTHING);
+
+        A2aClient::A2aClient client(base_url);
+
+        hash<auto> rpc_request = {
+            "jsonrpc": "2.0",
+            "method": "message/stream",
+            "id": 1,
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Fallback test"},),
+                },
+            },
+        };
+
+        HTTPClient http_client({"url": base_url});
+        hash<auto> info;
+        string resp = http_client.post("", make_json(rpc_request),
+            {"Content-Type": MimeTypeJson}, \info);
+        hash<auto> result = parse_json(resp);
+
+        # Should complete synchronously (echo handler)
+        assertEq(A2aTaskState::Completed, result.result.status.state,
+            "Should complete synchronously without stream handler");
+        assertTrue(result.result.history.size() >= 2, "Should have history");
+
+        client.close();
+    }
+
+    streamHandlerWithContextTest() {
+        handler.clearContextHistory();
+        string ctx_id = "stream-ctx-test";
+
+        # Register stream handler
+        handler.setStreamMessageHandler(
+            sub (hash<auto> task_info, hash<auto> msg, code token_callback) {
+                token_callback({"parts": ({"type": "text", "text": "Stream reply"},)});
+            });
+        on_exit {
+            handler.setStreamMessageHandler(NOTHING);
+            handler.clearContextHistory();
+        }
+
+        A2aClient::A2aClient client(base_url);
+
+        # Send streaming message with contextId
+        hash<auto> rpc_request = {
+            "jsonrpc": "2.0",
+            "method": "message/stream",
+            "id": 1,
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Stream context msg 1"},),
+                },
+                "contextId": ctx_id,
+            },
+        };
+
+        HTTPClient http_client({"url": base_url});
+        hash<auto> info;
+        string resp = http_client.post("", make_json(rpc_request),
+            {"Content-Type": MimeTypeJson}, \info);
+        hash<auto> result = parse_json(resp);
+        string task_id = result.result.id;
+
+        # Wait for completion
+        int retries = 0;
+        hash<auto> task;
+        while (retries < 50) {
+            task = client.getTask(task_id);
+            if (task.status.state == A2aTaskState::Completed) {
+                break;
+            }
+            usleep(100000);
+            ++retries;
+        }
+        assertEq(A2aTaskState::Completed, task.status.state, "Stream with context should complete");
+
+        # Verify context history was accumulated
+        list<hash<auto>> ctx_history = handler.getContextHistory(ctx_id);
+        assertEq(2, ctx_history.size(), "Context should have 2 messages after streaming turn");
+        assertEq("user", ctx_history[0].role, "First should be user");
+        assertEq("agent", ctx_history[1].role, "Second should be agent");
 
         client.close();
     }

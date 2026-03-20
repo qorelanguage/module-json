@@ -65,5 +65,20 @@ public class A2aServerConnection inherits ServerSentEventHandler::ServerSentEven
             }),
         });
     }
+
+    #! Send a task message update event for streaming tokens
+    /** @param task_id the task ID
+        @param partial the partial message data (e.g., partial text parts)
+    */
+    sendTaskMessageUpdate(string task_id, hash<auto> partial) {
+        send(<SseMessageInfo>{
+            "event": "TaskMessageUpdateEvent",
+            "data": make_json({
+                "jsonrpc": "2.0",
+                "method": "TaskMessageUpdateEvent",
+                "params": partial + {"id": task_id},
+            }),
+        });
+    }
 }
 }

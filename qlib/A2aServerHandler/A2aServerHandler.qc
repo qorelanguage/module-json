@@ -101,6 +101,18 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         #! Application-level message handler callback
         *code<auto (hash<A2aTaskInfo>, hash<auto>)> message_handler;
 
+        #! Streaming message handler callback: receives (task_info, message, token_callback)
+        /** The token_callback is called for each partial message chunk during streaming.
+            The handler runs in a background thread.
+        */
+        *code stream_message_handler;
+
+        #! Context history: contextId -> accumulated message list for multi-turn conversations
+        hash<string, list<hash<auto>>> context_history;
+
+        #! Maximum number of messages to keep per context
+        int max_context_messages = 100;
+
         #! Session timeout in seconds
         int session_timeout_secs = DefaultSessionTimeoutSecs;
 
@@ -151,6 +163,21 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     */
     setMessageHandler(code<auto (hash<A2aTaskInfo>, hash<auto>)> handler) {
         message_handler = handler;
+    }
+
+    #! Sets the streaming message handler callback
+    /** @param handler the callback for streaming message handling; receives:
+            - \c hash<A2aTaskInfo> task_info: the task associated with this message
+            - \c hash<auto> message: the A2A message
+            - \c code token_callback: callback to call for each partial message chunk;
+              receives a \c hash<auto> with partial message parts
+
+        The handler is called in a background thread. It should call \c token_callback for each
+        token/chunk and return when done. The task will be transitioned to \c Completed automatically
+        when the handler returns, or to \c Failed if an exception is thrown.
+    */
+    setStreamMessageHandler(*code handler) {
+        stream_message_handler = handler;
     }
 
     #! Sets the agent card
@@ -376,6 +403,38 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return task_map.size();
     }
 
+    #! Sets the maximum number of messages to keep per context for conversation memory
+    /** @param limit the maximum number of messages to keep per context (must be > 0)
+    */
+    setMaxContextMessages(int limit) {
+        if (limit < 1) {
+            throw "A2A-INVALID-ARGUMENT", "max_context_messages must be > 0";
+        }
+        AutoWriteLock al(rwl);
+        max_context_messages = limit;
+    }
+
+    #! Returns the accumulated context history for a given context ID
+    /** @param context_id the context identifier
+        @return the list of messages accumulated for this context, or an empty list if none
+    */
+    list<hash<auto>> getContextHistory(string context_id) {
+        AutoReadLock al(rwl);
+        return context_history{context_id} ?? ();
+    }
+
+    #! Clears context history
+    /** @param context_id if provided, clears only that context; otherwise clears all contexts
+    */
+    clearContextHistory(*string context_id) {
+        AutoWriteLock al(rwl);
+        if (context_id) {
+            remove context_history{context_id};
+        } else {
+            context_history = {};
+        }
+    }
+
     private hash<auto> messageSend(hash<auto> cx, *hash<auto> params) {
         try {
             return messageSendIntern(cx, params);
@@ -394,7 +453,20 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
         string task_id = task.id;
 
-        # Add the incoming message to history
+        # Build full message history: prepend context history if contextId is provided
+        hash<auto> handler_message = params.message;
+        if (params.contextId) {
+            list<hash<auto>> prior_history;
+            {
+                AutoReadLock al(rwl);
+                prior_history = context_history{params.contextId} ?? ();
+            }
+            if (prior_history) {
+                handler_message.history = prior_history;
+            }
+        }
+
+        # Add the incoming message to task history
         {
             AutoWriteLock al(rwl);
             task_map{task_id}.history += params.message;
@@ -404,11 +476,12 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         updateTaskState(task_id, A2aTaskState::Active);
 
         # Call message handler if registered
+        *hash<auto> response;
         if (message_handler) {
             try {
-                auto response = message_handler(task, params.message);
+                response = message_handler(task, handler_message);
                 if (response) {
-                    # Add response to history and complete the task
+                    # Add response to task history and complete the task
                     {
                         AutoWriteLock al(rwl);
                         task_map{task_id}.history += response;
@@ -444,14 +517,151 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             }
         }
 
+        # Accumulate context history if contextId is provided
+        if (params.contextId) {
+            AutoWriteLock al(rwl);
+            if (!context_history{params.contextId}) {
+                context_history{params.contextId} = ();
+            }
+            context_history{params.contextId} += params.message;
+            if (response) {
+                context_history{params.contextId} += response;
+            }
+            # Trim oldest messages if over the limit
+            if (context_history{params.contextId}.size() > max_context_messages) {
+                int excess = context_history{params.contextId}.size() - max_context_messages;
+                splice context_history{params.contextId}, 0, excess;
+            }
+        }
+
         AutoReadLock al(rwl);
         return getTaskResponse(task_map{task_id});
     }
 
     private hash<auto> messageStream(hash<auto> cx, *hash<auto> params) {
-        # message/stream uses the same handler as message/send; SSE streaming of task updates
-        # is handled via the SSE transport layer and push notifications independently
-        return messageSend(cx, params);
+        # Fall back to synchronous message/send if no streaming handler is registered
+        if (!stream_message_handler) {
+            return messageSend(cx, params);
+        }
+
+        try {
+            return messageStreamIntern(cx, params);
+        } catch (hash<ExceptionInfo> ex) {
+            error("Error in message/stream: %s: %s", ex.err, ex.desc);
+            return makeJsonRpcError(A2A_ERR_INVALID_ARGUMENT, sprintf("%s: %s", ex.err, ex.desc));
+        }
+    }
+
+    private hash<auto> messageStreamIntern(hash<auto> cx, *hash<auto> params) {
+        if (!params.message) {
+            throw "A2A-INVALID-REQUEST", "Missing 'message' parameter";
+        }
+
+        # Create a new task
+        hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
+        string task_id = task.id;
+
+        # Build handler message with context history
+        hash<auto> handler_message = params.message;
+        if (params.contextId) {
+            list<hash<auto>> prior_history;
+            {
+                AutoReadLock al(rwl);
+                prior_history = context_history{params.contextId} ?? ();
+            }
+            if (prior_history) {
+                handler_message.history = prior_history;
+            }
+        }
+
+        # Add incoming message to task history
+        {
+            AutoWriteLock al(rwl);
+            task_map{task_id}.history += params.message;
+        }
+
+        # Transition to active
+        updateTaskState(task_id, A2aTaskState::Active);
+
+        # Get initial task response to return immediately
+        hash<auto> initial_response;
+        {
+            AutoReadLock al(rwl);
+            initial_response = getTaskResponse(task_map{task_id});
+        }
+
+        # Capture variables for background thread
+        code handler = stream_message_handler;
+        *string context_id = params.contextId;
+        hash<auto> user_message = params.message;
+
+        # Spawn background thread for streaming
+        background streamMessageBackground(task_id, task, handler_message, handler, context_id, user_message);
+
+        return initial_response;
+    }
+
+    #! Background thread for streaming message processing
+    private streamMessageBackground(string task_id, hash<A2aTaskInfo> task, hash<auto> handler_message,
+            code handler, *string context_id, hash<auto> user_message) {
+        list<hash<auto>> assembled_parts = ();
+
+        # Token callback that the handler calls for each chunk
+        code token_callback = sub (hash<auto> partial) {
+            # Track parts for assembly
+            if (partial.parts) {
+                assembled_parts += partial.parts;
+            }
+
+            # Broadcast partial update via SSE
+            notifySseConnections(task_id, "TaskMessageUpdateEvent", partial);
+
+            # Also send push notifications
+            sendTaskPushNotification(task_id, "TaskMessageUpdateEvent", partial);
+        };
+
+        try {
+            handler(task, handler_message, token_callback);
+
+            # Assemble final response from collected parts
+            hash<auto> response = {
+                "role": "agent",
+                "parts": assembled_parts,
+            };
+
+            # Add response to task history
+            {
+                AutoWriteLock al(rwl);
+                task_map{task_id}.history += response;
+            }
+
+            # Accumulate context history
+            if (context_id) {
+                AutoWriteLock al(rwl);
+                if (!context_history{context_id}) {
+                    context_history{context_id} = ();
+                }
+                context_history{context_id} += user_message;
+                context_history{context_id} += response;
+                # Trim oldest messages if over the limit
+                if (context_history{context_id}.size() > max_context_messages) {
+                    int excess = context_history{context_id}.size() - max_context_messages;
+                    splice context_history{context_id}, 0, excess;
+                }
+            }
+
+            updateTaskState(task_id, A2aTaskState::Completed, response);
+        } catch (hash<ExceptionInfo> ex) {
+            error("Stream message handler error: %s: %s", ex.err, ex.desc);
+            try {
+                updateTaskState(task_id, A2aTaskState::Failed, {
+                    "role": "agent",
+                    "parts": ({"type": "text", "text": sprintf("Error: %s: %s", ex.err, ex.desc)},),
+                });
+            } catch () {
+                # Ignore if state transition fails
+            }
+        }
     }
 
     private hash<auto> tasksGet(hash<auto> cx, *hash<auto> params) {
