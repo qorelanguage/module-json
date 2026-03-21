@@ -31,6 +31,10 @@
       - <a href="../../A2aClient/html/index.html">A2aClient</a>
       - <a href="../../A2aServerHandler/html/index.html">A2aServerHandler</a>
       - <a href="../../A2aClientDataProvider/html/index.html">A2aClientDataProvider</a>
+      - <a href="../../NdjsonDataProvider/html/index.html">NdjsonDataProvider</a>
+      - <a href="../../JsonLd/html/index.html">JsonLd</a>
+      - <a href="../../OneRecordClient/html/index.html">OneRecordClient</a>
+      - <a href="../../OneRecordServerHandler/html/index.html">OneRecordServerHandler</a>
 
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
@@ -51,6 +55,10 @@
     - <a href="../../A2aClient/html/index.html">A2aClient</a> user module
     - <a href="../../A2aServerHandler/html/index.html">A2aServerHandler</a> user module
     - <a href="../../A2aClientDataProvider/html/index.html">A2aClientDataProvider</a> user module
+    - <a href="../../NdjsonDataProvider/html/index.html">NdjsonDataProvider</a> user module
+    - <a href="../../JsonLd/html/index.html">JsonLd</a> user module
+    - <a href="../../OneRecordClient/html/index.html">OneRecordClient</a> user module
+    - <a href="../../OneRecordServerHandler/html/index.html">OneRecordServerHandler</a> user module
 
     @note JSON functionality was included in the main %Qore shared library until version 0.8.1, at which time the code
     was removed to make this module.
@@ -180,6 +188,32 @@
     flag is resolved at parse time, a \c "deprecated" warning is raised (assuming this warning is enabled).
 
     @section jsonreleasenotes Release Notes
+
+    @subsection json_v1_12 json Module Version 1.12
+    - added the <a href="../../JsonLd/html/index.html">JsonLd</a> module with full W3C JSON-LD 1.1 compliance:
+      - expansion, compaction, flattening, framing algorithms
+      - toRdf/fromRdf with N-Quads serialization
+      - thread-safe context caching with TTL
+      - pluggable document loaders (HTTP, file, caching)
+      - passes 1167/1167 non-skipped W3C conformance tests
+    - added the <a href="../../OneRecordClient/html/index.html">OneRecordClient</a> module for IATA ONE Record
+      (API v2.2.0, Cargo Ontology v3.2.0):
+      - REST client for air cargo data sharing via JSON-LD
+      - logistics object CRUD with revision tracking
+      - change request lifecycle (submit, accept, reject, revoke)
+      - logistics events, audit trail, subscriptions
+      - OAuth 2.0 / OpenID Connect authentication
+      - ConnectionProvider integration with \c 1r:// and \c 1rs:// URL schemes
+    - added the <a href="../../OneRecordServerHandler/html/index.html">OneRecordServerHandler</a> module for
+      ONE Record server support:
+      - REST handler with full URL routing for all ONE Record API v2.2.0 endpoints
+      - pluggable storage backend (abstract interface + in-memory implementation)
+      - pluggable authorization (abstract interface + permissive implementation)
+      - change request workflow with optimistic concurrency (revision-based)
+      - webhook notification delivery via bounded thread pool
+      - verification requests and access delegations
+      - audit trail with per-object history
+      - JSON-LD integration via the JsonLd module
 
     @subsection json_v1_11 json Module Version 1.11
     - added CBOR serialization support (make_cbor/parse_cbor)
