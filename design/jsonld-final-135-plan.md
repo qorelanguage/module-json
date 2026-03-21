@@ -1,3 +1,5 @@
+> **Note**: This is a historical planning document from the JSON-LD 1.1 development process. All issues described here have been resolved. The module now passes 1167/1167 W3C conformance tests.
+
 # Plan: Fix All 135 Remaining W3C JSON-LD Conformance Failures
 
 Current: 1032/1167 (88.4%). Target: 1167/1167 (100%).

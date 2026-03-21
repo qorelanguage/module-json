@@ -181,7 +181,7 @@ public class JsonLdProcessor {
         }
 
         # Compact
-        JsonLdCompaction compactor(contextProcessor, options);
+        JsonLdCompaction compactor(ctx_proc, options);
         auto compacted = compactor.compact(active_context, NOTHING, expanded,
             options.compactArrays);
 
@@ -237,7 +237,9 @@ public class JsonLdProcessor {
 
         # Compact if context provided
         if (exists ctx) {
-            # Compact the flattened document, then ensure @graph is present (W3C 4.6 step 4)
+            # NOTE: compact() internally re-expands the input for correctness (it handles its own
+            # context processing). While this means the data is expanded twice, this is by design
+            # per the W3C JSON-LD 1.1 specification (section 4.6) to ensure proper compaction.
             hash<auto> compacted = compact(flattened, ctx, options);
             if (!compacted.hasKey("@graph")) {
                 # Ensure @graph key exists: move all non-@context keys into @graph

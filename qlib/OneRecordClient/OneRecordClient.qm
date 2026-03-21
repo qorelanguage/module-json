@@ -222,7 +222,6 @@ module OneRecordClient {
     - access delegations and verification requests
     - OAuth 2.0 token management with automatic refresh
     - ConnectionProvider integration with 1r:// and 1rs:// schemes
-    - ConnectionProvider integration with 1r:// and 1rs:// schemes
 */
 
 #! the %OneRecordClient namespace holds all public definitions in the %OneRecordClient module

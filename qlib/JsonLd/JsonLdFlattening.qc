@@ -240,8 +240,6 @@ public class JsonLdFlattening {
                         } else {
                             # Node had no @id — find the ID that was just assigned
                             # by looking at the last generated ID in the node map
-                            # Use the identifier map to find the last assignment
-                            hash<string, string> id_map = blankNodeGenerator.getIdentifierMap();
                             # Find keys in the graph that match generated IDs
                             hash<auto> graph = node_map{active_graph};
                             # The generated ID for this node is the highest ID that

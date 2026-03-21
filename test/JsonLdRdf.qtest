@@ -275,15 +275,23 @@ class JsonLdRdfTest inherits QUnit::Test {
 
         assertEq(3, dataset.defaultGraph.size());
 
-        hash<RdfQuad> q1 = dataset.defaultGraph[0];
+        # Build a lookup by predicate to avoid order-dependent assertions
+        hash<string, hash<RdfQuad>> by_pred;
+        foreach hash<RdfQuad> q in (dataset.defaultGraph) {
+            by_pred{q.predicate.value} = q;
+        }
+
+        # Quad with predicate p: plain literal
+        hash<RdfQuad> q1 = by_pred{"http://example.com/p"};
         assertEq("http://example.com/s", q1.subject.value);
-        assertEq("http://example.com/p", q1.predicate.value);
         assertEq("hello", q1.object.value);
 
-        hash<RdfQuad> q2 = dataset.defaultGraph[1];
+        # Quad with predicate p2: typed integer literal
+        hash<RdfQuad> q2 = by_pred{"http://example.com/p2"};
         assertEq(XSD_INTEGER, q2.object.datatype);
 
-        hash<RdfQuad> q3 = dataset.defaultGraph[2];
+        # Quad with predicate p3: language-tagged literal
+        hash<RdfQuad> q3 = by_pred{"http://example.com/p3"};
         assertEq("fr", q3.object.language);
         assertEq("bonjour", q3.object.value);
     }

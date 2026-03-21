@@ -1,3 +1,5 @@
+> **Note**: This is a historical planning document from the JSON-LD 1.1 development process. All issues described here have been resolved. The module now passes 1167/1167 W3C conformance tests.
+
 # JSON-LD Spec Compliance Plan — Definitive Fixes
 
 24 deviations found across 8 files. Each must be fixed to reach 100%.

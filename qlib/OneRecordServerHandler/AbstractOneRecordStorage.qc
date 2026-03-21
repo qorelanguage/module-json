@@ -152,7 +152,7 @@ public class AbstractOneRecordStorage {
     # ========================================================================
 
     #! Creates a subscription
-    /** @param sub the subscription data
+    /** @param subscription the subscription data
         @return the server-assigned subscription ID
 
         @since json 1.12

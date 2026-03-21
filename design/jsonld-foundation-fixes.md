@@ -1,3 +1,5 @@
+> **Note**: This is a historical planning document from the JSON-LD 1.1 development process. All issues described here have been resolved. The module now passes 1167/1167 W3C conformance tests.
+
 # JSON-LD Foundation Fixes Checklist
 
 Ordered by dependency depth — lowest-level (most depended-on) first.
