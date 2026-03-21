@@ -58,6 +58,7 @@ set(QMOD
     qlib/A2aServerHandler
     qlib/A2aClientDataProvider
     qlib/NdjsonDataProvider
+    qlib/JsonLd
 )
 
 # Check for C++11.
@@ -100,6 +101,7 @@ qore_external_user_module("qlib/A2aClient" "")
 qore_external_user_module("qlib/A2aServerHandler" "JsonRpcHandler;A2aClient")
 qore_external_user_module("qlib/A2aClientDataProvider" "A2aClient")
 qore_external_user_module("qlib/NdjsonDataProvider" "")
+qore_external_user_module("qlib/JsonLd" "")
 
 # install qpp metadata files
 if (COMMAND qore_install_qpp_metadata)
