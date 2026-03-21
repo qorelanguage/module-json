@@ -59,6 +59,8 @@ set(QMOD
     qlib/A2aClientDataProvider
     qlib/NdjsonDataProvider
     qlib/JsonLd
+    qlib/OneRecordClient
+    qlib/OneRecordServerHandler
 )
 
 # Check for C++11.
@@ -102,6 +104,8 @@ qore_external_user_module("qlib/A2aServerHandler" "JsonRpcHandler;A2aClient")
 qore_external_user_module("qlib/A2aClientDataProvider" "A2aClient")
 qore_external_user_module("qlib/NdjsonDataProvider" "")
 qore_external_user_module("qlib/JsonLd" "")
+qore_external_user_module("qlib/OneRecordClient" "JsonLd")
+qore_external_user_module("qlib/OneRecordServerHandler" "OneRecordClient;JsonLd")
 
 # install qpp metadata files
 if (COMMAND qore_install_qpp_metadata)
