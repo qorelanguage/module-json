@@ -157,11 +157,22 @@ public hashdecl A2aAgentCard {
     #! Default output MIME types
     *list<string> defaultOutputModes;
 
-    #! Supported interfaces
+    #! Supported interfaces (v0.3 format, free-form)
     *hash<auto> interfaces;
 
     #! Whether the agent supports authenticated extended card
     *bool supportsAuthenticatedExtendedCard;
+
+    #! Supported interfaces (v1.0 format)
+    /** Each entry describes a protocol binding (JSONRPC, REST, gRPC) with its URL and version
+    */
+    *list<hash<A2aAgentInterface>> supportedInterfaces;
+
+    #! Documentation URL
+    *string documentationUrl;
+
+    #! Icon URL
+    *string iconUrl;
 }
 
 #! A2A Agent Skill information
@@ -198,6 +209,40 @@ public hashdecl A2aAgentCapabilities {
 
     #! Whether extended agent card is supported
     *bool extendedAgentCard;
+}
+
+#! A2A Agent Interface entry (v1.0)
+/** Describes a protocol binding endpoint in the v1.0 agent card \c supportedInterfaces array
+*/
+public hashdecl A2aAgentInterface {
+    #! Endpoint URL
+    string url;
+
+    #! Protocol binding type (e.g., \c "JSONRPC", \c "REST", \c "GRPC")
+    string protocolBinding;
+
+    #! Protocol version (e.g., \c "1.0", \c "0.3")
+    string protocolVersion;
+
+    #! Tenant identifier
+    *string tenant;
+}
+
+#! A2A SendMessage configuration (v1.0)
+/** Additional configuration for v1.0 \c SendMessage requests
+*/
+public hashdecl A2aSendMessageConfiguration {
+    #! Accepted output MIME types
+    *list<string> acceptedOutputModes;
+
+    #! Number of history messages to include
+    *int historyLength;
+
+    #! If True, return immediately after task creation without waiting for completion
+    *bool returnImmediately;
+
+    #! Inline push notification configuration
+    *hash<auto> taskPushNotificationConfig;
 }
 
 #! A2A Task information
@@ -252,6 +297,15 @@ public hashdecl A2aMessage {
 
     #! Message metadata
     *hash<auto> metadata;
+
+    #! Context identifier (v1.0: present on the message itself)
+    *string contextId;
+
+    #! Task identifier (v1.0: for multi-turn continuation)
+    *string taskId;
+
+    #! Extension URIs (v1.0)
+    *list<string> extensions;
 }
 
 #! A2A Artifact
@@ -270,6 +324,9 @@ public hashdecl A2aArtifact {
 
     #! Artifact metadata
     *hash<auto> metadata;
+
+    #! Extension URIs (v1.0)
+    *list<string> extensions;
 }
 
 #! A2A Push Notification Configuration
