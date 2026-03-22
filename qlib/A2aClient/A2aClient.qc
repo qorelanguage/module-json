@@ -457,6 +457,9 @@ public class A2aClient {
 
         #! URL for streaming connections
         string streaming_url;
+
+        #! Extra headers for all requests (e.g., auth tokens)
+        hash<auto> default_headers;
     }
 
     #! Creates the A2aClient with the given URL and options
@@ -485,6 +488,7 @@ public class A2aClient {
             http.setHTTPVersion(opts.http_version);
         }
         streaming_url = url;
+        default_headers = opts.headers ?? {};
     }
 
     #! Destroys the client and cleans up resources
@@ -917,7 +921,7 @@ public class A2aClient {
             hash<auto> stream_headers = {
                 "Accept": MimeTypeSse,
                 "Content-Type": MimeTypeJson,
-            } + extra_headers;
+            } + default_headers + extra_headers;
             stream.startStreaming("POST", stream_path, stream_headers, False, body);
 
             HttpClientStreamingIo::SseStreamReader reader(stream);
@@ -966,13 +970,10 @@ public class A2aClient {
         lck.lock();
         on_exit lck.unlock();
         if (!streaming_mgr) {
-            # Use "auto" for HTTPS (H2 via ALPN), "h1" for plain HTTP
-            string protocol = streaming_url =~ /^https/i ? "auto" : "h1";
             streaming_mgr = new HttpClientIo::HttpClientConnectionManager(
                 <HttpClientIo::HttpClientConnectionManagerOptions>{
                     "connect_timeout": connect_timeout,
                     "request_timeout": timeout,
-                    "protocol": protocol,
                 });
         }
     }
