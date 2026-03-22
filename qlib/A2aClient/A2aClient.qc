@@ -583,6 +583,10 @@ public class A2aClient {
         @throw A2A-ERROR if the JSON-RPC call fails
     */
     hash<auto> sendMessage(hash<auto> msg, *hash<auto> config) {
+        # Ensure messageId is set — required by v1.0 and some v0.3 servers
+        if (!msg.messageId) {
+            msg.messageId = get_random_bytes(16).toHex();
+        }
         hash<auto> params = cast<hash<auto>>({
             "message": msg,
         });
@@ -600,6 +604,10 @@ public class A2aClient {
         @throw A2A-ERROR if the request fails
     */
     sendMessageStream(hash<auto> msg, code<auto (string, hash<auto>)> on_event, *hash<auto> config) {
+        # Ensure messageId is set
+        if (!msg.messageId) {
+            msg.messageId = get_random_bytes(16).toHex();
+        }
         hash<auto> params = {
             "message": msg,
         };

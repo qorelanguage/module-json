@@ -878,6 +878,13 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     /** Intercepts \c message/stream and \c SendStreamingMessage POST requests,
         runs the stream handler synchronously, collects SSE events, and returns
         them as a complete \c text/event-stream response body.
+
+        @note This implementation is blocking — the handler runs to completion
+        before the response is sent. Events are not streamed incrementally.
+        This is correct for short-lived streams but not suitable for long-running
+        operations. True incremental SSE streaming would require HttpServer support
+        for returning an OutputStream or chunked body from handleRequest().
+        For long-running streams, clients should use the SSE GET connection pattern.
     */
     private hash<HttpResponseInfo> handleStreamPost(hash<auto> cx, hash<auto> jsonrpc) {
         *hash<auto> params = jsonrpc.params;

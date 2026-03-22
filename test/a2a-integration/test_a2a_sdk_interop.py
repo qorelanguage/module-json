@@ -2,10 +2,25 @@
 """
 A2A SDK Interoperability Test
 
-Tests our Qore A2A server against the official a2a-sdk Python client,
-and tests the official a2a-sdk Python server against our Qore A2A client.
+Authoritative validation of our A2A implementation against the official
+a2a-sdk from PyPI — the only independent, known-good implementation.
 
-This requires: pip install 'a2a-sdk[sqlite,http-server]==1.0.0a0'
+Tests our Qore A2A server against SDK-format requests, and tests our
+Qore A2A client against the official a2a-sdk Python server.
+
+CAVEATS:
+- The a2a-sdk is pre-release (1.0.0a0). Tests should be re-validated
+  when the SDK reaches stable release.
+- The SDK server does not return SSE from POST (SendStreamingMessage
+  returns empty SSE stream). Our Qore client's sendMessageStream() SSE
+  parsing cannot be validated against an independent server until the
+  SDK or another implementation supports SSE POST responses.
+  TODO: Re-test client streaming when a2a-sdk stable or A2A TCK v1.0.
+- The SDK server returns Message (not Task) from SendMessage. This is
+  correct per v1.0 spec (SendMessageResponse oneof). Our server always
+  returns Task, which is also valid.
+
+This requires: pip install 'a2a-sdk[sqlite,http-server]'
 
 Usage:
     python test_a2a_sdk_interop.py <qore_server_url> --sdk-port <port>
@@ -405,6 +420,114 @@ class InteropTest:
         self._test("sdk→qore", "SSE stream content type", test_v10_stream_returns_sse)
         self._test("sdk→qore", "SSE message+status events", test_v10_stream_events)
         self._test("sdk→qore", "SSE v1.0 event format", test_v10_stream_event_format)
+
+        # --- Push Notification Config CRUD ---
+        def test_push_notification_crud():
+            """Full push notification config lifecycle."""
+            # Create a task first
+            result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER", "parts": [{"text": "push test"}],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            task_id = result["result"]["id"]
+
+            # Set config
+            result, status = self._jsonrpc(qore_url, "CreateTaskPushNotificationConfig", {
+                "id": task_id,
+                "pushNotificationConfig": {"url": "https://example.com/webhook", "token": "test-token"},
+            }, v10_headers)
+            assert status == 200, f"Set: expected 200, got {status}"
+            assert "result" in result, f"Set: missing result: {result}"
+
+            # List configs
+            result, status = self._jsonrpc(qore_url, "ListTaskPushNotificationConfigs", {
+                "id": task_id,
+            }, v10_headers)
+            assert status == 200
+            assert "result" in result
+            configs = result["result"].get("pushNotificationConfigs", [])
+            assert len(configs) >= 1, f"Expected at least 1 config, got {len(configs)}"
+            config_id = configs[0].get("id")
+
+            # Get config
+            result, status = self._jsonrpc(qore_url, "GetTaskPushNotificationConfig", {
+                "id": task_id,
+            }, v10_headers)
+            assert status == 200
+            assert "result" in result
+
+            # Delete config
+            result, status = self._jsonrpc(qore_url, "DeleteTaskPushNotificationConfig", {
+                "id": task_id, "pushNotificationConfigId": config_id,
+            }, v10_headers)
+            assert status == 200
+
+        # --- SubscribeToTask ---
+        def test_subscribe_to_task():
+            """SubscribeToTask should return task info."""
+            result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER", "parts": [{"text": "subscribe test"}],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            task_id = result["result"]["id"]
+            result2, status = self._jsonrpc(qore_url, "SubscribeToTask", {
+                "id": task_id,
+            }, v10_headers)
+            assert status == 200
+            assert "result" in result2
+            assert result2["result"]["id"] == task_id
+
+        # --- Extended Agent Card ---
+        def test_extended_agent_card():
+            """GetExtendedAgentCard should return a card."""
+            result, status = self._jsonrpc(qore_url, "GetExtendedAgentCard", {}, v10_headers)
+            assert status == 200
+            assert "result" in result
+            card = result["result"]
+            assert "name" in card, f"Extended card missing name: {card}"
+
+        # --- Context History / Multi-Turn ---
+        def test_multi_turn_context():
+            """Multiple messages with same contextId should accumulate history."""
+            ctx_id = f"sdk-multi-turn-{uuid.uuid4().hex[:6]}"
+            for i in range(3):
+                result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                    "message": {"role": "ROLE_USER", "parts": [{"text": f"turn {i}"}],
+                                "messageId": str(uuid.uuid4()), "contextId": ctx_id},
+                }, v10_headers)
+                assert "result" in result
+                assert result["result"].get("contextId") == ctx_id
+
+        # --- Message Response Edge Cases ---
+        def test_empty_parts():
+            """SendMessage with empty parts should still work."""
+            result, status = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER", "parts": [],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            assert status == 200
+            assert "result" in result
+
+        # --- v1.0 Part Type Format ---
+        def test_v10_part_format():
+            """v1.0 parts without type discriminator should be accepted."""
+            result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER",
+                            "parts": [{"text": "plain v1.0 part"}],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            task = result["result"]
+            # Response parts should also be v1.0 format (no "type" key)
+            if task.get("status", {}).get("message", {}).get("parts"):
+                for part in task["status"]["message"]["parts"]:
+                    assert "type" not in part, f"v1.0 part should not have 'type': {part}"
+
+        self._test("sdk→qore", "push notification CRUD", test_push_notification_crud)
+        self._test("sdk→qore", "SubscribeToTask", test_subscribe_to_task)
+        self._test("sdk→qore", "GetExtendedAgentCard", test_extended_agent_card)
+        self._test("sdk→qore", "multi-turn context", test_multi_turn_context)
+        self._test("sdk→qore", "empty parts accepted", test_empty_parts)
+        self._test("sdk→qore", "v1.0 part format (no type key)", test_v10_part_format)
 
     def test_qore_format_against_sdk_server(self, sdk_url):
         """Test: Qore-style JSON-RPC requests → official a2a-sdk server.
