@@ -12,6 +12,7 @@
 %requires ../qlib/JsonRpcHandler.qm
 %requires ../qlib/A2aClient
 %requires ../qlib/A2aServerHandler
+%requires HttpStreamClient
 
 %exec-class A2aServerHandlerTest
 
@@ -1054,21 +1055,20 @@ class A2aServerHandlerTest inherits QUnit::Test {
             },
         };
 
-        HTTPClient http_client({"url": base_url});
-        hash<auto> info;
-        string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson, "Accept": MimeTypeSse}, \info);
-        hash<auto> resp_info = info."response-headers";
-        assertEq(200, resp_info.status_code, "Should have result");
-
-        # Parse SSE events from response body
-        list<hash<auto>> events = parseSseEvents(resp);
+        # Use A2aClient.sendMessageStream() to test SSE streaming
+        list<hash<auto>> events = ();
+        client.sendMessageStream(
+            {"role": "user", "parts": ({"type": "text", "text": "Stream test"},)},
+            sub (string event_type, hash<auto> event_data) {
+                events += {"event": event_type, "data": event_data};
+            },
+        );
         assertTrue(events.size() >= 2, "Should have at least message + status events");
 
-        # Find the task ID from the status event
+        # Find the task ID from a status event
         *string task_id;
         foreach hash<auto> evt in (events) {
-            if (evt.event == "TaskStatusUpdateEvent") {
+            if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.id) {
                 task_id = evt.data.params.id;
             }
         }
@@ -1114,18 +1114,18 @@ class A2aServerHandlerTest inherits QUnit::Test {
             },
         };
 
-        HTTPClient http_client({"url": base_url});
-        hash<auto> info;
-        string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson, "Accept": MimeTypeSse}, \info);
+        # Use A2aClient.sendMessageStream() to test error handling
+        list<hash<auto>> events = ();
+        client.sendMessageStream(
+            {"role": "user", "parts": ({"type": "text", "text": "Error test"},)},
+            sub (string event_type, hash<auto> event_data) {
+                events += {"event": event_type, "data": event_data};
+            },
+        );
 
-        # Parse SSE events — should contain a failed status event
-        list<hash<auto>> events = parseSseEvents(resp);
-        *string task_id;
         bool has_failed = False;
         foreach hash<auto> evt in (events) {
             if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.state == "failed") {
-                task_id = evt.data.params.id;
                 has_failed = True;
             }
         }
@@ -1207,13 +1207,15 @@ class A2aServerHandlerTest inherits QUnit::Test {
             },
         };
 
-        HTTPClient http_client({"url": base_url});
-        hash<auto> info;
-        string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson, "Accept": MimeTypeSse}, \info);
-
-        # Parse SSE — handler runs synchronously now
-        list<hash<auto>> events = parseSseEvents(resp);
+        # Use A2aClient.sendMessageStream() with contextId
+        list<hash<auto>> events = ();
+        client.sendMessageStream(
+            {"role": "user", "parts": ({"type": "text", "text": "Stream context msg 1"},)},
+            sub (string event_type, hash<auto> event_data) {
+                events += {"event": event_type, "data": event_data};
+            },
+            {"contextId": ctx_id},
+        );
         bool completed = False;
         foreach hash<auto> evt in (events) {
             if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.state == "completed") {

@@ -608,9 +608,8 @@ public class A2aClient {
         if (!msg.messageId) {
             msg.messageId = get_random_bytes(16).toHex();
         }
-        hash<auto> params = {
-            "message": msg,
-        };
+        hash<auto!> params;
+        params.message = msg;
         if (config) {
             params += config;
         }
