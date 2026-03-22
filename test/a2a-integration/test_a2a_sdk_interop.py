@@ -643,10 +643,22 @@ class InteropTest:
         qore_script = os.path.join(script_dir, "test_a2a_client_sdk.q")
 
         def test_qore_client():
-            result = subprocess.run(
-                ["qore", qore_script, sdk_url],
-                capture_output=True, text=True, timeout=30,
-            )
+            try:
+                result = subprocess.run(
+                    ["qore", qore_script, sdk_url],
+                    capture_output=True, text=True, timeout=30,
+                )
+            except subprocess.TimeoutExpired as e:
+                # Capture partial output for debugging
+                partial = ""
+                if e.stdout:
+                    partial += e.stdout if isinstance(e.stdout, str) else e.stdout.decode(errors="replace")
+                if e.stderr:
+                    partial += "\nSTDERR: " + (e.stderr if isinstance(e.stderr, str)
+                                               else e.stderr.decode(errors="replace"))
+                raise AssertionError(
+                    f"Qore client timed out after {e.timeout}s. Partial output:\n{partial[:500]}"
+                ) from None
             if result.returncode != 0:
                 # Show output for debugging
                 output = result.stdout + result.stderr

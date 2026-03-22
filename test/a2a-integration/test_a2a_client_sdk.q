@@ -38,9 +38,16 @@ sub main() {
         }
     };
 
+    stderr.printf("DEBUG: modules loaded, creating client for %s\n", server_url);
     stdout.printf("Qore A2aClient → SDK Server (%s)\n", server_url);
 
-    A2aClient::A2aClient client(server_url, {"timeout": 10000});
+    # Force HTTP/1.1 since the SDK server (uvicorn/h11) only supports HTTP/1.1
+    A2aClient::A2aClient client(server_url, {
+        "timeout": 10000,
+        "connect_timeout": 5000,
+        "http_version": "1.1",
+    });
+    stderr.printf("DEBUG: client created\n");
 
     # Agent card discovery — SDK serves at /.well-known/agent-card.json
     test("agent card discovery", sub () {
@@ -106,7 +113,9 @@ sub main() {
         }
     });
 
+    stderr.printf("DEBUG: tests done, closing client\n");
     client.close();
+    stderr.printf("DEBUG: client closed\n");
 
     stdout.printf("Result: %d/%d passed\n", passed, passed + failed);
     exit(failed > 0 ? 1 : 0);
