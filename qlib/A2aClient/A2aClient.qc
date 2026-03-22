@@ -448,6 +448,9 @@ public class A2aClient {
 
         #! Callbacks for events
         hash<string, code> callbacks;
+
+        #! Detected/configured A2A protocol version
+        string protocol_version = A2aVersionV03;
     }
 
     #! Creates the A2aClient with the given URL and options
@@ -484,8 +487,26 @@ public class A2aClient {
         return url;
     }
 
-    #! Retrieves the agent card via HTTP GET to \c /.well-known/agent-card.json
-    /** @return the agent card information
+    #! Returns the detected or configured A2A protocol version
+    /** @return \c "0.3" or \c "1.0"
+    */
+    string getProtocolVersion() {
+        return protocol_version;
+    }
+
+    #! Sets the A2A protocol version to use
+    /** Overrides auto-detection from the agent card.
+        @param version the protocol version (\c "0.3" or \c "1.0")
+    */
+    setProtocolVersion(string version) {
+        protocol_version = version;
+    }
+
+    #! Retrieves the agent card, trying v1.0 path first then falling back to v0.3
+    /** Auto-detects protocol version from the agent card format.
+        If the card has \c supportedInterfaces, protocol version is set to \c "1.0".
+
+        @return the agent card information (always in v0.3 internal format)
 
         @throw A2A-HTTP-ERROR if the HTTP request fails
         @throw A2A-AGENT-CARD-ERROR if the response cannot be parsed
@@ -493,16 +514,45 @@ public class A2aClient {
     hash<auto> getAgentCard() {
         hash<auto> info;
         try {
-            string response_body = http.get(AgentCardPath, NOTHING, \info);
+            # Try v1.0 path first
+            string card_path = AgentCardPathV10;
+            *string response_body;
+            bool got_card = False;
 
-            hash<auto> response_info = info."response-headers";
-            int status_code = response_info.status_code ?? 0;
-
-            if (status_code < 200 || status_code >= 300) {
-                throw "A2A-HTTP-ERROR", sprintf("Failed to get agent card: HTTP %d %s",
-                    status_code, response_info.status_message ?? "");
+            try {
+                response_body = http.get(card_path, NOTHING, \info);
+                hash<auto> response_info = info."response-headers";
+                int status_code = response_info.status_code ?? 0;
+                if (status_code >= 200 && status_code < 300) {
+                    got_card = True;
+                }
+            } catch () {
+                # v1.0 path not available, fall through to v0.3
             }
+
+            # Fall back to v0.3 path
+            if (!got_card) {
+                card_path = AgentCardPath;
+                response_body = http.get(card_path, NOTHING, \info);
+                hash<auto> response_info = info."response-headers";
+                int status_code = response_info.status_code ?? 0;
+                if (status_code < 200 || status_code >= 300) {
+                    throw "A2A-HTTP-ERROR", sprintf("Failed to get agent card: HTTP %d %s",
+                        status_code, response_info.status_message ?? "");
+                }
+            }
+
             hash<auto> card = parse_json(response_body);
+
+            # Auto-detect protocol version from card structure
+            if (card.supportedInterfaces) {
+                protocol_version = A2aVersionV10;
+                # Translate v1.0 card to v0.3 internal format
+                card = a2aTranslateAgentCardToV03(card);
+            } else {
+                protocol_version = A2aVersionV03;
+            }
+
             lck.lock();
             on_exit lck.unlock();
             agent_card = card;
@@ -521,7 +571,7 @@ public class A2aClient {
         @throw A2A-ERROR if the JSON-RPC call fails
     */
     hash<auto> getAuthenticatedExtendedCard() {
-        return doRpcCall("agent/getAuthenticatedExtendedCard");
+        return doRpcCall("agent/getAuthenticatedExtendedCard", NOTHING, True);
     }
 
     #! Sends a message to the agent
@@ -699,15 +749,18 @@ public class A2aClient {
     }
 
     #! Performs a JSON-RPC call and returns the result
-    /** @param method the JSON-RPC method name
+    /** @param method the JSON-RPC method name (v0.3 format, e.g., \c "message/send")
         @param params optional parameters
+        @param translate_response if True, translate v1.0 response to v0.3 format (default True
+            for \c message/send, \c tasks/get, etc.; set to True explicitly for methods that
+            return agent cards or other non-task data)
 
-        @return the result from the JSON-RPC response
+        @return the result from the JSON-RPC response (always in v0.3 internal format)
 
         @throw A2A-ERROR if the JSON-RPC response contains an error
         @throw A2A-HTTP-ERROR if the HTTP request fails
     */
-    private hash<auto> doRpcCall(string method, *hash<auto> params) {
+    private hash<auto> doRpcCall(string method, *hash<auto> params, *bool translate_response) {
         int id;
         {
             lck.lock();
@@ -715,9 +768,21 @@ public class A2aClient {
             id = ++rpc_id;
         }
 
+        # Translate method name and params for v1.0 servers
+        string wire_method = method;
+        hash<auto> wire_headers;
+        if (protocol_version == A2aVersionV10) {
+            wire_method = a2aTranslateMethodToV10(method);
+            wire_headers{A2aVersionHeader} = A2aVersionV10;
+            # Translate SendMessage params to v1.0 format
+            if (method == "message/send" && params) {
+                params = a2aTranslateSendMessageParamsToV10(params);
+            }
+        }
+
         hash<auto> request = {
             "jsonrpc": JsonRpcVersion,
-            "method": method,
+            "method": wire_method,
             "id": id,
         };
         if (params) {
@@ -725,11 +790,12 @@ public class A2aClient {
         }
 
         string body = make_json(request);
-        logDebug("A2A RPC request: method=%y id=%d", method, id);
+        logDebug("A2A RPC request: method=%y wire_method=%y id=%d version=%y",
+            method, wire_method, id, protocol_version);
 
         hash<auto> info;
         try {
-            string response_body = http.post("", body, {}, \info);
+            string response_body = http.post("", body, wire_headers, \info);
 
             hash<auto> response_info = info."response-headers";
             int status_code = response_info.status_code ?? 0;
@@ -746,7 +812,21 @@ public class A2aClient {
                     result.error;
             }
 
-            return result.result ?? {};
+            hash<auto> rv = result.result ?? {};
+
+            # Translate v1.0 response back to v0.3 internal format
+            if (protocol_version == A2aVersionV10 && rv) {
+                # Task responses (have "status" field)
+                if (rv.status) {
+                    rv = a2aTranslateTaskToV03(rv);
+                }
+                # List responses (have "tasks" field)
+                if (rv.tasks) {
+                    rv.tasks = map a2aTranslateTaskToV03($1), rv.tasks;
+                }
+            }
+
+            return rv;
         } catch (hash<ExceptionInfo> ex) {
             if (ex.err == "A2A-ERROR" || ex.err == "A2A-HTTP-ERROR") {
                 rethrow;
@@ -771,15 +851,27 @@ public class A2aClient {
             id = ++rpc_id;
         }
 
+        # Translate method name and params for v1.0 servers
+        string wire_method = method;
+        hash<auto> extra_headers;
+        if (protocol_version == A2aVersionV10) {
+            wire_method = a2aTranslateMethodToV10(method);
+            extra_headers{A2aVersionHeader} = A2aVersionV10;
+            if (method == "message/stream" && params) {
+                params = a2aTranslateSendMessageParamsToV10(params);
+            }
+        }
+
         hash<auto> request = {
             "jsonrpc": JsonRpcVersion,
-            "method": method,
+            "method": wire_method,
             "id": id,
             "params": params,
         };
 
         string body = make_json(request);
-        logDebug("A2A RPC stream request: method=%y id=%d", method, id);
+        logDebug("A2A RPC stream request: method=%y wire_method=%y id=%d version=%y",
+            method, wire_method, id, protocol_version);
 
         sse_cnt.inc();
         on_exit sse_cnt.dec();
@@ -787,8 +879,9 @@ public class A2aClient {
         hash<auto> info;
         HttpStreamClient::HTTPResponseStream stream;
         try {
+            hash<auto> stream_headers = {"Accept": MimeTypeSse} + extra_headers;
             stream = HttpStreamClient::sendAndStream(http, "POST", "", body,
-                {"Accept": MimeTypeSse}, \info, timeout);
+                stream_headers, \info, timeout);
         } catch (hash<ExceptionInfo> ex) {
             if (ex.err == "SOCKET-CONNECT-ERROR" || ex.err == "SOCKET-ERROR"
                     || ex.err == "SOCKET-CLOSED") {
@@ -821,6 +914,14 @@ public class A2aClient {
                 try {
                     hash<auto> data = parse_json(evt.data);
                     string event_type = evt.event ?? "message";
+
+                    if (protocol_version == A2aVersionV10) {
+                        # v1.0 events are plain discriminated objects — translate to v0.3 format
+                        hash<auto> translated = a2aTranslateSseEventToV03(data);
+                        event_type = translated.event_type;
+                        data = translated.data;
+                    }
+
                     on_event(event_type, data);
                 } catch (hash<ExceptionInfo> ex) {
                     logDebug("Error parsing SSE event: %s: %s", ex.err, ex.desc);
