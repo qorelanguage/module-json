@@ -336,12 +336,18 @@ class A2AComplianceTest:
     def _run_streaming_tests(self):
         print("\n[SSE Streaming]")
 
+        # Use version-appropriate method name and headers
+        stream_method = "SendStreamingMessage" if self.version == "1.0" else "message/stream"
+        stream_headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+        if self.version == "1.0":
+            stream_headers["A2A-Version"] = "1.0"
+
         def test_stream_response_type():
             """message/stream should return text/event-stream."""
             request = {
                 "jsonrpc": "2.0",
                 "id": str(uuid.uuid4()),
-                "method": "message/stream",
+                "method": stream_method,
                 "params": {
                     "message": {
                         "role": "user",
@@ -350,11 +356,8 @@ class A2AComplianceTest:
                     },
                 },
             }
-            # Use httpx stream to read SSE incrementally
             with self.client.stream("POST", self.server_url,
-                    json=request,
-                    headers={"Content-Type": "application/json",
-                             "Accept": "text/event-stream"}) as resp:
+                    json=request, headers=stream_headers) as resp:
                 assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
                 ct = resp.headers.get("content-type", "")
                 assert "text/event-stream" in ct, f"Expected SSE content type, got: {ct}"
@@ -364,7 +367,7 @@ class A2AComplianceTest:
             request = {
                 "jsonrpc": "2.0",
                 "id": str(uuid.uuid4()),
-                "method": "message/stream",
+                "method": stream_method,
                 "params": {
                     "message": {
                         "role": "user",
@@ -375,9 +378,7 @@ class A2AComplianceTest:
             }
             events = []
             with self.client.stream("POST", self.server_url,
-                    json=request,
-                    headers={"Content-Type": "application/json",
-                             "Accept": "text/event-stream"}) as resp:
+                    json=request, headers=stream_headers) as resp:
                 buffer = ""
                 for chunk in resp.iter_text():
                     buffer += chunk
@@ -419,7 +420,7 @@ class A2AComplianceTest:
             request = {
                 "jsonrpc": "2.0",
                 "id": str(uuid.uuid4()),
-                "method": "message/stream",
+                "method": stream_method,
                 "params": {
                     "message": {
                         "role": "user",
@@ -430,9 +431,7 @@ class A2AComplianceTest:
             }
             events = []
             with self.client.stream("POST", self.server_url,
-                    json=request,
-                    headers={"Content-Type": "application/json",
-                             "Accept": "text/event-stream"}) as resp:
+                    json=request, headers=stream_headers) as resp:
                 buffer = ""
                 for chunk in resp.iter_text():
                     buffer += chunk
@@ -459,26 +458,6 @@ class A2AComplianceTest:
                 for evt in events:
                     assert evt.get("jsonrpc") == "2.0", f"v0.3 event should have jsonrpc 2.0: {evt}"
                     assert "method" in evt, f"v0.3 event should have method: {evt}"
-
-        # Check if server supports SSE streaming for message/stream POST
-        # (some servers return JSON-RPC initial response and stream via separate SSE GET)
-        probe_request = {
-            "jsonrpc": "2.0",
-            "id": str(uuid.uuid4()),
-            "method": "message/stream",
-            "params": {
-                "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "probe"}],
-                    "messageId": str(uuid.uuid4()),
-                },
-            },
-        }
-        probe_resp = self.client.post(self.server_url, json=probe_request,
-            headers={"Content-Type": "application/json", "Accept": "text/event-stream"})
-        if "text/event-stream" not in probe_resp.headers.get("content-type", ""):
-            print("  [SKIP] Server does not return SSE from message/stream POST")
-            return
 
         self._test("streaming", "message/stream returns SSE", test_stream_response_type)
         self._test("streaming", "SSE events delivered", test_stream_receives_events)

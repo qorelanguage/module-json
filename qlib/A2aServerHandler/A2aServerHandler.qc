@@ -261,11 +261,25 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             return ServerSentEventHandler::handleRequest(cx, hdr, b);
         }
 
-        # POST requests go to JSON-RPC handler
+        # POST requests
         if (cx.hdr.method == "POST") {
             # Detect A2A protocol version from header before dispatch
             *string a2a_version = hdr{A2aVersionHeader} ?? hdr{A2aVersionHeader.lwr()};
             cx.a2a_version = a2a_version;
+
+            # Intercept streaming methods to return SSE directly (not JSON-RPC wrapped)
+            if (b) {
+                try {
+                    hash<auto> jsonrpc = parse_json(b);
+                    string method = jsonrpc.method ?? "";
+                    if (method == "message/stream" || method == "SendStreamingMessage") {
+                        return handleStreamPost(cx, jsonrpc);
+                    }
+                } catch () {
+                    # JSON parse error — fall through to JsonRpcHandler for proper error response
+                }
+            }
+
             return JsonRpcHandler::handleRequest(cx, hdr, b);
         }
 
@@ -858,6 +872,201 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
         # Return the standard agent card if no extended card is set
         return agent_card;
+    }
+
+    #! Handles a streaming POST request, returning SSE events directly
+    /** Intercepts \c message/stream and \c SendStreamingMessage POST requests,
+        runs the stream handler synchronously, collects SSE events, and returns
+        them as a complete \c text/event-stream response body.
+    */
+    private hash<HttpResponseInfo> handleStreamPost(hash<auto> cx, hash<auto> jsonrpc) {
+        *hash<auto> params = jsonrpc.params;
+        if (!params.message) {
+            return AbstractHttpRequestHandler::makeResponse(400, make_json({
+                "jsonrpc": "2.0", "id": jsonrpc.id,
+                "error": {"code": A2A_ERR_INVALID_ARGUMENT, "message": "Missing 'message' parameter"},
+            }), {"Content-Type": MimeTypeJson});
+        }
+
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(jsonrpc.method);
+
+        # Normalize v1.0 params to v0.3 internal format
+        if (version == A2aVersionV10) {
+            params = a2aTranslateSendMessageParamsToV03(params);
+        }
+
+        # Fall back to synchronous handler if no stream handler registered
+        if (!stream_message_handler) {
+            return handleStreamPostSync(cx, params, version);
+        }
+
+        # Create task
+        hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
+        string task_id = task.id;
+
+        # Build handler message with context history
+        hash<auto> handler_message = params.message;
+        if (params.contextId) {
+            list<hash<auto>> prior_history;
+            {
+                AutoReadLock al(rwl);
+                prior_history = context_history{params.contextId} ?? ();
+            }
+            if (prior_history) {
+                handler_message.history = prior_history;
+            }
+        }
+
+        # Add incoming message to task history
+        {
+            AutoWriteLock al(rwl);
+            task_map{task_id}.history += params.message;
+        }
+
+        # Transition to active
+        updateTaskState(task_id, A2aTaskState::Active);
+
+        # Run stream handler synchronously, collecting SSE events
+        list<string> sse_events = ();
+        list<hash<auto>> assembled_parts = ();
+
+        code token_callback = sub (hash<auto> partial) {
+            if (partial.parts) {
+                assembled_parts += partial.parts;
+            }
+            sse_events += formatSseEvent(task_id, "TaskMessageUpdateEvent", partial, version);
+            # Also notify GET-based SSE connections and push notifications
+            notifySseConnections(task_id, "TaskMessageUpdateEvent", partial);
+            sendTaskPushNotification(task_id, "TaskMessageUpdateEvent", partial);
+        };
+
+        try {
+            stream_message_handler(task, handler_message, token_callback);
+
+            # Assemble final response from collected parts
+            hash<auto> response = {
+                "role": "agent",
+                "parts": assembled_parts,
+            };
+
+            # Add response to task history
+            {
+                AutoWriteLock al(rwl);
+                task_map{task_id}.history += response;
+            }
+
+            # Accumulate context history
+            if (params.contextId) {
+                AutoWriteLock al(rwl);
+                if (!context_history{params.contextId}) {
+                    context_history{params.contextId} = ();
+                }
+                context_history{params.contextId} += params.message;
+                context_history{params.contextId} += response;
+                if (context_history{params.contextId}.size() > max_context_messages) {
+                    int excess = context_history{params.contextId}.size() - max_context_messages;
+                    splice context_history{params.contextId}, 0, excess;
+                }
+            }
+
+            updateTaskState(task_id, A2aTaskState::Completed, response);
+
+            # Add final status event
+            hash<auto> final_status;
+            {
+                AutoReadLock al(rwl);
+                final_status = getTaskResponse(task_map{task_id}, NOTHING, version).status;
+            }
+            sse_events += formatSseEvent(task_id, "TaskStatusUpdateEvent", final_status, version);
+        } catch (hash<ExceptionInfo> ex) {
+            error("Stream handler error: %s: %s", ex.err, ex.desc);
+            try {
+                updateTaskState(task_id, A2aTaskState::Failed, {
+                    "role": "agent",
+                    "parts": ({"type": "text", "text": sprintf("Error: %s: %s", ex.err, ex.desc)},),
+                });
+            } catch () {
+                # Ignore if state transition fails
+            }
+            hash<auto> fail_status;
+            {
+                AutoReadLock al(rwl);
+                fail_status = getTaskResponse(task_map{task_id}, NOTHING, version).status;
+            }
+            sse_events += formatSseEvent(task_id, "TaskStatusUpdateEvent", fail_status, version);
+        }
+
+        return <HttpResponseInfo>{
+            "code": 200,
+            "body": sse_events.join(""),
+            "hdr": {"Content-Type": MimeTypeSse, "Cache-Control": "no-cache"},
+        };
+    }
+
+    #! Handles streaming POST fallback when no stream handler is registered
+    private hash<HttpResponseInfo> handleStreamPostSync(hash<auto> cx, hash<auto> params,
+            string version) {
+        # Use synchronous message handler
+        hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
+        string task_id = task.id;
+
+        {
+            AutoWriteLock al(rwl);
+            task_map{task_id}.history += params.message;
+        }
+        updateTaskState(task_id, A2aTaskState::Active);
+
+        *hash<auto> response;
+        if (message_handler) {
+            try {
+                response = message_handler(task, params.message);
+                if (response) {
+                    {
+                        AutoWriteLock al(rwl);
+                        task_map{task_id}.history += response;
+                    }
+                    updateTaskState(task_id, A2aTaskState::Completed, response);
+                }
+            } catch (hash<ExceptionInfo> ex) {
+                error("Sync handler error in stream POST: %s: %s", ex.err, ex.desc);
+                try {
+                    updateTaskState(task_id, A2aTaskState::Failed, {
+                        "role": "agent",
+                        "parts": ({"type": "text",
+                            "text": sprintf("Error: %s: %s", ex.err, ex.desc)},),
+                    });
+                } catch () {}
+            }
+        }
+
+        hash<auto> final_status;
+        {
+            AutoReadLock al(rwl);
+            final_status = getTaskResponse(task_map{task_id}, NOTHING, version).status;
+        }
+        string body = formatSseEvent(task_id, "TaskStatusUpdateEvent", final_status, version);
+
+        return <HttpResponseInfo>{
+            "code": 200,
+            "body": body,
+            "hdr": {"Content-Type": MimeTypeSse, "Cache-Control": "no-cache"},
+        };
+    }
+
+    #! Formats a single SSE event string based on protocol version
+    private string formatSseEvent(string task_id, string event_type, hash<auto> data,
+            string version) {
+        if (version == A2aVersionV10) {
+            hash<auto> v10_event = a2aTranslateSseEventToV10(event_type, data + {"id": task_id});
+            return sprintf("data: %s\n\n", make_json(v10_event));
+        } else {
+            hash<auto> payload = {
+                "jsonrpc": "2.0",
+                "method": event_type,
+                "params": data + {"id": task_id},
+            };
+            return sprintf("event: %s\ndata: %s\n\n", event_type, make_json(payload));
+        }
     }
 
     #! Returns a task response hash suitable for JSON-RPC response

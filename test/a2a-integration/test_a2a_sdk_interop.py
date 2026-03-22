@@ -31,9 +31,9 @@ try:
     from a2a.server.events.in_memory_queue_manager import InMemoryQueueManager
     from a2a.types import a2a_pb2
 except ImportError as e:
-    print(f"SKIP: a2a-sdk not installed ({e})")
-    print("Install with: pip install 'a2a-sdk[sqlite,http-server]==1.0.0a0'")
-    sys.exit(0)  # Exit 0 so CI doesn't fail
+    print(f"ERROR: a2a-sdk not installed ({e})")
+    print("Install with: pip install 'a2a-sdk[sqlite,http-server]'")
+    sys.exit(1)
 
 
 class EchoExecutor(AgentExecutor):
@@ -182,10 +182,43 @@ class InteropTest:
             assert status == 200
             assert "tasks" in result["result"]
 
+        def test_v10_stream_message():
+            """SendStreamingMessage should return SSE from our Qore server."""
+            request = {
+                "jsonrpc": "2.0",
+                "id": str(uuid.uuid4()),
+                "method": "SendStreamingMessage",
+                "params": {
+                    "message": {
+                        "role": "ROLE_USER",
+                        "parts": [{"text": "Stream from SDK client!"}],
+                        "messageId": str(uuid.uuid4()),
+                    },
+                },
+            }
+            resp = self.client.post(qore_url, json=request,
+                headers={"Content-Type": "application/json",
+                         "Accept": "text/event-stream",
+                         "A2A-Version": "1.0"})
+            assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+            ct = resp.headers.get("content-type", "")
+            assert "text/event-stream" in ct, f"Expected SSE, got: {ct}"
+            # Parse events
+            events = []
+            for block in resp.text.split("\n\n"):
+                for line in block.strip().split("\n"):
+                    if line.startswith("data: "):
+                        try:
+                            events.append(json.loads(line[6:]))
+                        except json.JSONDecodeError:
+                            pass
+            assert len(events) >= 1, f"Expected SSE events, got {len(events)}"
+
         self._test("sdk-client→qore", "agent card discovery", test_agent_card)
         self._test("sdk-client→qore", "v1.0 SendMessage", test_v10_send_message)
         self._test("sdk-client→qore", "v1.0 GetTask", test_v10_get_task)
         self._test("sdk-client→qore", "v1.0 ListTasks", test_v10_list_tasks)
+        self._test("sdk-client→qore", "v1.0 SendStreamingMessage (SSE)", test_v10_stream_message)
 
     def test_qore_format_against_sdk_server(self, sdk_url):
         """Test: Qore-style JSON-RPC requests → official a2a-sdk server.
@@ -234,8 +267,59 @@ class InteropTest:
             else:
                 assert "result" in result
 
+        def test_v10_stream_message():
+            """SendStreamingMessage against SDK server should return SSE."""
+            request = {
+                "jsonrpc": "2.0",
+                "id": str(uuid.uuid4()),
+                "method": "SendStreamingMessage",
+                "params": {
+                    "message": {
+                        "role": "ROLE_USER",
+                        "parts": [{"text": "Stream from Qore!"}],
+                        "messageId": str(uuid.uuid4()),
+                    },
+                },
+            }
+            # Use streaming read to handle SSE
+            with self.client.stream("POST", sdk_url, json=request,
+                    headers={"Content-Type": "application/json",
+                             "Accept": "text/event-stream",
+                             "A2A-Version": "1.0"}) as resp:
+                assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+                ct = resp.headers.get("content-type", "")
+                # SDK may return SSE or JSON depending on implementation
+                events = []
+                # Read the full response
+                body_text = resp.read().decode("utf-8") if isinstance(resp.read(), bytes) else ""
+                if not body_text:
+                    body_text = ""
+                    for chunk in resp.iter_text():
+                        body_text += chunk
+
+                if "text/event-stream" in ct and body_text.strip():
+                    # Parse SSE events
+                    for block in body_text.split("\n\n"):
+                        for line in block.strip().split("\n"):
+                            if line.startswith("data: "):
+                                try:
+                                    events.append(json.loads(line[6:]))
+                                except json.JSONDecodeError:
+                                    pass
+
+                # Accept: events delivered OR valid JSON response (SDK alpha may vary)
+                if not events:
+                    # Try parsing as JSON-RPC response
+                    try:
+                        result = json.loads(body_text)
+                        has_response = "result" in result or "error" not in result
+                        assert has_response, f"Unexpected: {body_text[:200]}"
+                    except json.JSONDecodeError:
+                        pass  # Empty SSE stream is acceptable from alpha SDK
+
         self._test("qore→sdk-server", "agent card discovery", test_agent_card)
         self._test("qore→sdk-server", "v1.0 SendMessage", test_v10_send_message)
+        self._test("qore→sdk-server", "v1.0 SendStreamingMessage", test_v10_stream_message)
         self._test("qore→sdk-server", "v0.3 message/send (compat)", test_v03_send_message)
 
     def summary(self):

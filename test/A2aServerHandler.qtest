@@ -63,6 +63,33 @@ class A2aServerHandlerTest inherits QUnit::Test {
         set_return_value(main());
     }
 
+    #! Parse SSE events from a text/event-stream response body
+    private static list<hash<auto>> parseSseEvents(string body) {
+        list<hash<auto>> events = ();
+        list<string> blocks = body.split("\n\n");
+        foreach string block in (blocks) {
+            if (!block.val()) {
+                continue;
+            }
+            *string data_line;
+            *string event_type;
+            foreach string line in (block.split("\n")) {
+                if (line =~ /^data: (.*)/) {
+                    data_line = (line =~ x/^data: (.*)/)[0];
+                } else if (line =~ /^event: (.*)/) {
+                    event_type = (line =~ x/^event: (.*)/)[0];
+                }
+            }
+            if (data_line) {
+                events += {
+                    "event": event_type ?? "message",
+                    "data": parse_json(data_line),
+                };
+            }
+        }
+        return events;
+    }
+
     private static hash<auto> echoHandler(hash<auto> task_info, hash<auto> msg) {
         string text = "";
         foreach hash<auto> part in (msg.parts) {
@@ -1014,8 +1041,7 @@ class A2aServerHandlerTest inherits QUnit::Test {
 
         A2aClient::A2aClient client(base_url);
 
-        # Use sendMessage via message/stream JSON-RPC call
-        # The POST returns immediately with task in Active state
+        # POST message/stream — now returns SSE directly
         hash<auto> rpc_request = {
             "jsonrpc": "2.0",
             "method": "message/stream",
@@ -1031,27 +1057,25 @@ class A2aServerHandlerTest inherits QUnit::Test {
         HTTPClient http_client({"url": base_url});
         hash<auto> info;
         string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson}, \info);
-        hash<auto> result = parse_json(resp);
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeSse}, \info);
+        hash<auto> resp_info = info."response-headers";
+        assertEq(200, resp_info.status_code, "Should have result");
 
-        assertTrue(exists result.result, "Should have result");
-        assertTrue(exists result.result.id, "Task should have ID");
-        string task_id = result.result.id;
-        # Task should be in Active state initially (background thread running)
-        assertEq(A2aTaskState::Active, result.result.status.state,
-            "Task should be active initially");
+        # Parse SSE events from response body
+        list<hash<auto>> events = parseSseEvents(resp);
+        assertTrue(events.size() >= 2, "Should have at least message + status events");
 
-        # Wait for background thread to complete the task
-        int retries = 0;
-        hash<auto> task;
-        while (retries < 50) {
-            task = client.getTask(task_id);
-            if (task.status.state == A2aTaskState::Completed) {
-                break;
+        # Find the task ID from the status event
+        *string task_id;
+        foreach hash<auto> evt in (events) {
+            if (evt.event == "TaskStatusUpdateEvent") {
+                task_id = evt.data.params.id;
             }
-            usleep(100000);
-            ++retries;
         }
+        assertTrue(task_id.val(), "Should have task ID from status event");
+
+        # Verify task is completed
+        hash<auto> task = client.getTask(task_id);
         assertEq(A2aTaskState::Completed, task.status.state, "Task should complete");
 
         # Verify assembled response in history
@@ -1093,22 +1117,19 @@ class A2aServerHandlerTest inherits QUnit::Test {
         HTTPClient http_client({"url": base_url});
         hash<auto> info;
         string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson}, \info);
-        hash<auto> result = parse_json(resp);
-        string task_id = result.result.id;
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeSse}, \info);
 
-        # Wait for background thread to fail the task
-        int retries = 0;
-        hash<auto> task;
-        while (retries < 50) {
-            task = client.getTask(task_id);
-            if (task.status.state == A2aTaskState::Failed) {
-                break;
+        # Parse SSE events — should contain a failed status event
+        list<hash<auto>> events = parseSseEvents(resp);
+        *string task_id;
+        bool has_failed = False;
+        foreach hash<auto> evt in (events) {
+            if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.state == "failed") {
+                task_id = evt.data.params.id;
+                has_failed = True;
             }
-            usleep(100000);
-            ++retries;
         }
-        assertEq(A2aTaskState::Failed, task.status.state, "Task should fail on handler error");
+        assertTrue(has_failed, "Task should fail on handler error");
 
         client.close();
     }
@@ -1135,13 +1156,23 @@ class A2aServerHandlerTest inherits QUnit::Test {
         HTTPClient http_client({"url": base_url});
         hash<auto> info;
         string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson}, \info);
-        hash<auto> result = parse_json(resp);
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeSse}, \info);
 
-        # Should complete synchronously (echo handler)
-        assertEq(A2aTaskState::Completed, result.result.status.state,
-            "Should complete synchronously without stream handler");
-        assertTrue(result.result.history.size() >= 2, "Should have history");
+        # Should return SSE with completed status (sync fallback)
+        list<hash<auto>> events = parseSseEvents(resp);
+        assertTrue(events.size() >= 1, "Should have at least status event");
+        bool completed = False;
+        *string task_id;
+        foreach hash<auto> evt in (events) {
+            if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.state == "completed") {
+                completed = True;
+                task_id = evt.data.params.id;
+            }
+        }
+        assertTrue(completed, "Should complete synchronously without stream handler");
+        # Verify task has history
+        hash<auto> task = client.getTask(task_id);
+        assertTrue(task.history.size() >= 2, "Should have history");
 
         client.close();
     }
@@ -1179,22 +1210,17 @@ class A2aServerHandlerTest inherits QUnit::Test {
         HTTPClient http_client({"url": base_url});
         hash<auto> info;
         string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson}, \info);
-        hash<auto> result = parse_json(resp);
-        string task_id = result.result.id;
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeSse}, \info);
 
-        # Wait for completion
-        int retries = 0;
-        hash<auto> task;
-        while (retries < 50) {
-            task = client.getTask(task_id);
-            if (task.status.state == A2aTaskState::Completed) {
-                break;
+        # Parse SSE — handler runs synchronously now
+        list<hash<auto>> events = parseSseEvents(resp);
+        bool completed = False;
+        foreach hash<auto> evt in (events) {
+            if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.state == "completed") {
+                completed = True;
             }
-            usleep(100000);
-            ++retries;
         }
-        assertEq(A2aTaskState::Completed, task.status.state, "Stream with context should complete");
+        assertEq(True, completed, "Stream with context should complete");
 
         # Verify context history was accumulated
         list<hash<auto>> ctx_history = handler.getContextHistory(ctx_id);

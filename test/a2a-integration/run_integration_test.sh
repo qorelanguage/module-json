@@ -290,7 +290,8 @@ case "$TEST_MODE" in
                         --sdk-port "$sdk_test_port"; then
                     echo -e "${GREEN}SDK interop PASSED${NC}"
                 else
-                    echo -e "${YELLOW}SDK interop had failures (non-blocking)${NC}"
+                    echo -e "${RED}SDK interop FAILED${NC}"
+                    OVERALL_EXIT=1
                 fi
             else
                 echo -e "${YELLOW}Could not start server for SDK tests${NC}"
@@ -301,7 +302,8 @@ case "$TEST_MODE" in
             SERVER_PID=""
             rm -f "$A2A_PORT_FILE" "$SERVER_LOG"
         else
-            echo -e "\n${YELLOW}Skipping SDK interop tests (a2a-sdk not installed)${NC}"
+            echo -e "\n${RED}ERROR: a2a-sdk not installed — SDK interop tests required${NC}"
+            OVERALL_EXIT=1
         fi
         ;;
     *)
