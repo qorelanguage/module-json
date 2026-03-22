@@ -56,8 +56,8 @@ done
 # Install pip and Python dependencies for integration tests
 echo && echo "-- installing Python dependencies for integration tests --"
 apk add --no-cache py3-pip
-python3 -m pip install --break-system-packages mcp httpx 'a2a-sdk[sqlite,http-server]' || \
-    python3 -m pip install mcp httpx 'a2a-sdk[sqlite,http-server]'
+python3 -m pip install --break-system-packages mcp httpx 'a2a-sdk[sqlite,http-server]>=1.0.0a0' || \
+    python3 -m pip install mcp httpx 'a2a-sdk[sqlite,http-server]>=1.0.0a0'
 
 # run MCP integration tests with Python SDK
 echo && echo "-- running MCP integration tests --"
