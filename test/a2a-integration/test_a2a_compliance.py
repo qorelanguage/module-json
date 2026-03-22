@@ -27,18 +27,19 @@ except ImportError:
 
 
 class A2AComplianceTest:
-    """Tests A2A server compliance with v0.3.0 specification."""
+    """Tests A2A server compliance with v0.3.0 and v1.0 specifications."""
 
-    def __init__(self, server_url):
+    def __init__(self, server_url, version="0.3"):
         self.server_url = server_url.rstrip("/")
         self.client = httpx.Client(timeout=30.0)
         self.results = []
         self.task_ids = []  # Track created tasks for later tests
+        self.version = version
 
     def run_all_tests(self):
         """Run all compliance tests. Returns True if all pass."""
         print(f"\n{'=' * 60}")
-        print("A2A Protocol Compliance Test (v0.3.0)")
+        print(f"A2A Protocol Compliance Test (v{self.version})")
         print(f"Server: {self.server_url}")
         print(f"{'=' * 60}\n")
 
@@ -47,6 +48,10 @@ class A2AComplianceTest:
         self._run_task_tests()
         self._run_error_handling_tests()
         self._run_jsonrpc_compliance_tests()
+        self._run_streaming_tests()
+
+        if self.version == "1.0":
+            self._run_v10_tests()
 
         # Print summary
         passed = sum(1 for r in self.results if r["passed"])
@@ -72,7 +77,7 @@ class A2AComplianceTest:
             print(f"  [\033[91mFAIL\033[0m] {name}: {e}")
             self.results.append({"name": f"{category}/{name}", "passed": False, "message": str(e)})
 
-    def _jsonrpc(self, method, params=None):
+    def _jsonrpc(self, method, params=None, headers=None):
         """Send a JSON-RPC 2.0 request."""
         request = {
             "jsonrpc": "2.0",
@@ -80,10 +85,13 @@ class A2AComplianceTest:
             "method": method,
             "params": params or {},
         }
+        req_headers = {"Content-Type": "application/json"}
+        if headers:
+            req_headers.update(headers)
         response = self.client.post(
             self.server_url,
             json=request,
-            headers={"Content-Type": "application/json"},
+            headers=req_headers,
         )
         return response.json(), response.status_code
 
@@ -323,21 +331,304 @@ class A2AComplianceTest:
         self._test("jsonrpc", "PUT/DELETE return 405", test_http_method_handling)
 
     # ================================================================
+    # SSE Streaming Tests
+    # ================================================================
+    def _run_streaming_tests(self):
+        print("\n[SSE Streaming]")
+
+        def test_stream_response_type():
+            """message/stream should return text/event-stream."""
+            request = {
+                "jsonrpc": "2.0",
+                "id": str(uuid.uuid4()),
+                "method": "message/stream",
+                "params": {
+                    "message": {
+                        "role": "user",
+                        "parts": [{"type": "text", "text": "Stream test"}],
+                        "messageId": str(uuid.uuid4()),
+                    },
+                },
+            }
+            # Use httpx stream to read SSE incrementally
+            with self.client.stream("POST", self.server_url,
+                    json=request,
+                    headers={"Content-Type": "application/json",
+                             "Accept": "text/event-stream"}) as resp:
+                assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+                ct = resp.headers.get("content-type", "")
+                assert "text/event-stream" in ct, f"Expected SSE content type, got: {ct}"
+
+        def test_stream_receives_events():
+            """message/stream should deliver SSE events with task data."""
+            request = {
+                "jsonrpc": "2.0",
+                "id": str(uuid.uuid4()),
+                "method": "message/stream",
+                "params": {
+                    "message": {
+                        "role": "user",
+                        "parts": [{"type": "text", "text": "Hello streaming!"}],
+                        "messageId": str(uuid.uuid4()),
+                    },
+                },
+            }
+            events = []
+            with self.client.stream("POST", self.server_url,
+                    json=request,
+                    headers={"Content-Type": "application/json",
+                             "Accept": "text/event-stream"}) as resp:
+                buffer = ""
+                for chunk in resp.iter_text():
+                    buffer += chunk
+                    # Parse SSE events from buffer
+                    while "\n\n" in buffer:
+                        event_block, buffer = buffer.split("\n\n", 1)
+                        data_line = None
+                        for line in event_block.strip().split("\n"):
+                            if line.startswith("data: "):
+                                data_line = line[6:]
+                        if data_line:
+                            try:
+                                events.append(json.loads(data_line))
+                            except json.JSONDecodeError:
+                                pass
+
+            assert len(events) >= 2, f"Expected at least 2 SSE events, got {len(events)}"
+            # At least one should be a message/token event
+            # At least one should be a status/completion event
+            has_message = False
+            has_status = False
+            for evt in events:
+                if self.version == "1.0":
+                    if "message" in evt:
+                        has_message = True
+                    if "statusUpdate" in evt:
+                        has_status = True
+                else:
+                    method = evt.get("method", "")
+                    if "Message" in method:
+                        has_message = True
+                    if "Status" in method:
+                        has_status = True
+            assert has_message, f"No message event found in: {events}"
+            assert has_status, f"No status event found in: {events}"
+
+        def test_stream_event_format():
+            """SSE events should have correct format for the protocol version."""
+            request = {
+                "jsonrpc": "2.0",
+                "id": str(uuid.uuid4()),
+                "method": "message/stream",
+                "params": {
+                    "message": {
+                        "role": "user",
+                        "parts": [{"type": "text", "text": "Format check"}],
+                        "messageId": str(uuid.uuid4()),
+                    },
+                },
+            }
+            events = []
+            with self.client.stream("POST", self.server_url,
+                    json=request,
+                    headers={"Content-Type": "application/json",
+                             "Accept": "text/event-stream"}) as resp:
+                buffer = ""
+                for chunk in resp.iter_text():
+                    buffer += chunk
+                    while "\n\n" in buffer:
+                        event_block, buffer = buffer.split("\n\n", 1)
+                        data_line = None
+                        for line in event_block.strip().split("\n"):
+                            if line.startswith("data: "):
+                                data_line = line[6:]
+                        if data_line:
+                            try:
+                                events.append(json.loads(data_line))
+                            except json.JSONDecodeError:
+                                pass
+
+            assert len(events) > 0, "No events received"
+
+            if self.version == "1.0":
+                # v1.0 events should be plain discriminated objects (no jsonrpc wrapper)
+                for evt in events:
+                    assert "jsonrpc" not in evt, f"v1.0 event should not have jsonrpc: {evt}"
+            else:
+                # v0.3 events should be JSON-RPC wrapped
+                for evt in events:
+                    assert evt.get("jsonrpc") == "2.0", f"v0.3 event should have jsonrpc 2.0: {evt}"
+                    assert "method" in evt, f"v0.3 event should have method: {evt}"
+
+        # Check if server supports SSE streaming for message/stream POST
+        # (some servers return JSON-RPC initial response and stream via separate SSE GET)
+        probe_request = {
+            "jsonrpc": "2.0",
+            "id": str(uuid.uuid4()),
+            "method": "message/stream",
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "probe"}],
+                    "messageId": str(uuid.uuid4()),
+                },
+            },
+        }
+        probe_resp = self.client.post(self.server_url, json=probe_request,
+            headers={"Content-Type": "application/json", "Accept": "text/event-stream"})
+        if "text/event-stream" not in probe_resp.headers.get("content-type", ""):
+            print("  [SKIP] Server does not return SSE from message/stream POST")
+            return
+
+        self._test("streaming", "message/stream returns SSE", test_stream_response_type)
+        self._test("streaming", "SSE events delivered", test_stream_receives_events)
+        self._test("streaming", "SSE event format correct", test_stream_event_format)
+
+    # ================================================================
+    # V1.0-Specific Tests
+    # ================================================================
+    def _run_v10_tests(self):
+        print("\n[A2A v1.0 Protocol]")
+        v10_headers = {"A2A-Version": "1.0"}
+
+        def test_v10_agent_card_path():
+            resp = self.client.get(f"{self.server_url}/.well-known/a2a-agent-card")
+            assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+            card = resp.json()
+            assert "supportedInterfaces" in card, "v1.0 card should have supportedInterfaces"
+            assert "url" not in card, "v1.0 card should not have top-level url"
+            assert len(card["supportedInterfaces"]) > 0, "Should have at least one interface"
+            iface = card["supportedInterfaces"][0]
+            assert "protocolBinding" in iface, "Interface should have protocolBinding"
+            assert "protocolVersion" in iface, "Interface should have protocolVersion"
+
+        def test_v10_method_names():
+            """SendMessage should be dispatched correctly."""
+            result, status = self._jsonrpc("SendMessage", {
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "v1.0 method test"}],
+                    "messageId": str(uuid.uuid4()),
+                },
+            }, v10_headers)
+            assert status == 200, f"Expected 200, got {status}"
+            assert "result" in result, f"Missing result: {result}"
+            task = result["result"]
+            assert "TASK_STATE_" in task["status"]["state"], \
+                f"v1.0 state should have TASK_STATE_ prefix, got: {task['status']['state']}"
+
+        def test_v10_state_values():
+            """v1.0 response should use TASK_STATE_* enum values."""
+            result, _ = self._jsonrpc("SendMessage", {
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "state test"}],
+                    "messageId": str(uuid.uuid4()),
+                },
+            }, v10_headers)
+            task = result["result"]
+            assert task["status"]["state"] == "TASK_STATE_COMPLETED", \
+                f"Expected TASK_STATE_COMPLETED, got: {task['status']['state']}"
+
+        def test_v10_role_values():
+            """v1.0 response should use ROLE_* enum values."""
+            result, _ = self._jsonrpc("SendMessage", {
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "role test"}],
+                    "messageId": str(uuid.uuid4()),
+                },
+            }, v10_headers)
+            task = result["result"]
+            # Check history roles
+            for msg in task.get("history", []):
+                assert msg["role"].startswith("ROLE_"), \
+                    f"v1.0 role should have ROLE_ prefix, got: {msg['role']}"
+            # Check status message role
+            if task.get("status", {}).get("message"):
+                assert task["status"]["message"]["role"].startswith("ROLE_"), \
+                    f"Status message role should have ROLE_ prefix"
+
+        def test_v10_get_task():
+            """GetTask should work with v1.0 method name."""
+            # First create a task
+            result, _ = self._jsonrpc("SendMessage", {
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "get task test"}],
+                    "messageId": str(uuid.uuid4()),
+                },
+            }, v10_headers)
+            task_id = result["result"]["id"]
+
+            # Get it with v1.0 method
+            result, status = self._jsonrpc("GetTask", {"id": task_id}, v10_headers)
+            assert status == 200
+            assert result["result"]["id"] == task_id
+            assert "TASK_STATE_" in result["result"]["status"]["state"]
+
+        def test_v10_list_tasks():
+            """ListTasks should work with v1.0 method name."""
+            result, status = self._jsonrpc("ListTasks", {}, v10_headers)
+            assert status == 200
+            assert "tasks" in result["result"]
+
+        def test_v10_version_header_detection():
+            """A2A-Version header with v0.3 method name should return v1.0 format."""
+            result, _ = self._jsonrpc("message/send", {
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "header detection test"}],
+                    "messageId": str(uuid.uuid4()),
+                },
+            }, v10_headers)
+            task = result["result"]
+            assert "TASK_STATE_" in task["status"]["state"], \
+                f"Header should trigger v1.0 format, got: {task['status']['state']}"
+
+        def test_v10_contextid_in_message():
+            """v1.0 SendMessage with contextId inside message should work."""
+            result, _ = self._jsonrpc("SendMessage", {
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "context test"}],
+                    "messageId": str(uuid.uuid4()),
+                    "contextId": "test-ctx-v10",
+                },
+            }, v10_headers)
+            task = result["result"]
+            assert task.get("contextId") == "test-ctx-v10", \
+                f"contextId should be preserved, got: {task.get('contextId')}"
+
+        self._test("v1.0", "agent card at /.well-known/a2a-agent-card", test_v10_agent_card_path)
+        self._test("v1.0", "SendMessage dispatched", test_v10_method_names)
+        self._test("v1.0", "TASK_STATE_* enum values", test_v10_state_values)
+        self._test("v1.0", "ROLE_* enum values", test_v10_role_values)
+        self._test("v1.0", "GetTask with v1.0 method", test_v10_get_task)
+        self._test("v1.0", "ListTasks with v1.0 method", test_v10_list_tasks)
+        self._test("v1.0", "A2A-Version header detection", test_v10_version_header_detection)
+        self._test("v1.0", "contextId inside message", test_v10_contextid_in_message)
+
+    # ================================================================
     # Helpers
     # ================================================================
     def _get_agent_text(self, task):
-        """Extract agent response text from a task."""
+        """Extract agent response text from a task (handles both v0.3 and v1.0 formats)."""
         text = ""
+        agent_roles = ("agent", "ROLE_AGENT")
         msg = task.get("status", {}).get("message")
-        if msg and msg.get("role") == "agent":
+        if msg and msg.get("role") in agent_roles:
             for part in msg.get("parts", []):
-                if part.get("type") == "text" or part.get("kind") == "text":
+                # v0.3: {"type": "text", "text": "..."}, v1.0: {"text": "..."}
+                if part.get("type") == "text" or part.get("kind") == "text" or (
+                        "text" in part and "type" not in part):
                     text += part.get("text", "")
         if not text:
             for h in task.get("history", []):
-                if h.get("role") == "agent":
+                if h.get("role") in agent_roles:
                     for part in h.get("parts", []):
-                        if part.get("type") == "text" or part.get("kind") == "text":
+                        if part.get("type") == "text" or part.get("kind") == "text" or (
+                                "text" in part and "type" not in part):
                             text += part.get("text", "")
                     break
         return text
@@ -346,10 +637,19 @@ class A2AComplianceTest:
 def main():
     parser = argparse.ArgumentParser(description="A2A Protocol Compliance Test")
     parser.add_argument("server_url", help="URL of the A2A server")
+    parser.add_argument("--version", choices=["0.3", "1.0", "both"], default="both",
+                        help="Protocol version to test (default: both)")
     args = parser.parse_args()
 
-    tester = A2AComplianceTest(args.server_url)
-    success = tester.run_all_tests()
+    success = True
+    if args.version in ("0.3", "both"):
+        tester = A2AComplianceTest(args.server_url, version="0.3")
+        if not tester.run_all_tests():
+            success = False
+    if args.version in ("1.0", "both"):
+        tester = A2AComplianceTest(args.server_url, version="1.0")
+        if not tester.run_all_tests():
+            success = False
     sys.exit(0 if success else 1)
 
 

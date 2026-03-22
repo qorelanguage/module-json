@@ -45,6 +45,8 @@ sub main() {
     stdout.printf("%s\n\n", strmul("=", 60));
 
     A2aClient::A2aClient client(server_url);
+    # Force v0.3 for the base tests; v1.0 auto-detection is tested separately below
+    client.setProtocolVersion("0.3");
 
     # Test 1: Agent Card Discovery
     stdout.printf("[Agent Card Discovery]\n");
@@ -223,6 +225,186 @@ sub main() {
             throw "ASSERTION-ERROR", sprintf("Expected completed state, got: %y", t.status.state);
         }
     });
+
+    # Test 6: v1.0 Auto-Detection
+    # The Python reference server serves both v0.3 and v1.0 agent cards.
+    # Our client should auto-detect v1.0 from /.well-known/a2a-agent-card
+    stdout.printf("\n[v1.0 Auto-Detection]\n");
+    A2aClient::A2aClient v10_client(server_url);
+    test("v1.0 version auto-detected", sub () {
+        hash<auto> v10_card = v10_client.getAgentCard();
+        if (v10_client.getProtocolVersion() != "1.0") {
+            throw "ASSERTION-ERROR", sprintf("Expected v1.0 detection, got: %y",
+                v10_client.getProtocolVersion());
+        }
+        # Card should be in v0.3 internal format (translated from v1.0)
+        if (!v10_card.url) {
+            throw "ASSERTION-ERROR", "Agent card should have url (translated from supportedInterfaces)";
+        }
+    });
+
+    test("v1.0 message/send round-trip", sub () {
+        hash<auto> msg = {
+            "role": "user",
+            "parts": ({"type": "text", "text": "Hello v1.0!"},),
+            "messageId": get_random_bytes(16).toHex(),
+        };
+        hash<auto> t = v10_client.sendMessage(msg);
+        if (!t.id) {
+            throw "ASSERTION-ERROR", "Missing task ID";
+        }
+        # Response should be in v0.3 internal format
+        if (t.status.state != "completed") {
+            throw "ASSERTION-ERROR", sprintf("Expected completed, got: %y", t.status.state);
+        }
+    });
+
+    test("v1.0 tasks/get round-trip", sub () {
+        hash<auto> msg = {
+            "role": "user",
+            "parts": ({"type": "text", "text": "get test"},),
+            "messageId": get_random_bytes(16).toHex(),
+        };
+        hash<auto> t = v10_client.sendMessage(msg);
+        hash<auto> fetched = v10_client.getTask(t.id);
+        if (fetched.id != t.id) {
+            throw "ASSERTION-ERROR", sprintf("Task ID mismatch: %y != %y", fetched.id, t.id);
+        }
+        if (fetched.status.state != "completed") {
+            throw "ASSERTION-ERROR", sprintf("Expected completed, got: %y", fetched.status.state);
+        }
+    });
+
+    test("v1.0 tasks/list round-trip", sub () {
+        hash<auto> result = v10_client.listTasks();
+        if (!result.hasKey("tasks")) {
+            throw "ASSERTION-ERROR", "Missing tasks key in list response";
+        }
+    });
+
+    test("v1.0 error handling", sub () {
+        bool got_error = False;
+        try {
+            v10_client.getTask("nonexistent-task-v10");
+        } catch (hash<ExceptionInfo> ex) {
+            if (ex.err == "A2A-ERROR" || ex.err == "JSON-RPC-ERROR") {
+                got_error = True;
+            } else {
+                rethrow;
+            }
+        }
+        if (!got_error) {
+            throw "ASSERTION-ERROR", "Expected error for non-existent task";
+        }
+    });
+
+    v10_client.close();
+
+    # Test 7: SSE Streaming against Python reference server
+    # Uses v0.3 protocol since the reference server is our primary independent server
+    stdout.printf("\n[SSE Streaming (v0.3)]\n");
+    A2aClient::A2aClient stream_client(server_url, {"timeout": 10000});
+    stream_client.setProtocolVersion("0.3");
+
+    test("sendMessageStream receives events", sub () {
+        hash<auto> msg = {
+            "role": "user",
+            "parts": ({"type": "text", "text": "Hello streaming!"},),
+            "messageId": get_random_bytes(16).toHex(),
+        };
+        list<hash<auto>> received_events = ();
+        stream_client.sendMessageStream(msg, sub (string event_type, hash<auto> event_data) {
+            received_events += {"type": event_type, "data": event_data};
+        });
+        if (!received_events.size()) {
+            throw "ASSERTION-ERROR", "No SSE events received";
+        }
+    });
+
+    test("sendMessageStream receives message events", sub () {
+        hash<auto> msg = {
+            "role": "user",
+            "parts": ({"type": "text", "text": "Token test"},),
+            "messageId": get_random_bytes(16).toHex(),
+        };
+        list<hash<auto>> received_events = ();
+        stream_client.sendMessageStream(msg, sub (string event_type, hash<auto> event_data) {
+            received_events += {"type": event_type, "data": event_data};
+        });
+        # Should have message events and a status event
+        bool has_message = False;
+        bool has_status = False;
+        foreach hash<auto> evt in (received_events) {
+            if (evt.type =~ /Message/) {
+                has_message = True;
+            }
+            if (evt.type =~ /Status/) {
+                has_status = True;
+            }
+        }
+        if (!has_message) {
+            throw "ASSERTION-ERROR", sprintf("No message events in: %y",
+                (map $1.type, received_events));
+        }
+        if (!has_status) {
+            throw "ASSERTION-ERROR", sprintf("No status events in: %y",
+                (map $1.type, received_events));
+        }
+    });
+
+    test("sendMessageStream event data has task ID", sub () {
+        hash<auto> msg = {
+            "role": "user",
+            "parts": ({"type": "text", "text": "ID test"},),
+            "messageId": get_random_bytes(16).toHex(),
+        };
+        list<hash<auto>> received_events = ();
+        stream_client.sendMessageStream(msg, sub (string event_type, hash<auto> event_data) {
+            received_events += {"type": event_type, "data": event_data};
+        });
+        # v0.3 events should have "id" in params
+        foreach hash<auto> evt in (received_events) {
+            if (evt.data.params && !evt.data.params.id) {
+                throw "ASSERTION-ERROR", sprintf("Event missing task ID in params: %y", evt);
+            }
+        }
+    });
+
+    stream_client.close();
+
+    # Test 8: SSE Streaming with v1.0 auto-detected server
+    stdout.printf("\n[SSE Streaming (v1.0)]\n");
+    A2aClient::A2aClient v10_stream_client(server_url, {"timeout": 10000});
+    # Let it auto-detect v1.0 from the agent card
+    v10_stream_client.getAgentCard();
+
+    test("v1.0 sendMessageStream receives events", sub () {
+        hash<auto> msg = {
+            "role": "user",
+            "parts": ({"type": "text", "text": "v1.0 streaming!"},),
+            "messageId": get_random_bytes(16).toHex(),
+        };
+        list<hash<auto>> received_events = ();
+        v10_stream_client.sendMessageStream(msg, sub (string event_type, hash<auto> event_data) {
+            received_events += {"type": event_type, "data": event_data};
+        });
+        if (!received_events.size()) {
+            throw "ASSERTION-ERROR", "No SSE events received for v1.0 streaming";
+        }
+        # Events should be translated to v0.3 format by the client
+        bool has_message = False;
+        foreach hash<auto> evt in (received_events) {
+            if (evt.type =~ /Message/) {
+                has_message = True;
+            }
+        }
+        if (!has_message) {
+            throw "ASSERTION-ERROR", sprintf("No message events in v1.0 stream: %y",
+                (map $1.type, received_events));
+        }
+    });
+
+    v10_stream_client.close();
 
     # Summary
     stdout.printf("\n%s\n", strmul("=", 60));
