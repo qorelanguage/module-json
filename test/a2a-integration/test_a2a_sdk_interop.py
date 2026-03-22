@@ -126,6 +126,18 @@ class InteropTest:
             print(f"  [\033[91mFAIL\033[0m] {name}: {e}")
             self.results.append({"name": f"{category}/{name}", "passed": False, "message": str(e)})
 
+    def _parse_sse(self, text):
+        """Parse SSE events from a text/event-stream response body."""
+        events = []
+        for block in text.split("\n\n"):
+            for line in block.strip().split("\n"):
+                if line.startswith("data: "):
+                    try:
+                        events.append(json.loads(line[6:]))
+                    except json.JSONDecodeError:
+                        pass
+        return events
+
     def _jsonrpc(self, url, method, params=None, headers=None):
         request = {
             "jsonrpc": "2.0",
@@ -140,85 +152,259 @@ class InteropTest:
         return response.json(), response.status_code
 
     def test_sdk_client_to_qore_server(self, qore_url):
-        """Test: official a2a-sdk Python client → our Qore A2A server."""
+        """Comprehensive test: SDK-format requests → our Qore A2A server.
+
+        This is the authoritative validation of our server — every test here
+        uses wire format that the official SDK would produce, sent to our server.
+        """
         print("\n[SDK Client → Qore Server]")
         v10_headers = {"A2A-Version": "1.0"}
 
-        def test_agent_card():
+        # --- Agent Card ---
+        def test_v03_agent_card():
             resp = self.client.get(f"{qore_url}/.well-known/agent-card.json")
             assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+            ct = resp.headers.get("content-type", "")
+            assert "application/json" in ct, f"Expected JSON, got: {ct}"
+            card = resp.json()
+            assert "name" in card, "Card missing name"
+            assert "url" in card, "v0.3 card should have url"
+            assert "skills" in card and len(card["skills"]) > 0, "Card should have skills"
+            assert "capabilities" in card, "Card missing capabilities"
 
+        def test_v10_agent_card():
+            resp = self.client.get(f"{qore_url}/.well-known/a2a-agent-card")
+            assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+            card = resp.json()
+            assert "supportedInterfaces" in card, "v1.0 card should have supportedInterfaces"
+            assert "url" not in card, "v1.0 card should not have top-level url"
+            iface = card["supportedInterfaces"][0]
+            assert "protocolBinding" in iface, "Interface should have protocolBinding"
+            assert "protocolVersion" in iface, "Interface should have protocolVersion"
+
+        # --- v1.0 SendMessage ---
         def test_v10_send_message():
             result, status = self._jsonrpc(qore_url, "SendMessage", {
                 "message": {
                     "role": "ROLE_USER",
-                    "parts": [{"text": "Hello from SDK client!"}],
+                    "parts": [{"text": "Hello!"}],
                     "messageId": str(uuid.uuid4()),
                 },
             }, v10_headers)
-            assert status == 200, f"Expected 200, got {status}"
+            assert status == 200
             assert "result" in result, f"Missing result: {json.dumps(result)[:200]}"
-            # Our server returns a Task
             task = result["result"]
-            assert "status" in task, f"Missing status in task"
-            assert "TASK_STATE_" in task["status"]["state"], \
-                f"Expected v1.0 state, got: {task['status']['state']}"
+            assert "status" in task, "Task missing status"
+            assert task["status"]["state"] == "TASK_STATE_COMPLETED", \
+                f"Expected TASK_STATE_COMPLETED, got: {task['status']['state']}"
 
+        def test_v10_response_roles():
+            """v1.0 response should use ROLE_* values."""
+            result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER", "parts": [{"text": "role test"}],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            task = result["result"]
+            for msg in task.get("history", []):
+                assert msg["role"].startswith("ROLE_"), f"Role should have ROLE_ prefix: {msg['role']}"
+            if task.get("status", {}).get("message"):
+                assert task["status"]["message"]["role"].startswith("ROLE_")
+
+        def test_v10_echo_content():
+            """Server should echo input text."""
+            result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER", "parts": [{"text": "Echo this!"}],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            task = result["result"]
+            agent_text = ""
+            if task.get("status", {}).get("message"):
+                for p in task["status"]["message"].get("parts", []):
+                    agent_text += p.get("text", "")
+            assert "Echo" in agent_text, f"Expected echo, got: {agent_text}"
+
+        def test_v10_contextid_in_message():
+            """v1.0 contextId inside message should be preserved."""
+            result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER", "parts": [{"text": "ctx test"}],
+                            "messageId": str(uuid.uuid4()), "contextId": "sdk-ctx-1"},
+            }, v10_headers)
+            assert result["result"].get("contextId") == "sdk-ctx-1"
+
+        def test_v10_multiple_messages():
+            """Multiple SendMessage calls should return unique task IDs."""
+            ids = set()
+            for i in range(3):
+                result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                    "message": {"role": "ROLE_USER", "parts": [{"text": f"msg {i}"}],
+                                "messageId": str(uuid.uuid4())},
+                }, v10_headers)
+                tid = result["result"]["id"]
+                assert tid not in ids, f"Duplicate task ID: {tid}"
+                ids.add(tid)
+
+        # --- v1.0 GetTask ---
         def test_v10_get_task():
             result, _ = self._jsonrpc(qore_url, "SendMessage", {
-                "message": {
-                    "role": "ROLE_USER",
-                    "parts": [{"text": "get test"}],
-                    "messageId": str(uuid.uuid4()),
-                },
+                "message": {"role": "ROLE_USER", "parts": [{"text": "get test"}],
+                            "messageId": str(uuid.uuid4())},
             }, v10_headers)
             task_id = result["result"]["id"]
             result2, status = self._jsonrpc(qore_url, "GetTask", {"id": task_id}, v10_headers)
             assert status == 200
             assert result2["result"]["id"] == task_id
+            assert "TASK_STATE_" in result2["result"]["status"]["state"]
 
+        def test_v10_get_task_not_found():
+            """GetTask for non-existent ID should return error -32002."""
+            result, status = self._jsonrpc(qore_url, "GetTask",
+                {"id": "nonexistent-task-xyz"}, v10_headers)
+            assert "error" in result, "Expected error for non-existent task"
+            assert result["error"]["code"] == -32002, \
+                f"Expected -32002, got: {result['error']['code']}"
+
+        # --- v1.0 ListTasks ---
         def test_v10_list_tasks():
             result, status = self._jsonrpc(qore_url, "ListTasks", {}, v10_headers)
             assert status == 200
             assert "tasks" in result["result"]
+            assert isinstance(result["result"]["tasks"], list)
 
-        def test_v10_stream_message():
-            """SendStreamingMessage should return SSE from our Qore server."""
-            request = {
-                "jsonrpc": "2.0",
-                "id": str(uuid.uuid4()),
-                "method": "SendStreamingMessage",
-                "params": {
-                    "message": {
-                        "role": "ROLE_USER",
-                        "parts": [{"text": "Stream from SDK client!"}],
-                        "messageId": str(uuid.uuid4()),
-                    },
-                },
-            }
+        # --- v1.0 CancelTask ---
+        def test_v10_cancel_completed_task():
+            """CancelTask on completed task should return conflict error."""
+            result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER", "parts": [{"text": "cancel test"}],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            task_id = result["result"]["id"]
+            result2, _ = self._jsonrpc(qore_url, "CancelTask", {"id": task_id}, v10_headers)
+            assert "error" in result2, "CancelTask on completed task should error"
+
+        # --- Error Handling ---
+        def test_unknown_method():
+            result, _ = self._jsonrpc(qore_url, "NonexistentMethod", {}, v10_headers)
+            assert "error" in result
+            assert result["error"]["code"] == -32601, \
+                f"Expected -32601, got: {result['error']['code']}"
+
+        def test_invalid_json():
+            resp = self.client.post(qore_url, content=b"not valid json",
+                headers={"Content-Type": "application/json"})
+            if resp.status_code == 200:
+                result = resp.json()
+                assert "error" in result
+
+        # --- JSON-RPC 2.0 Compliance ---
+        def test_jsonrpc_version():
+            result, _ = self._jsonrpc(qore_url, "SendMessage", {
+                "message": {"role": "ROLE_USER", "parts": [{"text": "version test"}],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            assert result.get("jsonrpc") == "2.0"
+
+        def test_jsonrpc_id_echo():
+            req_id = f"sdk-echo-{uuid.uuid4().hex[:8]}"
+            request = {"jsonrpc": "2.0", "id": req_id, "method": "SendMessage", "params": {
+                "message": {"role": "ROLE_USER", "parts": [{"text": "id test"}],
+                            "messageId": str(uuid.uuid4())}}}
+            resp = self.client.post(qore_url, json=request,
+                headers={"Content-Type": "application/json", "A2A-Version": "1.0"})
+            result = resp.json()
+            assert result.get("id") == req_id, f"Expected id {req_id}, got: {result.get('id')}"
+
+        def test_http_method_handling():
+            """PUT/DELETE should return 405."""
+            resp = self.client.put(qore_url, content=b"{}")
+            assert resp.status_code == 405, f"PUT: expected 405, got {resp.status_code}"
+            resp = self.client.delete(qore_url)
+            assert resp.status_code == 405, f"DELETE: expected 405, got {resp.status_code}"
+
+        # --- v0.3 Backward Compatibility ---
+        def test_v03_send_message():
+            """v0.3 method name should still work and return v0.3 format."""
+            result, status = self._jsonrpc(qore_url, "message/send", {
+                "message": {"role": "user", "parts": [{"type": "text", "text": "v0.3 test"}],
+                            "messageId": str(uuid.uuid4())},
+            })
+            assert status == 200
+            assert "result" in result
+            task = result["result"]
+            assert task["status"]["state"] == "completed", \
+                f"v0.3 should return lowercase state, got: {task['status']['state']}"
+
+        def test_version_detection_from_header():
+            """A2A-Version header with v0.3 method should return v1.0 format."""
+            result, _ = self._jsonrpc(qore_url, "message/send", {
+                "message": {"role": "user", "parts": [{"type": "text", "text": "header test"}],
+                            "messageId": str(uuid.uuid4())},
+            }, v10_headers)
+            assert "TASK_STATE_" in result["result"]["status"]["state"]
+
+        # --- SSE Streaming ---
+        def test_v10_stream_returns_sse():
+            """SendStreamingMessage POST should return text/event-stream."""
+            request = {"jsonrpc": "2.0", "id": str(uuid.uuid4()),
+                "method": "SendStreamingMessage", "params": {
+                    "message": {"role": "ROLE_USER", "parts": [{"text": "stream test"}],
+                                "messageId": str(uuid.uuid4())}}}
             resp = self.client.post(qore_url, json=request,
                 headers={"Content-Type": "application/json",
-                         "Accept": "text/event-stream",
-                         "A2A-Version": "1.0"})
-            assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+                         "Accept": "text/event-stream", "A2A-Version": "1.0"})
+            assert resp.status_code == 200
             ct = resp.headers.get("content-type", "")
             assert "text/event-stream" in ct, f"Expected SSE, got: {ct}"
-            # Parse events
-            events = []
-            for block in resp.text.split("\n\n"):
-                for line in block.strip().split("\n"):
-                    if line.startswith("data: "):
-                        try:
-                            events.append(json.loads(line[6:]))
-                        except json.JSONDecodeError:
-                            pass
-            assert len(events) >= 1, f"Expected SSE events, got {len(events)}"
 
-        self._test("sdk-client→qore", "agent card discovery", test_agent_card)
-        self._test("sdk-client→qore", "v1.0 SendMessage", test_v10_send_message)
-        self._test("sdk-client→qore", "v1.0 GetTask", test_v10_get_task)
-        self._test("sdk-client→qore", "v1.0 ListTasks", test_v10_list_tasks)
-        self._test("sdk-client→qore", "v1.0 SendStreamingMessage (SSE)", test_v10_stream_message)
+        def test_v10_stream_events():
+            """SSE stream should contain message and status events."""
+            request = {"jsonrpc": "2.0", "id": str(uuid.uuid4()),
+                "method": "SendStreamingMessage", "params": {
+                    "message": {"role": "ROLE_USER", "parts": [{"text": "event test"}],
+                                "messageId": str(uuid.uuid4())}}}
+            resp = self.client.post(qore_url, json=request,
+                headers={"Content-Type": "application/json",
+                         "Accept": "text/event-stream", "A2A-Version": "1.0"})
+            events = self._parse_sse(resp.text)
+            assert len(events) >= 2, f"Expected >=2 events, got {len(events)}"
+            has_message = any("message" in e for e in events)
+            has_status = any("statusUpdate" in e for e in events)
+            assert has_message, f"No message event in: {events}"
+            assert has_status, f"No status event in: {events}"
+
+        def test_v10_stream_event_format():
+            """v1.0 SSE events should be plain objects (no jsonrpc wrapper)."""
+            request = {"jsonrpc": "2.0", "id": str(uuid.uuid4()),
+                "method": "SendStreamingMessage", "params": {
+                    "message": {"role": "ROLE_USER", "parts": [{"text": "format test"}],
+                                "messageId": str(uuid.uuid4())}}}
+            resp = self.client.post(qore_url, json=request,
+                headers={"Content-Type": "application/json",
+                         "Accept": "text/event-stream", "A2A-Version": "1.0"})
+            events = self._parse_sse(resp.text)
+            for evt in events:
+                assert "jsonrpc" not in evt, f"v1.0 SSE should not have jsonrpc: {evt}"
+
+        self._test("sdk→qore", "v0.3 agent card", test_v03_agent_card)
+        self._test("sdk→qore", "v1.0 agent card", test_v10_agent_card)
+        self._test("sdk→qore", "v1.0 SendMessage", test_v10_send_message)
+        self._test("sdk→qore", "v1.0 response roles (ROLE_*)", test_v10_response_roles)
+        self._test("sdk→qore", "echo content", test_v10_echo_content)
+        self._test("sdk→qore", "contextId in message", test_v10_contextid_in_message)
+        self._test("sdk→qore", "multiple messages unique IDs", test_v10_multiple_messages)
+        self._test("sdk→qore", "v1.0 GetTask", test_v10_get_task)
+        self._test("sdk→qore", "GetTask not found (-32002)", test_v10_get_task_not_found)
+        self._test("sdk→qore", "v1.0 ListTasks", test_v10_list_tasks)
+        self._test("sdk→qore", "CancelTask on completed", test_v10_cancel_completed_task)
+        self._test("sdk→qore", "unknown method (-32601)", test_unknown_method)
+        self._test("sdk→qore", "invalid JSON handled", test_invalid_json)
+        self._test("sdk→qore", "jsonrpc 2.0 in response", test_jsonrpc_version)
+        self._test("sdk→qore", "request ID echoed", test_jsonrpc_id_echo)
+        self._test("sdk→qore", "PUT/DELETE return 405", test_http_method_handling)
+        self._test("sdk→qore", "v0.3 backward compat", test_v03_send_message)
+        self._test("sdk→qore", "version detection from header", test_version_detection_from_header)
+        self._test("sdk→qore", "SSE stream content type", test_v10_stream_returns_sse)
+        self._test("sdk→qore", "SSE message+status events", test_v10_stream_events)
+        self._test("sdk→qore", "SSE v1.0 event format", test_v10_stream_event_format)
 
     def test_qore_format_against_sdk_server(self, sdk_url):
         """Test: Qore-style JSON-RPC requests → official a2a-sdk server.

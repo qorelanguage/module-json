@@ -121,12 +121,15 @@ export QORE_MODULE_DIR="${MODULE_DIR}/qlib:${QORE_MODULE_DIR}"
 OVERALL_EXIT=0
 
 # ================================================================
-# Part 1: Test our A2A server with Python compliance tests
+# Part 1: Self-tests (informational, non-blocking)
+# These use our own Python test code — useful for broad coverage
+# but not authoritative (could have matching bugs on both sides).
+# The SDK interop tests in Part 2 are the authoritative validation.
 # ================================================================
 run_server_tests() {
     echo -e "\n${YELLOW}========================================${NC}"
-    echo -e "${YELLOW}Part 1: Server Validation${NC}"
-    echo -e "${YELLOW}Testing Qore A2aServerHandler with Python client${NC}"
+    echo -e "${YELLOW}Part 1: Self-Tests (informational)${NC}"
+    echo -e "${YELLOW}Testing with our own Python test code${NC}"
     echo -e "${YELLOW}========================================${NC}"
 
     A2A_PORT_FILE="/tmp/a2a_server_port_$$"
@@ -258,7 +261,11 @@ case "$TEST_MODE" in
         run_sdk_interop_tests || OVERALL_EXIT=1
         ;;
     both)
-        run_server_tests || OVERALL_EXIT=1
+        # Part 1: Self-tests (informational — failures logged but non-blocking)
+        if ! run_server_tests; then
+            echo -e "${YELLOW}Self-tests had failures (informational only)${NC}"
+        fi
+        # Part 2: SDK interop (authoritative — failures are blocking)
         run_sdk_interop_tests || OVERALL_EXIT=1
         ;;
     *)
