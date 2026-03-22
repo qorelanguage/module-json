@@ -571,7 +571,7 @@ public class A2aClient {
         @throw A2A-ERROR if the JSON-RPC call fails
     */
     hash<auto> getAuthenticatedExtendedCard() {
-        return doRpcCall("agent/getAuthenticatedExtendedCard", NOTHING, True);
+        return doRpcCall("agent/getAuthenticatedExtendedCard");
     }
 
     #! Sends a message to the agent
@@ -758,16 +758,13 @@ public class A2aClient {
     #! Performs a JSON-RPC call and returns the result
     /** @param method the JSON-RPC method name (v0.3 format, e.g., \c "message/send")
         @param params optional parameters
-        @param translate_response if True, translate v1.0 response to v0.3 format (default True
-            for \c message/send, \c tasks/get, etc.; set to True explicitly for methods that
-            return agent cards or other non-task data)
 
         @return the result from the JSON-RPC response (always in v0.3 internal format)
 
         @throw A2A-ERROR if the JSON-RPC response contains an error
         @throw A2A-HTTP-ERROR if the HTTP request fails
     */
-    private hash<auto> doRpcCall(string method, *hash<auto> params, *bool translate_response) {
+    private hash<auto> doRpcCall(string method, *hash<auto> params) {
         int id;
         {
             lck.lock();
@@ -834,6 +831,10 @@ public class A2aClient {
                 } else if (rv.role) {
                     # Bare Message response — translate directly
                     rv = a2aTranslateMessageToV03(rv);
+                }
+                # Agent card responses (have "supportedInterfaces" field)
+                if (rv.supportedInterfaces) {
+                    rv = a2aTranslateAgentCardToV03(rv);
                 }
                 # List responses (have "tasks" field)
                 if (rv.tasks) {

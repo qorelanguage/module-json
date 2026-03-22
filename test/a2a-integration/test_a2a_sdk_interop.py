@@ -599,12 +599,10 @@ class InteropTest:
                 ct = resp.headers.get("content-type", "")
                 # SDK may return SSE or JSON depending on implementation
                 events = []
-                # Read the full response
-                body_text = resp.read().decode("utf-8") if isinstance(resp.read(), bytes) else ""
-                if not body_text:
-                    body_text = ""
-                    for chunk in resp.iter_text():
-                        body_text += chunk
+                # Read the full response body
+                body_text = ""
+                for chunk in resp.iter_text():
+                    body_text += chunk
 
                 if "text/event-stream" in ct and body_text.strip():
                     # Parse SSE events

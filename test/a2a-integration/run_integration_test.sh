@@ -71,11 +71,8 @@ cleanup() {
         kill "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
     fi
-    if [ -n "$REF_SERVER_PID" ] && kill -0 "$REF_SERVER_PID" 2>/dev/null; then
-        kill "$REF_SERVER_PID" 2>/dev/null || true
-        wait "$REF_SERVER_PID" 2>/dev/null || true
-    fi
-    rm -f "$A2A_PORT_FILE" "$REF_PORT_FILE" "$SERVER_LOG" "$REF_SERVER_LOG"
+    [ -n "$A2A_PORT_FILE" ] && rm -f "$A2A_PORT_FILE"
+    [ -n "$SERVER_LOG" ] && rm -f "$SERVER_LOG"
 }
 
 trap cleanup EXIT

@@ -159,7 +159,9 @@ public string sub a2aTranslateMethodToV03(string method) {
 }
 
 #! Detect A2A protocol version from a JSON-RPC method name
-/** @return \c "1.0" if the method name is PascalCase (v1.0), \c "0.3" if slash-separated (v0.3)
+/** Checks if the method name is a known v1.0 method (e.g., \c "SendMessage", \c "GetTask").
+    Unknown methods default to v0.3.
+    @return \c "1.0" if the method is a known v1.0 method name, \c "0.3" otherwise
 */
 public string sub a2aDetectVersionFromMethod(string method) {
     return A2aMethodMapV10toV03{method} ? A2aVersionV10 : A2aVersionV03;

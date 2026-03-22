@@ -482,11 +482,11 @@ class A2AComplianceTest:
             assert "protocolVersion" in iface, "Interface should have protocolVersion"
 
         def test_v10_method_names():
-            """SendMessage should be dispatched correctly."""
+            """SendMessage should be dispatched correctly with v1.0 wire format."""
             result, status = self._jsonrpc("SendMessage", {
                 "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "v1.0 method test"}],
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "v1.0 method test"}],
                     "messageId": str(uuid.uuid4()),
                 },
             }, v10_headers)
@@ -500,8 +500,8 @@ class A2AComplianceTest:
             """v1.0 response should use TASK_STATE_* enum values."""
             result, _ = self._jsonrpc("SendMessage", {
                 "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "state test"}],
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "state test"}],
                     "messageId": str(uuid.uuid4()),
                 },
             }, v10_headers)
@@ -513,8 +513,8 @@ class A2AComplianceTest:
             """v1.0 response should use ROLE_* enum values."""
             result, _ = self._jsonrpc("SendMessage", {
                 "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "role test"}],
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "role test"}],
                     "messageId": str(uuid.uuid4()),
                 },
             }, v10_headers)
@@ -533,8 +533,8 @@ class A2AComplianceTest:
             # First create a task
             result, _ = self._jsonrpc("SendMessage", {
                 "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "get task test"}],
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "get task test"}],
                     "messageId": str(uuid.uuid4()),
                 },
             }, v10_headers)
@@ -569,8 +569,8 @@ class A2AComplianceTest:
             """v1.0 SendMessage with contextId inside message should work."""
             result, _ = self._jsonrpc("SendMessage", {
                 "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "context test"}],
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "context test"}],
                     "messageId": str(uuid.uuid4()),
                     "contextId": "test-ctx-v10",
                 },

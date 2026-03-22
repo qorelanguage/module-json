@@ -282,11 +282,15 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                     if (method == "message/stream" || method == "SendStreamingMessage") {
                         # Validate before committing to SSE response
                         if (!jsonrpc.params.message) {
-                            return AbstractHttpRequestHandler::makeResponse(400, make_json({
-                                "jsonrpc": "2.0", "id": jsonrpc.id,
-                                "error": {"code": A2A_ERR_INVALID_ARGUMENT,
-                                    "message": "Missing 'message' parameter"},
-                            }), {"Content-Type": MimeTypeJson});
+                            return <HttpResponseInfo>{
+                                "code": 200,
+                                "body": make_json({
+                                    "jsonrpc": "2.0", "id": jsonrpc.id,
+                                    "error": {"code": A2A_ERR_INVALID_ARGUMENT,
+                                        "message": "Missing 'message' parameter"},
+                                }),
+                                "hdr": {"Content-Type": MimeTypeJson},
+                            };
                         }
                         string version = cx.a2a_version
                             ?? a2aDetectVersionFromMethod(jsonrpc.method);
