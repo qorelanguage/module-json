@@ -451,6 +451,12 @@ public class A2aClient {
 
         #! Detected/configured A2A protocol version
         string protocol_version = A2aVersionV03;
+
+        #! Streaming connection manager (lazy-initialized for SSE streaming via HttpClientIo)
+        *HttpClientIo::HttpClientConnectionManager streaming_mgr;
+
+        #! URL for streaming connections
+        string streaming_url;
     }
 
     #! Creates the A2aClient with the given URL and options
@@ -478,6 +484,7 @@ public class A2aClient {
         if (opts.http_version) {
             http.setHTTPVersion(opts.http_version);
         }
+        streaming_url = url;
     }
 
     #! Destroys the client and cleans up resources
@@ -754,6 +761,10 @@ public class A2aClient {
         on_exit lck.unlock();
         remove agent_card;
         remove callbacks;
+        if (streaming_mgr) {
+            streaming_mgr.closeAll();
+            remove streaming_mgr;
+        }
         # Reset stop flag so client can be reused after close
         sse_stop_flag = False;
     }
@@ -855,8 +866,8 @@ public class A2aClient {
     }
 
     #! Performs a JSON-RPC call with SSE streaming response
-    /** Uses HttpStreamClient for proper incremental SSE event reading so that events
-        are delivered as they arrive rather than waiting for the full response.
+    /** Uses HttpClientIo and SseStreamReader for incremental SSE event reading
+        across HTTP/1.x, HTTP/2, and HTTP/3.
 
         @param method the JSON-RPC method name
         @param params the request parameters
@@ -895,48 +906,29 @@ public class A2aClient {
         sse_cnt.inc();
         on_exit sse_cnt.dec();
 
-        hash<auto> info;
-        HttpStreamClient::HTTPResponseStream stream;
+        # Ensure streaming connection manager is initialized
+        ensureStreamingManager();
+
+        HttpClientIo::HttpClientStreamHandle stream = streaming_mgr.acquireStream(streaming_url);
         try {
-            hash<auto> stream_headers = {"Accept": MimeTypeSse} + extra_headers;
-            stream = HttpStreamClient::sendAndStream(http, "POST", "", body,
-                stream_headers, \info, timeout);
-        } catch (hash<ExceptionInfo> ex) {
-            if (ex.err == "SOCKET-CONNECT-ERROR" || ex.err == "SOCKET-ERROR"
-                    || ex.err == "SOCKET-CLOSED") {
-                rethrow;
-            }
-            throw "A2A-ERROR", sprintf("Stream request failed for %y: %s: %s", method, ex.err, ex.desc);
-        }
+            hash<auto> stream_headers = {
+                "Accept": MimeTypeSse,
+                "Content-Type": MimeTypeJson,
+            } + extra_headers;
+            stream.startStreaming("POST", "", stream_headers, False, body);
 
-        on_exit stream.close();
+            HttpClientStreamingIo::SseStreamReader reader(stream);
 
-        hash<HttpStreamClient::HTTPResponseStreamInfo> resp = stream.getInfo();
-
-        if ((resp.status_code / 100) != 2) {
-            # Read error body
-            string error_body = "";
-            while (*binary chunk = stream.readChunk(timeout)) {
-                error_body += chunk.toString();
-            }
-            throw "A2A-HTTP-ERROR", sprintf("HTTP %d %s streaming %y: %s",
-                resp.status_code, resp.status_message, method, error_body);
-        }
-
-        if (resp.content_type == MimeTypeSse || resp.content_type =~ /text\/event-stream/) {
-            # Read SSE events incrementally
-            while (!stream.isEof() && !sse_stop_flag) {
-                *hash<SseMessageInfo> evt;
-                try {
-                    evt = stream.readServerSentEvent(timeout);
-                } catch (hash<ExceptionInfo> ex) {
-                    # Server may close connection after send_callback completes
-                    if (ex.err == "SOCKET-NOT-OPEN" || ex.err == "SOCKET-CLOSED") {
+            while (!sse_stop_flag) {
+                *hash<SseMessageInfo> evt = reader.readEvent(timeout);
+                if (!evt) {
+                    if (reader.isDone()) {
                         break;
                     }
-                    rethrow;
+                    # Timeout — continue if not stopped
+                    continue;
                 }
-                if (!evt || !evt.data.val()) {
+                if (!evt.data.val()) {
                     continue;
                 }
                 try {
@@ -944,7 +936,6 @@ public class A2aClient {
                     string event_type = evt.event ?? "message";
 
                     if (protocol_version == A2aVersionV10) {
-                        # v1.0 events are plain discriminated objects — translate to v0.3 format
                         hash<auto> translated = a2aTranslateSseEventToV03(data);
                         event_type = translated.event_type;
                         data = translated.data;
@@ -955,20 +946,31 @@ public class A2aClient {
                     logDebug("Error parsing SSE event: %s: %s", ex.err, ex.desc);
                 }
             }
-        } else {
-            # Non-SSE response — read full body and treat as single result
-            string response_body = "";
-            while (*binary chunk = stream.readChunk(timeout)) {
-                response_body += chunk.toString();
+        } catch (hash<ExceptionInfo> ex) {
+            if (ex.err == "SOCKET-CONNECT-ERROR" || ex.err == "SOCKET-ERROR"
+                    || ex.err == "SOCKET-CLOSED" || ex.err == "HTTPCLIENT-STREAM-CLOSED") {
+                rethrow;
             }
-            if (response_body.val()) {
-                hash<auto> result = parse_json(response_body);
-                if (result.error) {
-                    throw "A2A-ERROR", sprintf("A2A error %d: %s",
-                        result.error.code, result.error.message), result.error;
-                }
-                on_event("result", result.result ?? {});
-            }
+            throw "A2A-ERROR", sprintf("Stream request failed for %y: %s: %s", method, ex.err, ex.desc);
+        }
+    }
+
+    #! Internal: ensures the streaming connection manager is initialized
+    private ensureStreamingManager() {
+        if (streaming_mgr) {
+            return;
+        }
+        lck.lock();
+        on_exit lck.unlock();
+        if (!streaming_mgr) {
+            # Use "auto" for HTTPS (H2 via ALPN), "h1" for plain HTTP
+            string protocol = streaming_url =~ /^https/i ? "auto" : "h1";
+            streaming_mgr = new HttpClientIo::HttpClientConnectionManager(
+                <HttpClientIo::HttpClientConnectionManagerOptions>{
+                    "connect_timeout": connect_timeout,
+                    "request_timeout": timeout,
+                    "protocol": protocol,
+                });
         }
     }
 
