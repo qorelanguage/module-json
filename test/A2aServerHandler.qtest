@@ -1042,19 +1042,6 @@ class A2aServerHandlerTest inherits QUnit::Test {
 
         A2aClient::A2aClient client(base_url);
 
-        # POST message/stream — now returns SSE directly
-        hash<auto> rpc_request = {
-            "jsonrpc": "2.0",
-            "method": "message/stream",
-            "id": 1,
-            "params": {
-                "message": {
-                    "role": "user",
-                    "parts": ({"type": "text", "text": "Stream test"},),
-                },
-            },
-        };
-
         # Use A2aClient.sendMessageStream() to test SSE streaming
         list<hash<auto>> events = ();
         client.sendMessageStream(
@@ -1101,18 +1088,6 @@ class A2aServerHandlerTest inherits QUnit::Test {
         on_exit handler.setStreamMessageHandler(NOTHING);
 
         A2aClient::A2aClient client(base_url);
-
-        hash<auto> rpc_request = {
-            "jsonrpc": "2.0",
-            "method": "message/stream",
-            "id": 1,
-            "params": {
-                "message": {
-                    "role": "user",
-                    "parts": ({"type": "text", "text": "Error test"},),
-                },
-            },
-        };
 
         # Use A2aClient.sendMessageStream() to test error handling
         list<hash<auto>> events = ();
@@ -1192,20 +1167,6 @@ class A2aServerHandlerTest inherits QUnit::Test {
         }
 
         A2aClient::A2aClient client(base_url);
-
-        # Send streaming message with contextId
-        hash<auto> rpc_request = {
-            "jsonrpc": "2.0",
-            "method": "message/stream",
-            "id": 1,
-            "params": {
-                "message": {
-                    "role": "user",
-                    "parts": ({"type": "text", "text": "Stream context msg 1"},),
-                },
-                "contextId": ctx_id,
-            },
-        };
 
         # Use A2aClient.sendMessageStream() with contextId
         list<hash<auto>> events = ();

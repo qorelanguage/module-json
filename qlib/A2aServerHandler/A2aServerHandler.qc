@@ -128,12 +128,6 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         #! Push notification config ID counter
         int push_config_id_counter = 0;
 
-        #! Pending POST streaming requests: connection ID → {jsonrpc, version}
-        /** Stores parsed request data from handleRequest() for startImpl() to pick up.
-            Needed because handleRequest() receives cx by value — modifications don't
-            propagate to the caller (HttpServer).
-        */
-        hash<string, hash<auto>> pending_stream_requests;
     }
 
     #! Creates the handler with a logger, agent card, and authenticator
@@ -274,8 +268,10 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             *string a2a_version = hdr{A2aVersionHeader} ?? hdr{A2aVersionHeader.lwr()};
             cx.a2a_version = a2a_version;
 
-            # Intercept streaming methods — return SSE headers to trigger startImpl()
-            if (b) {
+            # Intercept streaming methods — return SSE via send_callback for incremental delivery
+            # Only use SSE path when the client accepts text/event-stream; otherwise
+            # fall through to JSON-RPC dispatch for polling-based streaming
+            if (b && clientAcceptsSse(hdr)) {
                 try {
                     hash<auto> jsonrpc = parse_json(b);
                     string method = jsonrpc.method ?? "";
@@ -302,21 +298,8 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                             }
                             return handleStreamPostSync(cx, params, version);
                         }
-                        # Store request for startImpl() to pick up
-                        # (cx is passed by value — can't modify caller's copy)
-                        string cid = cx.id.toString();
-                        {
-                            AutoWriteLock al(rwl);
-                            pending_stream_requests{cid} = {
-                                "jsonrpc": jsonrpc,
-                                "version": version,
-                            };
-                        }
-                        # Return SSE headers — HttpServer calls startImpl()
-                        return <HttpResponseInfo>{
-                            "code": 200,
-                            "hdr": {"Content-Type": MimeTypeSse, "Cache-Control": "no-cache"},
-                        };
+                        # Return SSE response with send_callback for incremental delivery
+                        return handleStreamPostCallback(jsonrpc, version);
                     }
                 } catch () {
                     # JSON parse error — fall through to JsonRpcHandler for proper error response
@@ -917,35 +900,13 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return agent_card;
     }
 
-    #! Override startImpl to handle POST-based SSE streaming
-    /** For POST streaming requests (stored in \c pending_stream_requests by handleRequest()),
-        writes SSE events incrementally to the socket. For GET SSE connections, delegates to
-        the parent ServerSentEventHandler implementation.
-
-        The pending_stream_requests map is needed because handleRequest() receives \c cx
-        by value — modifications to cx don't propagate back to the HttpServer caller.
+    #! Handles POST-based SSE streaming via send_callback for incremental delivery
+    /** Creates a task, spawns a background thread to run the stream handler, and returns
+        an HTTP response with a \c send_callback closure that yields SSE events as they
+        are produced.  This approach works through HTTP proxy infrastructure (remote
+        services) and over both HTTP/1.1 (chunked transfer) and HTTP/2 (DATA frames).
     */
-    bool startImpl(softstring lid, hash<auto> cx, hash<auto> hdr, Qore::Socket sock) {
-        string cid = cx.id.toString();
-        *hash<auto> stream_req;
-        {
-            AutoWriteLock al(rwl);
-            stream_req = remove pending_stream_requests{cid};
-        }
-        if (stream_req) {
-            handleStreamSocket(stream_req, sock);
-            return False;
-        }
-        return ServerSentEventHandler::startImpl(lid, cx, hdr, sock);
-    }
-
-    #! Handles POST-based SSE streaming with incremental event delivery
-    /** Called from startImpl() with raw socket access. Writes SSE events directly
-        to the socket as the stream handler produces tokens.
-    */
-    private handleStreamSocket(hash<auto> stream_req, Qore::Socket sock) {
-        hash<auto> jsonrpc = stream_req.jsonrpc;
-        string version = stream_req.version;
+    private hash<HttpResponseInfo> handleStreamPostCallback(hash<auto> jsonrpc, string version) {
         hash<auto> params = jsonrpc.params;
 
         # Normalize v1.0 params to v0.3 internal format
@@ -979,22 +940,50 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         # Transition to active
         updateTaskState(task_id, A2aTaskState::Active);
 
-        # Stream handler with incremental socket writes
+        # Queue for producer-consumer: background thread pushes SSE event strings,
+        # send_callback pops them.  False sentinel signals end of stream.
+        Queue queue();
+
+        # Spawn background thread that runs the stream handler and pushes SSE events
+        background streamMessageCallbackBackground(task_id, task, handler_message,
+            stream_message_handler, params.contextId, params.message, queue, version);
+
+        # Return send_callback that yields SSE events from the queue.
+        # Use Content-Type with charset parameter to avoid triggering HttpServer's SSE
+        # dedicated socket mode (which checks for exact MimeTypeSse match at the end of
+        # handleRequest), while still being recognized as SSE by clients (regex match).
+        return <HttpResponseInfo>{
+            "code": 200,
+            "hdr": {"Content-Type": MimeTypeSse + "; charset=utf-8", "Cache-Control": "no-cache"},
+            "send_callback": auto sub () {
+                auto val = queue.get();
+                if (val.typeCode() != NT_STRING) {
+                    return NOTHING;
+                }
+                return val;
+            },
+        };
+    }
+
+    #! Background thread for send_callback-based SSE streaming
+    private streamMessageCallbackBackground(string task_id, hash<A2aTaskInfo> task,
+            hash<auto> handler_message, code handler, *string context_id,
+            hash<auto> user_message, Queue queue, string version) {
         list<hash<auto>> assembled_parts = ();
 
         code token_callback = sub (hash<auto> partial) {
             if (partial.parts) {
                 assembled_parts += partial.parts;
             }
-            # Write SSE event directly to the socket (incremental delivery)
-            sock.send(formatSseEvent(task_id, "TaskMessageUpdateEvent", partial, version));
+            # Push SSE event to queue for send_callback to deliver
+            queue.push(formatSseEvent(task_id, "TaskMessageUpdateEvent", partial, version));
             # Also notify GET-based SSE connections and push notifications
             notifySseConnections(task_id, "TaskMessageUpdateEvent", partial);
             sendTaskPushNotification(task_id, "TaskMessageUpdateEvent", partial);
         };
 
         try {
-            stream_message_handler(task, handler_message, token_callback);
+            handler(task, handler_message, token_callback);
 
             # Assemble final response from collected parts
             hash<auto> response = {
@@ -1009,28 +998,28 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             }
 
             # Accumulate context history
-            if (params.contextId) {
+            if (context_id) {
                 AutoWriteLock al(rwl);
-                if (!context_history{params.contextId}) {
-                    context_history{params.contextId} = ();
+                if (!context_history{context_id}) {
+                    context_history{context_id} = ();
                 }
-                context_history{params.contextId} += params.message;
-                context_history{params.contextId} += response;
-                if (context_history{params.contextId}.size() > max_context_messages) {
-                    int excess = context_history{params.contextId}.size() - max_context_messages;
-                    splice context_history{params.contextId}, 0, excess;
+                context_history{context_id} += user_message;
+                context_history{context_id} += response;
+                if (context_history{context_id}.size() > max_context_messages) {
+                    int excess = context_history{context_id}.size() - max_context_messages;
+                    splice context_history{context_id}, 0, excess;
                 }
             }
 
             updateTaskState(task_id, A2aTaskState::Completed, response);
 
-            # Write final status event
+            # Push final status event
             hash<auto> final_status;
             {
                 AutoReadLock al(rwl);
                 final_status = getTaskResponse(task_map{task_id}, NOTHING, version).status;
             }
-            sock.send(formatSseEvent(task_id, "TaskStatusUpdateEvent", final_status, version));
+            queue.push(formatSseEvent(task_id, "TaskStatusUpdateEvent", final_status, version));
         } catch (hash<ExceptionInfo> ex) {
             error("Stream handler error: %s: %s", ex.err, ex.desc);
             try {
@@ -1045,9 +1034,12 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 fail_status = getTaskResponse(task_map{task_id}, NOTHING, version).status;
             }
             try {
-                sock.send(formatSseEvent(task_id, "TaskStatusUpdateEvent", fail_status, version));
+                queue.push(formatSseEvent(task_id, "TaskStatusUpdateEvent", fail_status, version));
             } catch () {}
         }
+
+        # Signal end of stream
+        queue.push(False);
     }
 
     #! Handles streaming POST fallback when no stream handler is registered

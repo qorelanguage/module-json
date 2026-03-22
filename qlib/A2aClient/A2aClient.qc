@@ -473,8 +473,11 @@ public class A2aClient {
             "headers": {
                 "Content-Type": MimeTypeJson,
                 "Accept": MimeTypeJson,
-            },
+            } + (opts.headers ?? {}),
         });
+        if (opts.http_version) {
+            http.setHTTPVersion(opts.http_version);
+        }
     }
 
     #! Destroys the client and cleans up resources
@@ -923,7 +926,16 @@ public class A2aClient {
         if (resp.content_type == MimeTypeSse || resp.content_type =~ /text\/event-stream/) {
             # Read SSE events incrementally
             while (!stream.isEof() && !sse_stop_flag) {
-                *hash<SseMessageInfo> evt = stream.readServerSentEvent(timeout);
+                *hash<SseMessageInfo> evt;
+                try {
+                    evt = stream.readServerSentEvent(timeout);
+                } catch (hash<ExceptionInfo> ex) {
+                    # Server may close connection after send_callback completes
+                    if (ex.err == "SOCKET-NOT-OPEN" || ex.err == "SOCKET-CLOSED") {
+                        break;
+                    }
+                    rethrow;
+                }
                 if (!evt || !evt.data.val()) {
                     continue;
                 }
