@@ -111,6 +111,12 @@ public class A2aMessageSendDataProvider inherits A2aClientDataProviderBase {
         if (req.contextId) {
             config.contextId = req.contextId;
         }
+        if (req.configuration) {
+            config.configuration = req.configuration;
+        }
+        if (req.tenant) {
+            config.tenant = req.tenant;
+        }
 
         return a2a.sendMessage(msg, config);
     }
