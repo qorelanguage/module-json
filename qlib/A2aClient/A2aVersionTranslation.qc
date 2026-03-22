@@ -169,7 +169,7 @@ public string sub a2aDetectVersionFromMethod(string method) {
 /** v0.3: \c {"type":"text","text":"Hello"}, \c {"type":"file","file":{"uri":"...","mimeType":"..."}}
     v1.0: \c {"text":"Hello"}, \c {"url":"...","mediaType":"..."}
 */
-public list<hash<auto>> sub a2aTranslatePartsToV10(list<hash<auto>> parts) {
+public list<hash<auto>> sub a2aTranslatePartsToV10(softlist<auto> parts) {
     list<hash<auto>> result = ();
     foreach hash<auto> part in (parts) {
         string part_type = part.type ?? part.kind ?? "";
@@ -224,7 +224,7 @@ public list<hash<auto>> sub a2aTranslatePartsToV10(list<hash<auto>> parts) {
 /** v1.0: \c {"text":"Hello"}, \c {"url":"...","mediaType":"..."}
     v0.3: \c {"type":"text","text":"Hello"}, \c {"type":"file","file":{"uri":"...","mimeType":"..."}}
 */
-public list<hash<auto>> sub a2aTranslatePartsToV03(list<hash<auto>> parts) {
+public list<hash<auto>> sub a2aTranslatePartsToV03(softlist<auto> parts) {
     list<hash<auto>> result = ();
     foreach hash<auto> part in (parts) {
         hash<auto!> v03_part;

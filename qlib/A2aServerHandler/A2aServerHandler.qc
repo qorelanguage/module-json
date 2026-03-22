@@ -234,12 +234,23 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     #! Handles HTTP requests; dispatches to Agent Card, SSE, or JSON-RPC
     hash<HttpResponseInfo> handleRequest(hash<auto> cx, hash<auto> hdr, *data b) {
-        # Serve agent card via GET /.well-known/agent-card.json
+        # Serve agent card via GET /.well-known/agent-card.json (v0.3)
         if (cx.hdr.method == "GET" && cx.url.path =~ /\.well-known\/agent-card\.json/) {
             hash<auto> card;
             {
                 AutoReadLock al(rwl);
                 card = agent_card;
+            }
+            return AbstractHttpRequestHandler::makeResponse(200, make_json(card),
+                {"Content-Type": MimeTypeJson});
+        }
+
+        # Serve agent card via GET /.well-known/a2a-agent-card (v1.0)
+        if (cx.hdr.method == "GET" && cx.url.path =~ /\.well-known\/a2a-agent-card$/) {
+            hash<auto> card;
+            {
+                AutoReadLock al(rwl);
+                card = a2aTranslateAgentCardToV10(agent_card);
             }
             return AbstractHttpRequestHandler::makeResponse(200, make_json(card),
                 {"Content-Type": MimeTypeJson});
@@ -252,6 +263,9 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         # POST requests go to JSON-RPC handler
         if (cx.hdr.method == "POST") {
+            # Detect A2A protocol version from header before dispatch
+            *string a2a_version = hdr{A2aVersionHeader} ?? hdr{A2aVersionHeader.lwr()};
+            cx.a2a_version = a2a_version;
             return JsonRpcHandler::handleRequest(cx, hdr, b);
         }
 
@@ -449,6 +463,14 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             throw "A2A-INVALID-REQUEST", "Missing 'message' parameter";
         }
 
+        # Detect protocol version: header takes precedence, then method name
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
+        # Normalize v1.0 params to v0.3 internal format
+        if (version == A2aVersionV10) {
+            params = a2aTranslateSendMessageParamsToV03(params);
+        }
+
         # Create a new task
         hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
         string task_id = task.id;
@@ -535,7 +557,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
 
         AutoReadLock al(rwl);
-        return getTaskResponse(task_map{task_id});
+        return getTaskResponse(task_map{task_id}, NOTHING, version);
     }
 
     private hash<auto> messageStream(hash<auto> cx, *hash<auto> params) {
@@ -555,6 +577,14 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     private hash<auto> messageStreamIntern(hash<auto> cx, *hash<auto> params) {
         if (!params.message) {
             throw "A2A-INVALID-REQUEST", "Missing 'message' parameter";
+        }
+
+        # Detect protocol version
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
+        # Normalize v1.0 params to v0.3 internal format
+        if (version == A2aVersionV10) {
+            params = a2aTranslateSendMessageParamsToV03(params);
         }
 
         # Create a new task
@@ -587,7 +617,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         hash<auto> initial_response;
         {
             AutoReadLock al(rwl);
-            initial_response = getTaskResponse(task_map{task_id});
+            initial_response = getTaskResponse(task_map{task_id}, NOTHING, version);
         }
 
         # Capture variables for background thread
@@ -669,13 +699,15 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             return makeJsonRpcError(A2A_ERR_INVALID_ARGUMENT, "Missing 'id' parameter");
         }
 
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
         AutoReadLock al(rwl);
         *hash<A2aTaskInfo> task = task_map{params.id};
         if (!task) {
             return makeJsonRpcError(A2A_ERR_NOT_FOUND, sprintf("Task %y not found", params.id));
         }
 
-        return getTaskResponse(task, params.historyLength);
+        return getTaskResponse(task, params.historyLength, version);
     }
 
     private hash<auto> tasksCancel(hash<auto> cx, *hash<auto> params) {
@@ -697,6 +729,8 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     private hash<auto> tasksList(hash<auto> cx, *hash<auto> params) {
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
         AutoReadLock al(rwl);
 
         list<hash<auto>> tasks = ();
@@ -706,7 +740,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             if (params.contextId && task.contextId != params.contextId) {
                 continue;
             }
-            tasks += getTaskResponse(task);
+            tasks += getTaskResponse(task, NOTHING, version);
         }
 
         return {"tasks": tasks};
@@ -717,13 +751,15 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             return makeJsonRpcError(A2A_ERR_INVALID_ARGUMENT, "Missing 'id' parameter");
         }
 
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
         AutoReadLock al(rwl);
         *hash<A2aTaskInfo> task = task_map{params.id};
         if (!task) {
             return makeJsonRpcError(A2A_ERR_NOT_FOUND, sprintf("Task %y not found", params.id));
         }
 
-        return getTaskResponse(task);
+        return getTaskResponse(task, NOTHING, version);
     }
 
     private hash<auto> pushNotificationConfigSet(hash<auto> cx, *hash<auto> params) {
@@ -825,7 +861,12 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     #! Returns a task response hash suitable for JSON-RPC response
-    private hash<auto> getTaskResponse(hash<A2aTaskInfo> task, *int history_length) {
+    /** @param task the task info
+        @param history_length optional limit on number of history messages to include
+        @param version A2A protocol version for wire format (\c "0.3" or \c "1.0"); default v0.3
+    */
+    private hash<auto> getTaskResponse(hash<A2aTaskInfo> task, *int history_length,
+            *string version) {
         string ts = format_date("YYYY-MM-DDTHH:mm:SS.xxZ", task.lastUpdatedAt);
 
         hash<auto> status = cast<hash<auto>>({
@@ -858,6 +899,11 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
         if (task.metadata) {
             response.metadata = task.metadata;
+        }
+
+        # Translate to v1.0 wire format if needed
+        if (version == A2aVersionV10) {
+            response = a2aTranslateTaskToV10(response);
         }
 
         return response;
@@ -919,18 +965,10 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             }
         }
 
-        hash<auto> payload = {
-            "jsonrpc": "2.0",
-            "method": event_type,
-            "params": event_data + {"id": task_id},
-        };
-
+        # Each connection formats the event based on its own protocol version
         foreach A2aServerConnection conn in (conns) {
             try {
-                conn.send(<SseMessageInfo>{
-                    "event": event_type,
-                    "data": make_json(payload),
-                });
+                conn.sendEvent(task_id, event_type, event_data);
             } catch (hash<ExceptionInfo> ex) {
                 error("SSE notification failed: %s: %s", ex.err, ex.desc);
             }
@@ -997,86 +1035,87 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         smap{a2a_conn.getSession()}.ssemap{conn.uniqueHash()} = a2a_conn;
     }
 
-    #! Sets up JSON-RPC method dispatch
+    #! Sets up JSON-RPC method dispatch for both v0.3 and v1.0 method names
     private setupMethods() {
+        # Helper to create a method entry
+        auto make_method = hash<auto> sub (string name, string text,
+                code<hash<auto> (hash<auto>, *hash<auto>)> func, string help) {
+            return {
+                "name": name,
+                "text": text,
+                "function": func,
+                "help": help,
+                "include_context": True,
+            };
+        };
+
+        # Register both v0.3 and v1.0 method names pointing to the same handlers
         addMethods((
-            {
-                "name": "^message/send$",
-                "text": "message/send",
-                "function": \messageSend(),
-                "help": "A2A send message to agent",
-                "include_context": True,
-            },
-            {
-                "name": "^message/stream$",
-                "text": "message/stream",
-                "function": \messageStream(),
-                "help": "A2A send message with streaming response",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/get$",
-                "text": "tasks/get",
-                "function": \tasksGet(),
-                "help": "A2A get task status",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/cancel$",
-                "text": "tasks/cancel",
-                "function": \tasksCancel(),
-                "help": "A2A cancel a task",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/list$",
-                "text": "tasks/list",
-                "function": \tasksList(),
-                "help": "A2A list tasks",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/resubscribe$",
-                "text": "tasks/resubscribe",
-                "function": \tasksResubscribe(),
-                "help": "A2A resubscribe to task events",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/pushNotificationConfig/set$",
-                "text": "tasks/pushNotificationConfig/set",
-                "function": \pushNotificationConfigSet(),
-                "help": "A2A set push notification config",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/pushNotificationConfig/get$",
-                "text": "tasks/pushNotificationConfig/get",
-                "function": \pushNotificationConfigGet(),
-                "help": "A2A get push notification config",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/pushNotificationConfig/list$",
-                "text": "tasks/pushNotificationConfig/list",
-                "function": \pushNotificationConfigList(),
-                "help": "A2A list push notification configs",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/pushNotificationConfig/delete$",
-                "text": "tasks/pushNotificationConfig/delete",
-                "function": \pushNotificationConfigDelete(),
-                "help": "A2A delete push notification config",
-                "include_context": True,
-            },
-            {
-                "name": "^agent/getAuthenticatedExtendedCard$",
-                "text": "agent/getAuthenticatedExtendedCard",
-                "function": \getAuthenticatedExtendedCardMethod(),
-                "help": "A2A get authenticated extended agent card",
-                "include_context": True,
-            },
+            # message/send (v0.3) / SendMessage (v1.0)
+            make_method("^message/send$", "message/send", \messageSend(),
+                "A2A send message to agent"),
+            make_method("^SendMessage$", "SendMessage", \messageSend(),
+                "A2A v1.0 send message to agent"),
+
+            # message/stream (v0.3) / SendStreamingMessage (v1.0)
+            make_method("^message/stream$", "message/stream", \messageStream(),
+                "A2A send message with streaming response"),
+            make_method("^SendStreamingMessage$", "SendStreamingMessage", \messageStream(),
+                "A2A v1.0 send streaming message"),
+
+            # tasks/get (v0.3) / GetTask (v1.0)
+            make_method("^tasks/get$", "tasks/get", \tasksGet(),
+                "A2A get task status"),
+            make_method("^GetTask$", "GetTask", \tasksGet(),
+                "A2A v1.0 get task"),
+
+            # tasks/cancel (v0.3) / CancelTask (v1.0)
+            make_method("^tasks/cancel$", "tasks/cancel", \tasksCancel(),
+                "A2A cancel a task"),
+            make_method("^CancelTask$", "CancelTask", \tasksCancel(),
+                "A2A v1.0 cancel task"),
+
+            # tasks/list (v0.3) / ListTasks (v1.0)
+            make_method("^tasks/list$", "tasks/list", \tasksList(),
+                "A2A list tasks"),
+            make_method("^ListTasks$", "ListTasks", \tasksList(),
+                "A2A v1.0 list tasks"),
+
+            # tasks/resubscribe (v0.3) / SubscribeToTask (v1.0)
+            make_method("^tasks/resubscribe$", "tasks/resubscribe", \tasksResubscribe(),
+                "A2A resubscribe to task events"),
+            make_method("^SubscribeToTask$", "SubscribeToTask", \tasksResubscribe(),
+                "A2A v1.0 subscribe to task"),
+
+            # tasks/pushNotificationConfig/set (v0.3) / CreateTaskPushNotificationConfig (v1.0)
+            make_method("^tasks/pushNotificationConfig/set$", "tasks/pushNotificationConfig/set",
+                \pushNotificationConfigSet(), "A2A set push notification config"),
+            make_method("^CreateTaskPushNotificationConfig$", "CreateTaskPushNotificationConfig",
+                \pushNotificationConfigSet(), "A2A v1.0 create push notification config"),
+
+            # tasks/pushNotificationConfig/get (v0.3) / GetTaskPushNotificationConfig (v1.0)
+            make_method("^tasks/pushNotificationConfig/get$", "tasks/pushNotificationConfig/get",
+                \pushNotificationConfigGet(), "A2A get push notification config"),
+            make_method("^GetTaskPushNotificationConfig$", "GetTaskPushNotificationConfig",
+                \pushNotificationConfigGet(), "A2A v1.0 get push notification config"),
+
+            # tasks/pushNotificationConfig/list (v0.3) / ListTaskPushNotificationConfigs (v1.0)
+            make_method("^tasks/pushNotificationConfig/list$", "tasks/pushNotificationConfig/list",
+                \pushNotificationConfigList(), "A2A list push notification configs"),
+            make_method("^ListTaskPushNotificationConfigs$", "ListTaskPushNotificationConfigs",
+                \pushNotificationConfigList(), "A2A v1.0 list push notification configs"),
+
+            # tasks/pushNotificationConfig/delete (v0.3) / DeleteTaskPushNotificationConfig (v1.0)
+            make_method("^tasks/pushNotificationConfig/delete$", "tasks/pushNotificationConfig/delete",
+                \pushNotificationConfigDelete(), "A2A delete push notification config"),
+            make_method("^DeleteTaskPushNotificationConfig$", "DeleteTaskPushNotificationConfig",
+                \pushNotificationConfigDelete(), "A2A v1.0 delete push notification config"),
+
+            # agent/getAuthenticatedExtendedCard (v0.3) / GetExtendedAgentCard (v1.0)
+            make_method("^agent/getAuthenticatedExtendedCard$", "agent/getAuthenticatedExtendedCard",
+                \getAuthenticatedExtendedCardMethod(), "A2A get extended agent card"),
+            make_method("^GetExtendedAgentCard$", "GetExtendedAgentCard",
+                \getAuthenticatedExtendedCardMethod(), "A2A v1.0 get extended agent card"),
         ));
     }
 }
