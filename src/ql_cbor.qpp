@@ -293,7 +293,7 @@ struct CborStackEntry {
 
     CborStackEntry(Type t)
         : type(t),
-          list(t == ARRAY ? new QoreListNode() : nullptr),
+          list(t == ARRAY ? new QoreListNode(autoTypeInfo) : nullptr),
           hash(t == OBJECT ? new QoreHashNode(autoTypeInfo) : nullptr),
           has_key(false) {
     }
