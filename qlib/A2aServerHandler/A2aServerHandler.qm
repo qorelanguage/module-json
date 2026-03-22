@@ -58,7 +58,8 @@ module A2aServerHandler {
     stream responses, and handle push notification configurations via JSON-RPC 2.0 over HTTP
     and Server-Sent Events (SSE).
 
-    This module implements the A2A v0.3.0 protocol specification.
+    This module implements the A2A protocol specification with dual-version support
+    for both v0.3 and v1.0 clients simultaneously.
 
     The following classes are provided by this module:
     - @ref A2aServerHandler::A2aServerHandler "A2aServerHandler"
@@ -105,11 +106,13 @@ module A2aServerHandler {
     @section A2aServerHandler_relnotes A2aServerHandler Release Notes
 
     @subsection A2aServerHandler_1_0 A2aServerHandler v1.0
-    - initial release with full A2A v0.3.0 protocol support
-    - Agent Card serving via GET /.well-known/agent-card.json
-    - JSON-RPC dispatch for message/send, message/stream
+    - initial release with A2A v0.3 and v1.0 dual-version protocol support
+    - Agent Card serving at both v1.0 and v0.3 paths
+    - all 11 JSON-RPC methods registered in both v0.3 and v1.0 naming
+    - automatic version detection from A2A-Version header or method name
+    - version-aware response formatting (states, roles, parts)
+    - per-connection SSE event formatting (v0.3 JSON-RPC wrapped or v1.0 plain)
     - Task lifecycle management with state machine validation
-    - SSE streaming for real-time task updates
     - Push notification config CRUD
     - Session management
 */

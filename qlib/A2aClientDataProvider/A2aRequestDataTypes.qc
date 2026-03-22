@@ -80,6 +80,19 @@ public class A2aMessageSendRequestDataType inherits HashDataType {
                 "short_desc": "Message metadata",
                 "desc": "Optional metadata for the message",
             },
+            "configuration": {
+                "type": AutoHashOrNothingType,
+                "display_name": "Configuration",
+                "short_desc": "Send message configuration (v1.0)",
+                "desc": "Optional v1.0 configuration including `acceptedOutputModes`, "
+                    "`historyLength`, `returnImmediately`",
+            },
+            "tenant": {
+                "type": StringOrNothingType,
+                "display_name": "Tenant",
+                "short_desc": "Tenant identifier (v1.0)",
+                "desc": "Optional tenant identifier for multi-tenancy support",
+            },
         };
     }
 
@@ -168,6 +181,12 @@ public class A2aAgentCardResultDataType inherits HashDataType {
                 "display_name": "Capabilities",
                 "short_desc": "Agent capabilities",
                 "desc": "The capabilities of the A2A agent (`streaming`, `pushNotifications`, etc.)",
+            },
+            "supportedInterfaces": {
+                "type": AutoListOrNothingType,
+                "display_name": "Supported Interfaces",
+                "short_desc": "Protocol interfaces (v1.0)",
+                "desc": "List of supported protocol interfaces with URL, binding, and version",
             },
         };
     }

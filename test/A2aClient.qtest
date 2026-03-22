@@ -81,6 +81,9 @@ class A2aClientTest inherits QUnit::Test {
         addTestCase("close and reuse test", \closeAndReuseTest());
         addTestCase("agent card caching test", \agentCardCachingTest());
         addTestCase("message with metadata test", \messageWithMetadataTest());
+        addTestCase("v1.0 protocol version detection test", \v10VersionDetectionTest());
+        addTestCase("v1.0 explicit version test", \v10ExplicitVersionTest());
+        addTestCase("v1.0 method name translation test", \v10MethodNameTest());
 
         set_return_value(main());
     }
@@ -456,6 +459,96 @@ class A2aClientTest inherits QUnit::Test {
         );
 
         assertTrue(exists task.id, "Task should have ID");
+
+        client.close();
+    }
+
+    # ================================================================
+    # A2A v1.0 client dual-version tests
+    # ================================================================
+
+    v10VersionDetectionTest() {
+        # Default version should be v0.3 before any card fetch
+        A2aClient::A2aClient client(base_url);
+        assertEq("0.3", client.getProtocolVersion(), "Default version should be 0.3");
+
+        # Our server serves both v0.3 and v1.0 agent card paths.
+        # The client tries v1.0 path first, so it should detect v1.0.
+        hash<auto> card = client.getAgentCard();
+        assertEq("1.0", client.getProtocolVersion(),
+            "Version should be 1.0 after v1.0 card path succeeds");
+        # Card should be translated to v0.3 internal format
+        assertTrue(card.hasKey("url"), "Card should have top-level url (translated from v1.0)");
+        assertFalse(card.hasKey("supportedInterfaces"),
+            "Internal card should not have supportedInterfaces");
+
+        # Sending a message should work transparently
+        hash<auto> task = client.sendMessage({
+            "role": "user",
+            "parts": ({"type": "text", "text": "Auto-detected v1.0"},),
+        });
+        assertTrue(exists task.id, "Task should have ID");
+        # Response should be in v0.3 internal format
+        assertEq("completed", task.status.state, "State should be v0.3 format");
+
+        client.close();
+    }
+
+    v10ExplicitVersionTest() {
+        # Set version explicitly and verify it affects requests
+        A2aClient::A2aClient client(base_url);
+        client.setProtocolVersion("1.0");
+        assertEq("1.0", client.getProtocolVersion(), "Explicit version should be 1.0");
+
+        # Send a message — client should translate to v1.0 wire format and back
+        hash<auto> task = client.sendMessage({
+            "role": "user",
+            "parts": ({"type": "text", "text": "v1.0 client test"},),
+        });
+
+        # Response should be in v0.3 internal format (translated back from v1.0)
+        assertTrue(exists task.id, "Task should have ID");
+        assertEq("completed", task.status.state,
+            "State should be v0.3 format (translated from TASK_STATE_COMPLETED)");
+
+        # Verify tasks/get also works
+        hash<auto> fetched = client.getTask(task.id);
+        assertEq(task.id, fetched.id, "Task IDs should match");
+        assertEq("completed", fetched.status.state, "Fetched state should be v0.3 format");
+
+        # History should have v0.3-style roles
+        if (fetched.history) {
+            foreach hash<auto> msg in (fetched.history) {
+                assertFalse(msg.role =~ /^ROLE_/,
+                    sprintf("History role %y should be v0.3 format", msg.role));
+            }
+        }
+
+        client.close();
+    }
+
+    v10MethodNameTest() {
+        # Verify the client sends v1.0 method names when protocol version is 1.0
+        # by checking we can do a full round-trip with explicit v1.0 setting
+        A2aClient::A2aClient client(base_url);
+        client.setProtocolVersion("1.0");
+
+        # List tasks
+        hash<auto> result = client.listTasks();
+        assertTrue(result.hasKey("tasks"), "Should have tasks key");
+
+        # Cancel a non-existent task should throw
+        bool got_error = False;
+        try {
+            client.cancelTask("nonexistent-task-xyz");
+        } catch (hash<ExceptionInfo> ex) {
+            if (ex.err == "A2A-ERROR") {
+                got_error = True;
+            } else {
+                rethrow;
+            }
+        }
+        assertTrue(got_error, "Should get error for non-existent task");
 
         client.close();
     }

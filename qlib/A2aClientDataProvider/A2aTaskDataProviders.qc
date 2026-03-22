@@ -159,6 +159,18 @@ public class A2aTaskListRequestDataType inherits HashDataType {
                 "short_desc": "Filter by context ID",
                 "desc": "Optional context ID to filter tasks by",
             },
+            "pageSize": {
+                "type": IntOrNothingType,
+                "display_name": "Page Size",
+                "short_desc": "Number of results per page (v1.0)",
+                "desc": "Optional page size for cursor-based pagination",
+            },
+            "pageToken": {
+                "type": StringOrNothingType,
+                "display_name": "Page Token",
+                "short_desc": "Pagination cursor (v1.0)",
+                "desc": "Optional cursor for retrieving the next page of results",
+            },
         };
     }
 
@@ -179,6 +191,12 @@ public class A2aTaskListResultDataType inherits HashDataType {
                 "display_name": "Tasks",
                 "short_desc": "List of tasks",
                 "desc": "List of A2A tasks matching the filter criteria",
+            },
+            "nextPageToken": {
+                "type": StringOrNothingType,
+                "display_name": "Next Page Token",
+                "short_desc": "Cursor for next page (v1.0)",
+                "desc": "Cursor token for retrieving the next page; empty if no more results",
             },
         };
     }

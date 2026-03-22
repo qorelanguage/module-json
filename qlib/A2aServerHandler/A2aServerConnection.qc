@@ -31,39 +31,38 @@ public class A2aServerConnection inherits ServerSentEventHandler::ServerSentEven
     private {
         #! The session identifier
         string session;
+
+        #! A2A protocol version for this connection
+        string a2a_version = A2aVersionV03;
     }
 
     constructor(A2aServerHandler handler, Socket sock, hash<auto> cx, hash<auto> hdr, string cid)
             : ServerSentEventConnection(handler, sock, cx, hdr, cid) {
         self.session = handler.getSessionId(hdr);
+        # Detect version from A2A-Version header on SSE connection
+        *string ver = hdr{A2aVersionHeader} ?? hdr{A2aVersionHeader.lwr()};
+        if (ver) {
+            self.a2a_version = ver;
+        }
     }
 
     string getSession() {
         return session;
     }
 
+    #! Returns the A2A protocol version for this connection
+    string getA2aVersion() {
+        return a2a_version;
+    }
+
     #! Send a task status update event
     sendTaskStatusUpdate(string task_id, hash<auto> status) {
-        send(<SseMessageInfo>{
-            "event": "TaskStatusUpdateEvent",
-            "data": make_json({
-                "jsonrpc": "2.0",
-                "method": "TaskStatusUpdateEvent",
-                "params": status + {"id": task_id},
-            }),
-        });
+        sendEvent(task_id, "TaskStatusUpdateEvent", status);
     }
 
     #! Send a task artifact update event
     sendTaskArtifactUpdate(string task_id, hash<auto> artifact) {
-        send(<SseMessageInfo>{
-            "event": "TaskArtifactUpdateEvent",
-            "data": make_json({
-                "jsonrpc": "2.0",
-                "method": "TaskArtifactUpdateEvent",
-                "params": artifact + {"id": task_id},
-            }),
-        });
+        sendEvent(task_id, "TaskArtifactUpdateEvent", artifact);
     }
 
     #! Send a task message update event for streaming tokens
@@ -71,14 +70,30 @@ public class A2aServerConnection inherits ServerSentEventHandler::ServerSentEven
         @param partial the partial message data (e.g., partial text parts)
     */
     sendTaskMessageUpdate(string task_id, hash<auto> partial) {
-        send(<SseMessageInfo>{
-            "event": "TaskMessageUpdateEvent",
-            "data": make_json({
+        sendEvent(task_id, "TaskMessageUpdateEvent", partial);
+    }
+
+    #! Send an SSE event formatted for the connection's protocol version
+    sendEvent(string task_id, string event_type, hash<auto> event_data) {
+        hash<auto> payload;
+        if (a2a_version == A2aVersionV10) {
+            # v1.0: plain discriminated object
+            payload = a2aTranslateSseEventToV10(event_type, event_data + {"id": task_id});
+            send(<SseMessageInfo>{
+                "data": make_json(payload),
+            });
+        } else {
+            # v0.3: JSON-RPC wrapped
+            payload = {
                 "jsonrpc": "2.0",
-                "method": "TaskMessageUpdateEvent",
-                "params": partial + {"id": task_id},
-            }),
-        });
+                "method": event_type,
+                "params": event_data + {"id": task_id},
+            };
+            send(<SseMessageInfo>{
+                "event": event_type,
+                "data": make_json(payload),
+            });
+        }
     }
 }
 }

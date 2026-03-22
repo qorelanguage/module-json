@@ -53,22 +53,27 @@ module A2aClient {
 
     @section a2aclientintro Introduction to the A2aClient Module
 
-    The %A2aClient module provides a client implementation for Google's Agent-to-Agent (A2A)
-    protocol (v0.3.0, now under the Linux Foundation), allowing Qore applications to connect
+    The %A2aClient module provides a client implementation for the Agent-to-Agent (A2A)
+    protocol (under the Linux Foundation), allowing Qore applications to connect
     to A2A agents and interact with them via JSON-RPC 2.0 over HTTP(S) with SSE streaming.
+
+    The client supports both A2A v0.3 and v1.0 protocols with automatic version detection.
 
     A2A complements MCP (which focuses on tool/resource integration) by enabling agent-to-agent
     collaboration.
 
     @subsection A2aClient_features Features
 
-    - Agent Card discovery via \c /.well-known/agent-card.json
+    - Dual-version support: A2A v0.3 and v1.0 with automatic protocol detection
+    - Agent Card discovery via \c /.well-known/a2a-agent-card (v1.0) and
+      \c /.well-known/agent-card.json (v0.3 fallback)
     - Authenticated extended Agent Card retrieval
     - Message sending with task lifecycle management
     - SSE streaming for real-time task updates
     - Push notification configuration
     - Task management (get, cancel, resubscribe)
     - Connection provider integration with \c a2a:// and \c a2as:// URL schemes
+    - Transparent v0.3/v1.0 wire format translation
 
     @subsection A2aClient_usage Basic Usage
 
@@ -96,12 +101,12 @@ module A2aClient {
     @section A2aClient_relnotes A2aClient Release Notes
 
     @subsection A2aClient_1_0 A2aClient v1.0
-    - initial release with full A2A v0.3.0 protocol support
-    - Agent Card discovery and authenticated extended card
-    - message/send, message/stream
-    - tasks/get, tasks/cancel, tasks/resubscribe
-    - push notification config CRUD
-    - SSE streaming for real-time updates
+    - initial release with A2A v0.3 and v1.0 dual-version protocol support
+    - automatic protocol version detection from agent card format
+    - Agent Card discovery at both v1.0 and v0.3 paths
+    - all 11 JSON-RPC methods in both v0.3 and v1.0 naming
+    - transparent wire format translation (states, roles, parts, events)
+    - SSE streaming for real-time updates (both event formats)
     - ConnectionProvider integration with a2a:// and a2as:// schemes
 */
 

@@ -12,6 +12,7 @@
 %requires ../qlib/JsonRpcHandler.qm
 %requires ../qlib/A2aClient
 %requires ../qlib/A2aServerHandler
+%requires HttpStreamClient
 
 %exec-class A2aServerHandlerTest
 
@@ -54,8 +55,40 @@ class A2aServerHandlerTest inherits QUnit::Test {
         addTestCase("stream handler error test", \streamHandlerErrorTest());
         addTestCase("stream handler fallback test", \streamHandlerFallbackTest());
         addTestCase("stream handler with context test", \streamHandlerWithContextTest());
+        addTestCase("v1.0 agent card path test", \v10AgentCardPathTest());
+        addTestCase("v1.0 method dispatch test", \v10MethodDispatchTest());
+        addTestCase("v1.0 response format test", \v10ResponseFormatTest());
+        addTestCase("v1.0 send message params test", \v10SendMessageParamsTest());
+        addTestCase("v1.0 version detection test", \v10VersionDetectionTest());
 
         set_return_value(main());
+    }
+
+    #! Parse SSE events from a text/event-stream response body
+    private static list<hash<auto>> parseSseEvents(string body) {
+        list<hash<auto>> events = ();
+        list<string> blocks = body.split("\n\n");
+        foreach string block in (blocks) {
+            if (!block.val()) {
+                continue;
+            }
+            *string data_line;
+            *string event_type;
+            foreach string line in (block.split("\n")) {
+                if (line =~ /^data: (.*)/) {
+                    data_line = (line =~ x/^data: (.*)/)[0];
+                } else if (line =~ /^event: (.*)/) {
+                    event_type = (line =~ x/^event: (.*)/)[0];
+                }
+            }
+            if (data_line) {
+                events += {
+                    "event": event_type ?? "message",
+                    "data": parse_json(data_line),
+                };
+            }
+        }
+        return events;
     }
 
     private static hash<auto> echoHandler(hash<auto> task_info, hash<auto> msg) {
@@ -1009,8 +1042,7 @@ class A2aServerHandlerTest inherits QUnit::Test {
 
         A2aClient::A2aClient client(base_url);
 
-        # Use sendMessage via message/stream JSON-RPC call
-        # The POST returns immediately with task in Active state
+        # POST message/stream — now returns SSE directly
         hash<auto> rpc_request = {
             "jsonrpc": "2.0",
             "method": "message/stream",
@@ -1023,30 +1055,27 @@ class A2aServerHandlerTest inherits QUnit::Test {
             },
         };
 
-        HTTPClient http_client({"url": base_url});
-        hash<auto> info;
-        string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson}, \info);
-        hash<auto> result = parse_json(resp);
+        # Use A2aClient.sendMessageStream() to test SSE streaming
+        list<hash<auto>> events = ();
+        client.sendMessageStream(
+            {"role": "user", "parts": ({"type": "text", "text": "Stream test"},)},
+            sub (string event_type, hash<auto> event_data) {
+                events += {"event": event_type, "data": event_data};
+            },
+        );
+        assertTrue(events.size() >= 2, "Should have at least message + status events");
 
-        assertTrue(exists result.result, "Should have result");
-        assertTrue(exists result.result.id, "Task should have ID");
-        string task_id = result.result.id;
-        # Task should be in Active state initially (background thread running)
-        assertEq(A2aTaskState::Active, result.result.status.state,
-            "Task should be active initially");
-
-        # Wait for background thread to complete the task
-        int retries = 0;
-        hash<auto> task;
-        while (retries < 50) {
-            task = client.getTask(task_id);
-            if (task.status.state == A2aTaskState::Completed) {
-                break;
+        # Find the task ID from a status event
+        *string task_id;
+        foreach hash<auto> evt in (events) {
+            if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.id) {
+                task_id = evt.data.params.id;
             }
-            usleep(100000);
-            ++retries;
         }
+        assertTrue(task_id.val(), "Should have task ID from status event");
+
+        # Verify task is completed
+        hash<auto> task = client.getTask(task_id);
         assertEq(A2aTaskState::Completed, task.status.state, "Task should complete");
 
         # Verify assembled response in history
@@ -1085,25 +1114,22 @@ class A2aServerHandlerTest inherits QUnit::Test {
             },
         };
 
-        HTTPClient http_client({"url": base_url});
-        hash<auto> info;
-        string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson}, \info);
-        hash<auto> result = parse_json(resp);
-        string task_id = result.result.id;
+        # Use A2aClient.sendMessageStream() to test error handling
+        list<hash<auto>> events = ();
+        client.sendMessageStream(
+            {"role": "user", "parts": ({"type": "text", "text": "Error test"},)},
+            sub (string event_type, hash<auto> event_data) {
+                events += {"event": event_type, "data": event_data};
+            },
+        );
 
-        # Wait for background thread to fail the task
-        int retries = 0;
-        hash<auto> task;
-        while (retries < 50) {
-            task = client.getTask(task_id);
-            if (task.status.state == A2aTaskState::Failed) {
-                break;
+        bool has_failed = False;
+        foreach hash<auto> evt in (events) {
+            if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.state == "failed") {
+                has_failed = True;
             }
-            usleep(100000);
-            ++retries;
         }
-        assertEq(A2aTaskState::Failed, task.status.state, "Task should fail on handler error");
+        assertTrue(has_failed, "Task should fail on handler error");
 
         client.close();
     }
@@ -1130,13 +1156,23 @@ class A2aServerHandlerTest inherits QUnit::Test {
         HTTPClient http_client({"url": base_url});
         hash<auto> info;
         string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson}, \info);
-        hash<auto> result = parse_json(resp);
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeSse}, \info);
 
-        # Should complete synchronously (echo handler)
-        assertEq(A2aTaskState::Completed, result.result.status.state,
-            "Should complete synchronously without stream handler");
-        assertTrue(result.result.history.size() >= 2, "Should have history");
+        # Should return SSE with completed status (sync fallback)
+        list<hash<auto>> events = parseSseEvents(resp);
+        assertTrue(events.size() >= 1, "Should have at least status event");
+        bool completed = False;
+        *string task_id;
+        foreach hash<auto> evt in (events) {
+            if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.state == "completed") {
+                completed = True;
+                task_id = evt.data.params.id;
+            }
+        }
+        assertTrue(completed, "Should complete synchronously without stream handler");
+        # Verify task has history
+        hash<auto> task = client.getTask(task_id);
+        assertTrue(task.history.size() >= 2, "Should have history");
 
         client.close();
     }
@@ -1171,25 +1207,22 @@ class A2aServerHandlerTest inherits QUnit::Test {
             },
         };
 
-        HTTPClient http_client({"url": base_url});
-        hash<auto> info;
-        string resp = http_client.post("", make_json(rpc_request),
-            {"Content-Type": MimeTypeJson}, \info);
-        hash<auto> result = parse_json(resp);
-        string task_id = result.result.id;
-
-        # Wait for completion
-        int retries = 0;
-        hash<auto> task;
-        while (retries < 50) {
-            task = client.getTask(task_id);
-            if (task.status.state == A2aTaskState::Completed) {
-                break;
+        # Use A2aClient.sendMessageStream() with contextId
+        list<hash<auto>> events = ();
+        client.sendMessageStream(
+            {"role": "user", "parts": ({"type": "text", "text": "Stream context msg 1"},)},
+            sub (string event_type, hash<auto> event_data) {
+                events += {"event": event_type, "data": event_data};
+            },
+            {"contextId": ctx_id},
+        );
+        bool completed = False;
+        foreach hash<auto> evt in (events) {
+            if (evt.event == "TaskStatusUpdateEvent" && evt.data.params.state == "completed") {
+                completed = True;
             }
-            usleep(100000);
-            ++retries;
         }
-        assertEq(A2aTaskState::Completed, task.status.state, "Stream with context should complete");
+        assertEq(True, completed, "Stream with context should complete");
 
         # Verify context history was accumulated
         list<hash<auto>> ctx_history = handler.getContextHistory(ctx_id);
@@ -1198,5 +1231,239 @@ class A2aServerHandlerTest inherits QUnit::Test {
         assertEq("agent", ctx_history[1].role, "Second should be agent");
 
         client.close();
+    }
+
+    # ================================================================
+    # A2A v1.0 dual-version server tests
+    # ================================================================
+
+    v10AgentCardPathTest() {
+        # v0.3 path should still work
+        Qore::HTTPClient http_client({"url": base_url});
+        hash<auto> resp = http_client.send("", "GET", "/.well-known/agent-card.json",
+            {"Accept": MimeTypeJson});
+        assertEq(200, resp.status_code, "v0.3 agent card path should return 200");
+        hash<auto> v03_card = parse_json(resp.body);
+        assertEq("TestAgent", v03_card.name, "v0.3 card should have name");
+        assertTrue(v03_card.hasKey("url"), "v0.3 card should have top-level url");
+
+        # v1.0 path should work and return v1.0 format
+        resp = http_client.send("", "GET", "/.well-known/a2a-agent-card",
+            {"Accept": MimeTypeJson});
+        assertEq(200, resp.status_code, "v1.0 agent card path should return 200");
+        hash<auto> v10_card = parse_json(resp.body);
+        assertEq("TestAgent", v10_card.name, "v1.0 card should have name");
+        assertTrue(v10_card.hasKey("supportedInterfaces"), "v1.0 card should have supportedInterfaces");
+        assertFalse(v10_card.hasKey("url"), "v1.0 card should not have top-level url");
+        assertTrue(v10_card.supportedInterfaces.size() > 0, "Should have at least one interface");
+        assertEq("JSONRPC", v10_card.supportedInterfaces[0].protocolBinding);
+    }
+
+    v10MethodDispatchTest() {
+        Qore::HTTPClient http_client({"url": base_url});
+
+        # Send a v1.0 SendMessage request
+        hash<auto> request = {
+            "jsonrpc": "2.0",
+            "id": "v10-test-1",
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Hello v1.0"},),
+                    "messageId": "msg-v10-1",
+                },
+            },
+        };
+        hash<auto> resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        assertEq(200, resp.status_code, "SendMessage should return 200");
+        hash<auto> body = parse_json(resp.body);
+        assertTrue(body.hasKey("result"), "Should have result");
+        assertTrue(body.result.hasKey("id"), "Result should have task id");
+        assertTrue(body.result.hasKey("status"), "Result should have status");
+
+        # v1.0 response should use v1.0 state values
+        assertEq("TASK_STATE_COMPLETED", body.result.status.state,
+            "v1.0 response should use TASK_STATE_* values");
+
+        # Verify v1.0 GetTask also works
+        string task_id = body.result.id;
+        request = {
+            "jsonrpc": "2.0",
+            "id": "v10-test-2",
+            "method": "GetTask",
+            "params": {"id": task_id},
+        };
+        resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        assertEq(200, resp.status_code, "GetTask should return 200");
+        body = parse_json(resp.body);
+        assertEq(task_id, body.result.id, "Task ID should match");
+        assertEq("TASK_STATE_COMPLETED", body.result.status.state, "GetTask should return v1.0 state");
+
+        # Verify v1.0 ListTasks works
+        request = {
+            "jsonrpc": "2.0",
+            "id": "v10-test-3",
+            "method": "ListTasks",
+            "params": {},
+        };
+        resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        assertEq(200, resp.status_code, "ListTasks should return 200");
+        body = parse_json(resp.body);
+        assertTrue(body.result.hasKey("tasks"), "Should have tasks list");
+
+        # Verify v1.0 CancelTask returns proper error for completed task
+        request = {
+            "jsonrpc": "2.0",
+            "id": "v10-test-4",
+            "method": "CancelTask",
+            "params": {"id": task_id},
+        };
+        resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        body = parse_json(resp.body);
+        assertTrue(body.hasKey("error"), "CancelTask on completed task should return error");
+    }
+
+    v10ResponseFormatTest() {
+        Qore::HTTPClient http_client({"url": base_url});
+
+        # Send v1.0 request and verify response has v1.0 enum values
+        hash<auto> request = {
+            "jsonrpc": "2.0",
+            "id": "v10-fmt-1",
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Format test"},),
+                    "messageId": "msg-fmt-1",
+                },
+            },
+        };
+        hash<auto> resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        hash<auto> body = parse_json(resp.body);
+        hash<auto> task = body.result;
+
+        # Status state should be v1.0 format
+        assertTrue(task.status.state =~ /^TASK_STATE_/, "State should use TASK_STATE_ prefix");
+
+        # History messages should have v1.0 role values
+        if (task.history) {
+            foreach hash<auto> msg in (task.history) {
+                assertTrue(msg.role =~ /^ROLE_/, sprintf("Role %y should use ROLE_ prefix", msg.role));
+            }
+        }
+
+        # Status message should have v1.0 role
+        if (task.status.message) {
+            assertTrue(task.status.message.role =~ /^ROLE_/,
+                "Status message role should use ROLE_ prefix");
+        }
+
+        # Now send same request via v0.3 method and verify v0.3 format
+        request.method = "message/send";
+        request.id = "v03-fmt-1";
+        resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        body = parse_json(resp.body);
+        task = body.result;
+
+        # v0.3 state should NOT have TASK_STATE_ prefix
+        assertFalse(task.status.state =~ /^TASK_STATE_/,
+            sprintf("v0.3 state %y should not have TASK_STATE_ prefix", task.status.state));
+        assertEq("completed", task.status.state, "v0.3 state should be lowercase");
+    }
+
+    v10SendMessageParamsTest() {
+        Qore::HTTPClient http_client({"url": base_url});
+
+        # v1.0 format: contextId inside message, with configuration
+        hash<auto> request = {
+            "jsonrpc": "2.0",
+            "id": "v10-params-1",
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Context test"},),
+                    "messageId": "msg-params-1",
+                    "contextId": "ctx-v10-1",
+                },
+                "configuration": {
+                    "acceptedOutputModes": ("text/plain",),
+                    "historyLength": 5,
+                },
+            },
+        };
+        hash<auto> resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        hash<auto> body = parse_json(resp.body);
+        assertTrue(body.hasKey("result"), "Should have result");
+        assertEq("ctx-v10-1", body.result.contextId, "contextId should be preserved from message");
+    }
+
+    v10VersionDetectionTest() {
+        Qore::HTTPClient http_client({"url": base_url});
+
+        # v1.0 detected from method name (no header)
+        hash<auto> request = {
+            "jsonrpc": "2.0",
+            "id": "detect-1",
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Detect from method"},),
+                    "messageId": "msg-detect-1",
+                },
+            },
+        };
+        hash<auto> resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        hash<auto> body = parse_json(resp.body);
+        assertEq("TASK_STATE_COMPLETED", body.result.status.state,
+            "Should detect v1.0 from method name and return v1.0 state");
+
+        # v1.0 detected from A2A-Version header (with v0.3 method name)
+        request = {
+            "jsonrpc": "2.0",
+            "id": "detect-2",
+            "method": "message/send",
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "Detect from header"},),
+                    "messageId": "msg-detect-2",
+                },
+            },
+        };
+        resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson, "A2A-Version": "1.0"});
+        body = parse_json(resp.body);
+        assertEq("TASK_STATE_COMPLETED", body.result.status.state,
+            "Should detect v1.0 from A2A-Version header");
+
+        # v0.3 with no header should return v0.3 format
+        request = {
+            "jsonrpc": "2.0",
+            "id": "detect-3",
+            "method": "message/send",
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": ({"type": "text", "text": "v0.3 request"},),
+                },
+            },
+        };
+        resp = http_client.send(make_json(request), "POST", "",
+            {"Content-Type": MimeTypeJson, "Accept": MimeTypeJson});
+        body = parse_json(resp.body);
+        assertEq("completed", body.result.status.state,
+            "v0.3 request should return v0.3 state");
     }
 }

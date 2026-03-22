@@ -127,6 +127,13 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         #! Push notification config ID counter
         int push_config_id_counter = 0;
+
+        #! Pending POST streaming requests: connection ID → {jsonrpc, version}
+        /** Stores parsed request data from handleRequest() for startImpl() to pick up.
+            Needed because handleRequest() receives cx by value — modifications don't
+            propagate to the caller (HttpServer).
+        */
+        hash<string, hash<auto>> pending_stream_requests;
     }
 
     #! Creates the handler with a logger, agent card, and authenticator
@@ -234,7 +241,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     #! Handles HTTP requests; dispatches to Agent Card, SSE, or JSON-RPC
     hash<HttpResponseInfo> handleRequest(hash<auto> cx, hash<auto> hdr, *data b) {
-        # Serve agent card via GET /.well-known/agent-card.json
+        # Serve agent card via GET /.well-known/agent-card.json (v0.3)
         if (cx.hdr.method == "GET" && cx.url.path =~ /\.well-known\/agent-card\.json/) {
             hash<auto> card;
             {
@@ -245,13 +252,77 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 {"Content-Type": MimeTypeJson});
         }
 
+        # Serve agent card via GET /.well-known/a2a-agent-card (v1.0)
+        if (cx.hdr.method == "GET" && cx.url.path =~ /\.well-known\/a2a-agent-card$/) {
+            hash<auto> card;
+            {
+                AutoReadLock al(rwl);
+                card = a2aTranslateAgentCardToV10(agent_card);
+            }
+            return AbstractHttpRequestHandler::makeResponse(200, make_json(card),
+                {"Content-Type": MimeTypeJson});
+        }
+
         # SSE streaming for GET requests with Accept: text/event-stream
         if (cx.hdr.method == "GET" && clientAcceptsSse(hdr)) {
             return ServerSentEventHandler::handleRequest(cx, hdr, b);
         }
 
-        # POST requests go to JSON-RPC handler
+        # POST requests
         if (cx.hdr.method == "POST") {
+            # Detect A2A protocol version from header before dispatch
+            *string a2a_version = hdr{A2aVersionHeader} ?? hdr{A2aVersionHeader.lwr()};
+            cx.a2a_version = a2a_version;
+
+            # Intercept streaming methods — return SSE headers to trigger startImpl()
+            if (b) {
+                try {
+                    hash<auto> jsonrpc = parse_json(b);
+                    string method = jsonrpc.method ?? "";
+                    if (method == "message/stream" || method == "SendStreamingMessage") {
+                        # Validate before committing to SSE response
+                        if (!jsonrpc.params.message) {
+                            return <HttpResponseInfo>{
+                                "code": 200,
+                                "body": make_json({
+                                    "jsonrpc": "2.0", "id": jsonrpc.id,
+                                    "error": {"code": A2A_ERR_INVALID_ARGUMENT,
+                                        "message": "Missing 'message' parameter"},
+                                }),
+                                "hdr": {"Content-Type": MimeTypeJson},
+                            };
+                        }
+                        string version = cx.a2a_version
+                            ?? a2aDetectVersionFromMethod(jsonrpc.method);
+                        # Sync fallback when no stream handler registered
+                        if (!stream_message_handler) {
+                            hash<auto> params = jsonrpc.params;
+                            if (version == A2aVersionV10) {
+                                params = a2aTranslateSendMessageParamsToV03(params);
+                            }
+                            return handleStreamPostSync(cx, params, version);
+                        }
+                        # Store request for startImpl() to pick up
+                        # (cx is passed by value — can't modify caller's copy)
+                        string cid = cx.id.toString();
+                        {
+                            AutoWriteLock al(rwl);
+                            pending_stream_requests{cid} = {
+                                "jsonrpc": jsonrpc,
+                                "version": version,
+                            };
+                        }
+                        # Return SSE headers — HttpServer calls startImpl()
+                        return <HttpResponseInfo>{
+                            "code": 200,
+                            "hdr": {"Content-Type": MimeTypeSse, "Cache-Control": "no-cache"},
+                        };
+                    }
+                } catch () {
+                    # JSON parse error — fall through to JsonRpcHandler for proper error response
+                }
+            }
+
             return JsonRpcHandler::handleRequest(cx, hdr, b);
         }
 
@@ -449,6 +520,14 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             throw "A2A-INVALID-REQUEST", "Missing 'message' parameter";
         }
 
+        # Detect protocol version: header takes precedence, then method name
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
+        # Normalize v1.0 params to v0.3 internal format
+        if (version == A2aVersionV10) {
+            params = a2aTranslateSendMessageParamsToV03(params);
+        }
+
         # Create a new task
         hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
         string task_id = task.id;
@@ -535,7 +614,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
 
         AutoReadLock al(rwl);
-        return getTaskResponse(task_map{task_id});
+        return getTaskResponse(task_map{task_id}, NOTHING, version);
     }
 
     private hash<auto> messageStream(hash<auto> cx, *hash<auto> params) {
@@ -555,6 +634,14 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     private hash<auto> messageStreamIntern(hash<auto> cx, *hash<auto> params) {
         if (!params.message) {
             throw "A2A-INVALID-REQUEST", "Missing 'message' parameter";
+        }
+
+        # Detect protocol version
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
+        # Normalize v1.0 params to v0.3 internal format
+        if (version == A2aVersionV10) {
+            params = a2aTranslateSendMessageParamsToV03(params);
         }
 
         # Create a new task
@@ -587,7 +674,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         hash<auto> initial_response;
         {
             AutoReadLock al(rwl);
-            initial_response = getTaskResponse(task_map{task_id});
+            initial_response = getTaskResponse(task_map{task_id}, NOTHING, version);
         }
 
         # Capture variables for background thread
@@ -669,13 +756,15 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             return makeJsonRpcError(A2A_ERR_INVALID_ARGUMENT, "Missing 'id' parameter");
         }
 
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
         AutoReadLock al(rwl);
         *hash<A2aTaskInfo> task = task_map{params.id};
         if (!task) {
             return makeJsonRpcError(A2A_ERR_NOT_FOUND, sprintf("Task %y not found", params.id));
         }
 
-        return getTaskResponse(task, params.historyLength);
+        return getTaskResponse(task, params.historyLength, version);
     }
 
     private hash<auto> tasksCancel(hash<auto> cx, *hash<auto> params) {
@@ -697,6 +786,8 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     private hash<auto> tasksList(hash<auto> cx, *hash<auto> params) {
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
         AutoReadLock al(rwl);
 
         list<hash<auto>> tasks = ();
@@ -706,7 +797,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             if (params.contextId && task.contextId != params.contextId) {
                 continue;
             }
-            tasks += getTaskResponse(task);
+            tasks += getTaskResponse(task, NOTHING, version);
         }
 
         return {"tasks": tasks};
@@ -717,13 +808,15 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             return makeJsonRpcError(A2A_ERR_INVALID_ARGUMENT, "Missing 'id' parameter");
         }
 
+        string version = cx.a2a_version ?? a2aDetectVersionFromMethod(cx.method);
+
         AutoReadLock al(rwl);
         *hash<A2aTaskInfo> task = task_map{params.id};
         if (!task) {
             return makeJsonRpcError(A2A_ERR_NOT_FOUND, sprintf("Task %y not found", params.id));
         }
 
-        return getTaskResponse(task);
+        return getTaskResponse(task, NOTHING, version);
     }
 
     private hash<auto> pushNotificationConfigSet(hash<auto> cx, *hash<auto> params) {
@@ -824,8 +917,212 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return agent_card;
     }
 
+    #! Override startImpl to handle POST-based SSE streaming
+    /** For POST streaming requests (stored in \c pending_stream_requests by handleRequest()),
+        writes SSE events incrementally to the socket. For GET SSE connections, delegates to
+        the parent ServerSentEventHandler implementation.
+
+        The pending_stream_requests map is needed because handleRequest() receives \c cx
+        by value — modifications to cx don't propagate back to the HttpServer caller.
+    */
+    bool startImpl(softstring lid, hash<auto> cx, hash<auto> hdr, Qore::Socket sock) {
+        string cid = cx.id.toString();
+        *hash<auto> stream_req;
+        {
+            AutoWriteLock al(rwl);
+            stream_req = remove pending_stream_requests{cid};
+        }
+        if (stream_req) {
+            handleStreamSocket(stream_req, sock);
+            return False;
+        }
+        return ServerSentEventHandler::startImpl(lid, cx, hdr, sock);
+    }
+
+    #! Handles POST-based SSE streaming with incremental event delivery
+    /** Called from startImpl() with raw socket access. Writes SSE events directly
+        to the socket as the stream handler produces tokens.
+    */
+    private handleStreamSocket(hash<auto> stream_req, Qore::Socket sock) {
+        hash<auto> jsonrpc = stream_req.jsonrpc;
+        string version = stream_req.version;
+        hash<auto> params = jsonrpc.params;
+
+        # Normalize v1.0 params to v0.3 internal format
+        if (version == A2aVersionV10) {
+            params = a2aTranslateSendMessageParamsToV03(params);
+        }
+
+        # Create task
+        hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
+        string task_id = task.id;
+
+        # Build handler message with context history
+        hash<auto> handler_message = params.message;
+        if (params.contextId) {
+            list<hash<auto>> prior_history;
+            {
+                AutoReadLock al(rwl);
+                prior_history = context_history{params.contextId} ?? ();
+            }
+            if (prior_history) {
+                handler_message.history = prior_history;
+            }
+        }
+
+        # Add incoming message to task history
+        {
+            AutoWriteLock al(rwl);
+            task_map{task_id}.history += params.message;
+        }
+
+        # Transition to active
+        updateTaskState(task_id, A2aTaskState::Active);
+
+        # Stream handler with incremental socket writes
+        list<hash<auto>> assembled_parts = ();
+
+        code token_callback = sub (hash<auto> partial) {
+            if (partial.parts) {
+                assembled_parts += partial.parts;
+            }
+            # Write SSE event directly to the socket (incremental delivery)
+            sock.send(formatSseEvent(task_id, "TaskMessageUpdateEvent", partial, version));
+            # Also notify GET-based SSE connections and push notifications
+            notifySseConnections(task_id, "TaskMessageUpdateEvent", partial);
+            sendTaskPushNotification(task_id, "TaskMessageUpdateEvent", partial);
+        };
+
+        try {
+            stream_message_handler(task, handler_message, token_callback);
+
+            # Assemble final response from collected parts
+            hash<auto> response = {
+                "role": "agent",
+                "parts": assembled_parts,
+            };
+
+            # Add response to task history
+            {
+                AutoWriteLock al(rwl);
+                task_map{task_id}.history += response;
+            }
+
+            # Accumulate context history
+            if (params.contextId) {
+                AutoWriteLock al(rwl);
+                if (!context_history{params.contextId}) {
+                    context_history{params.contextId} = ();
+                }
+                context_history{params.contextId} += params.message;
+                context_history{params.contextId} += response;
+                if (context_history{params.contextId}.size() > max_context_messages) {
+                    int excess = context_history{params.contextId}.size() - max_context_messages;
+                    splice context_history{params.contextId}, 0, excess;
+                }
+            }
+
+            updateTaskState(task_id, A2aTaskState::Completed, response);
+
+            # Write final status event
+            hash<auto> final_status;
+            {
+                AutoReadLock al(rwl);
+                final_status = getTaskResponse(task_map{task_id}, NOTHING, version).status;
+            }
+            sock.send(formatSseEvent(task_id, "TaskStatusUpdateEvent", final_status, version));
+        } catch (hash<ExceptionInfo> ex) {
+            error("Stream handler error: %s: %s", ex.err, ex.desc);
+            try {
+                updateTaskState(task_id, A2aTaskState::Failed, {
+                    "role": "agent",
+                    "parts": ({"type": "text", "text": sprintf("Error: %s: %s", ex.err, ex.desc)},),
+                });
+            } catch () {}
+            hash<auto> fail_status;
+            {
+                AutoReadLock al(rwl);
+                fail_status = getTaskResponse(task_map{task_id}, NOTHING, version).status;
+            }
+            try {
+                sock.send(formatSseEvent(task_id, "TaskStatusUpdateEvent", fail_status, version));
+            } catch () {}
+        }
+    }
+
+    #! Handles streaming POST fallback when no stream handler is registered
+    private hash<HttpResponseInfo> handleStreamPostSync(hash<auto> cx, hash<auto> params,
+            string version) {
+        # Use synchronous message handler
+        hash<A2aTaskInfo> task = createTask(params.contextId, params.metadata, params.sessionId);
+        string task_id = task.id;
+
+        {
+            AutoWriteLock al(rwl);
+            task_map{task_id}.history += params.message;
+        }
+        updateTaskState(task_id, A2aTaskState::Active);
+
+        *hash<auto> response;
+        if (message_handler) {
+            try {
+                response = message_handler(task, params.message);
+                if (response) {
+                    {
+                        AutoWriteLock al(rwl);
+                        task_map{task_id}.history += response;
+                    }
+                    updateTaskState(task_id, A2aTaskState::Completed, response);
+                }
+            } catch (hash<ExceptionInfo> ex) {
+                error("Sync handler error in stream POST: %s: %s", ex.err, ex.desc);
+                try {
+                    updateTaskState(task_id, A2aTaskState::Failed, {
+                        "role": "agent",
+                        "parts": ({"type": "text",
+                            "text": sprintf("Error: %s: %s", ex.err, ex.desc)},),
+                    });
+                } catch () {}
+            }
+        }
+
+        hash<auto> final_status;
+        {
+            AutoReadLock al(rwl);
+            final_status = getTaskResponse(task_map{task_id}, NOTHING, version).status;
+        }
+        string body = formatSseEvent(task_id, "TaskStatusUpdateEvent", final_status, version);
+
+        return <HttpResponseInfo>{
+            "code": 200,
+            "body": body,
+            "hdr": {"Content-Type": MimeTypeSse, "Cache-Control": "no-cache"},
+        };
+    }
+
+    #! Formats a single SSE event string based on protocol version
+    private string formatSseEvent(string task_id, string event_type, hash<auto> data,
+            string version) {
+        if (version == A2aVersionV10) {
+            hash<auto> v10_event = a2aTranslateSseEventToV10(event_type, data + {"id": task_id});
+            return sprintf("data: %s\n\n", make_json(v10_event));
+        } else {
+            hash<auto> payload = {
+                "jsonrpc": "2.0",
+                "method": event_type,
+                "params": data + {"id": task_id},
+            };
+            return sprintf("event: %s\ndata: %s\n\n", event_type, make_json(payload));
+        }
+    }
+
     #! Returns a task response hash suitable for JSON-RPC response
-    private hash<auto> getTaskResponse(hash<A2aTaskInfo> task, *int history_length) {
+    /** @param task the task info
+        @param history_length optional limit on number of history messages to include
+        @param version A2A protocol version for wire format (\c "0.3" or \c "1.0"); default v0.3
+    */
+    private hash<auto> getTaskResponse(hash<A2aTaskInfo> task, *int history_length,
+            *string version) {
         string ts = format_date("YYYY-MM-DDTHH:mm:SS.xxZ", task.lastUpdatedAt);
 
         hash<auto> status = cast<hash<auto>>({
@@ -858,6 +1155,11 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
         if (task.metadata) {
             response.metadata = task.metadata;
+        }
+
+        # Translate to v1.0 wire format if needed
+        if (version == A2aVersionV10) {
+            response = a2aTranslateTaskToV10(response);
         }
 
         return response;
@@ -919,18 +1221,10 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             }
         }
 
-        hash<auto> payload = {
-            "jsonrpc": "2.0",
-            "method": event_type,
-            "params": event_data + {"id": task_id},
-        };
-
+        # Each connection formats the event based on its own protocol version
         foreach A2aServerConnection conn in (conns) {
             try {
-                conn.send(<SseMessageInfo>{
-                    "event": event_type,
-                    "data": make_json(payload),
-                });
+                conn.sendEvent(task_id, event_type, event_data);
             } catch (hash<ExceptionInfo> ex) {
                 error("SSE notification failed: %s: %s", ex.err, ex.desc);
             }
@@ -997,86 +1291,87 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         smap{a2a_conn.getSession()}.ssemap{conn.uniqueHash()} = a2a_conn;
     }
 
-    #! Sets up JSON-RPC method dispatch
+    #! Sets up JSON-RPC method dispatch for both v0.3 and v1.0 method names
     private setupMethods() {
+        # Helper to create a method entry
+        auto make_method = hash<auto> sub (string name, string text,
+                code<hash<auto> (hash<auto>, *hash<auto>)> func, string help) {
+            return {
+                "name": name,
+                "text": text,
+                "function": func,
+                "help": help,
+                "include_context": True,
+            };
+        };
+
+        # Register both v0.3 and v1.0 method names pointing to the same handlers
         addMethods((
-            {
-                "name": "^message/send$",
-                "text": "message/send",
-                "function": \messageSend(),
-                "help": "A2A send message to agent",
-                "include_context": True,
-            },
-            {
-                "name": "^message/stream$",
-                "text": "message/stream",
-                "function": \messageStream(),
-                "help": "A2A send message with streaming response",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/get$",
-                "text": "tasks/get",
-                "function": \tasksGet(),
-                "help": "A2A get task status",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/cancel$",
-                "text": "tasks/cancel",
-                "function": \tasksCancel(),
-                "help": "A2A cancel a task",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/list$",
-                "text": "tasks/list",
-                "function": \tasksList(),
-                "help": "A2A list tasks",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/resubscribe$",
-                "text": "tasks/resubscribe",
-                "function": \tasksResubscribe(),
-                "help": "A2A resubscribe to task events",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/pushNotificationConfig/set$",
-                "text": "tasks/pushNotificationConfig/set",
-                "function": \pushNotificationConfigSet(),
-                "help": "A2A set push notification config",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/pushNotificationConfig/get$",
-                "text": "tasks/pushNotificationConfig/get",
-                "function": \pushNotificationConfigGet(),
-                "help": "A2A get push notification config",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/pushNotificationConfig/list$",
-                "text": "tasks/pushNotificationConfig/list",
-                "function": \pushNotificationConfigList(),
-                "help": "A2A list push notification configs",
-                "include_context": True,
-            },
-            {
-                "name": "^tasks/pushNotificationConfig/delete$",
-                "text": "tasks/pushNotificationConfig/delete",
-                "function": \pushNotificationConfigDelete(),
-                "help": "A2A delete push notification config",
-                "include_context": True,
-            },
-            {
-                "name": "^agent/getAuthenticatedExtendedCard$",
-                "text": "agent/getAuthenticatedExtendedCard",
-                "function": \getAuthenticatedExtendedCardMethod(),
-                "help": "A2A get authenticated extended agent card",
-                "include_context": True,
-            },
+            # message/send (v0.3) / SendMessage (v1.0)
+            make_method("^message/send$", "message/send", \messageSend(),
+                "A2A send message to agent"),
+            make_method("^SendMessage$", "SendMessage", \messageSend(),
+                "A2A v1.0 send message to agent"),
+
+            # message/stream (v0.3) / SendStreamingMessage (v1.0)
+            make_method("^message/stream$", "message/stream", \messageStream(),
+                "A2A send message with streaming response"),
+            make_method("^SendStreamingMessage$", "SendStreamingMessage", \messageStream(),
+                "A2A v1.0 send streaming message"),
+
+            # tasks/get (v0.3) / GetTask (v1.0)
+            make_method("^tasks/get$", "tasks/get", \tasksGet(),
+                "A2A get task status"),
+            make_method("^GetTask$", "GetTask", \tasksGet(),
+                "A2A v1.0 get task"),
+
+            # tasks/cancel (v0.3) / CancelTask (v1.0)
+            make_method("^tasks/cancel$", "tasks/cancel", \tasksCancel(),
+                "A2A cancel a task"),
+            make_method("^CancelTask$", "CancelTask", \tasksCancel(),
+                "A2A v1.0 cancel task"),
+
+            # tasks/list (v0.3) / ListTasks (v1.0)
+            make_method("^tasks/list$", "tasks/list", \tasksList(),
+                "A2A list tasks"),
+            make_method("^ListTasks$", "ListTasks", \tasksList(),
+                "A2A v1.0 list tasks"),
+
+            # tasks/resubscribe (v0.3) / SubscribeToTask (v1.0)
+            make_method("^tasks/resubscribe$", "tasks/resubscribe", \tasksResubscribe(),
+                "A2A resubscribe to task events"),
+            make_method("^SubscribeToTask$", "SubscribeToTask", \tasksResubscribe(),
+                "A2A v1.0 subscribe to task"),
+
+            # tasks/pushNotificationConfig/set (v0.3) / CreateTaskPushNotificationConfig (v1.0)
+            make_method("^tasks/pushNotificationConfig/set$", "tasks/pushNotificationConfig/set",
+                \pushNotificationConfigSet(), "A2A set push notification config"),
+            make_method("^CreateTaskPushNotificationConfig$", "CreateTaskPushNotificationConfig",
+                \pushNotificationConfigSet(), "A2A v1.0 create push notification config"),
+
+            # tasks/pushNotificationConfig/get (v0.3) / GetTaskPushNotificationConfig (v1.0)
+            make_method("^tasks/pushNotificationConfig/get$", "tasks/pushNotificationConfig/get",
+                \pushNotificationConfigGet(), "A2A get push notification config"),
+            make_method("^GetTaskPushNotificationConfig$", "GetTaskPushNotificationConfig",
+                \pushNotificationConfigGet(), "A2A v1.0 get push notification config"),
+
+            # tasks/pushNotificationConfig/list (v0.3) / ListTaskPushNotificationConfigs (v1.0)
+            make_method("^tasks/pushNotificationConfig/list$", "tasks/pushNotificationConfig/list",
+                \pushNotificationConfigList(), "A2A list push notification configs"),
+            make_method("^ListTaskPushNotificationConfigs$", "ListTaskPushNotificationConfigs",
+                \pushNotificationConfigList(), "A2A v1.0 list push notification configs"),
+
+            # tasks/pushNotificationConfig/delete (v0.3) / DeleteTaskPushNotificationConfig (v1.0)
+            make_method("^tasks/pushNotificationConfig/delete$", "tasks/pushNotificationConfig/delete",
+                \pushNotificationConfigDelete(), "A2A delete push notification config"),
+            make_method("^DeleteTaskPushNotificationConfig$", "DeleteTaskPushNotificationConfig",
+                \pushNotificationConfigDelete(), "A2A v1.0 delete push notification config"),
+
+            # agent/getAuthenticatedExtendedCard (v0.3) / GetExtendedAgentCard (v1.0)
+            make_method("^agent/getAuthenticatedExtendedCard$", "agent/getAuthenticatedExtendedCard",
+                \getAuthenticatedExtendedCardMethod(), "A2A get extended agent card"),
+            make_method("^GetExtendedAgentCard$", "GetExtendedAgentCard",
+                \getAuthenticatedExtendedCardMethod(), "A2A v1.0 get extended agent card"),
         ));
     }
 }
