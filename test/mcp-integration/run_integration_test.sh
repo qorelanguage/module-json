@@ -67,7 +67,7 @@ cleanup() {
         kill "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
     fi
-    rm -f "$PORT_FILE"
+    rm -f "$PORT_FILE" "$SERVER_LOG"
 }
 
 trap cleanup EXIT
@@ -112,25 +112,30 @@ export QORE_MODULE_DIR="${MODULE_DIR}/qlib:${QORE_MODULE_DIR}"
 
 # Start the MCP test server
 echo -e "${YELLOW}Starting MCP test server...${NC}"
+SERVER_LOG="/tmp/mcp_server_$$.log"
 export MCP_PORT_FILE="$PORT_FILE"
-qore "$SCRIPT_DIR/mcp_test_server.q" &
+qore "$SCRIPT_DIR/mcp_test_server.q" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 # Wait for server to start and write port
 echo -e "${YELLOW}Waiting for server to start...${NC}"
 WAIT_COUNT=0
-MAX_WAIT=30
+MAX_WAIT=60
 while [ ! -f "$PORT_FILE" ] && [ $WAIT_COUNT -lt $MAX_WAIT ]; do
     if ! kill -0 "$SERVER_PID" 2>/dev/null; then
         echo -e "${RED}ERROR: Server process died${NC}"
+        echo -e "${RED}Server log:${NC}"
+        cat "$SERVER_LOG" 2>/dev/null
         exit 1
     fi
-    sleep 0.5
+    sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
 done
 
 if [ ! -f "$PORT_FILE" ]; then
     echo -e "${RED}ERROR: Server did not start within ${MAX_WAIT}s${NC}"
+    echo -e "${RED}Server log:${NC}"
+    cat "$SERVER_LOG" 2>/dev/null
     exit 1
 fi
 
