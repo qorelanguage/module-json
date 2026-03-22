@@ -816,9 +816,17 @@ public class A2aClient {
 
             # Translate v1.0 response back to v0.3 internal format
             if (protocol_version == A2aVersionV10 && rv) {
-                # Task responses (have "status" field)
+                # v1.0 SendMessageResponse can be either Task or Message (oneof)
+                # Task has "status" field; Message has "message" wrapper or "role" field
                 if (rv.status) {
+                    # Task response — translate states/roles/parts
                     rv = a2aTranslateTaskToV03(rv);
+                } else if (rv.message) {
+                    # Message response wrapped: {"message": {...}} — unwrap and translate
+                    rv = a2aTranslateMessageToV03(rv.message);
+                } else if (rv.role) {
+                    # Bare Message response — translate directly
+                    rv = a2aTranslateMessageToV03(rv);
                 }
                 # List responses (have "tasks" field)
                 if (rv.tasks) {

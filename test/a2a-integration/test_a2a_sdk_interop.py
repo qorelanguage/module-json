@@ -322,6 +322,35 @@ class InteropTest:
         self._test("qore→sdk-server", "v1.0 SendStreamingMessage", test_v10_stream_message)
         self._test("qore→sdk-server", "v0.3 message/send (compat)", test_v03_send_message)
 
+    def test_qore_client_against_sdk_server(self, sdk_url):
+        """Test: actual Qore A2aClient binary → official a2a-sdk server.
+
+        Runs a Qore script that uses our A2aClient to talk to the SDK server.
+        This validates the real Qore client, not just httpx requests.
+        """
+        print("\n[Qore A2aClient → SDK Server]")
+        import subprocess
+        import os
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        qore_script = os.path.join(script_dir, "test_a2a_client_sdk.q")
+
+        def test_qore_client():
+            result = subprocess.run(
+                ["qore", qore_script, sdk_url],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode != 0:
+                # Show output for debugging
+                output = result.stdout + result.stderr
+                raise AssertionError(f"Qore client test failed (exit {result.returncode}):\n{output[:500]}")
+            # Print test output
+            for line in result.stdout.strip().split("\n"):
+                if line.strip():
+                    print(f"    {line}")
+
+        self._test("qore-client→sdk", "Qore A2aClient round-trip", test_qore_client)
+
     def summary(self):
         passed = sum(1 for r in self.results if r["passed"])
         total = len(self.results)
@@ -348,12 +377,15 @@ def main():
     # Part 1: SDK-format requests against our Qore server
     tester.test_sdk_client_to_qore_server(args.qore_server_url)
 
-    # Part 2: Start SDK server and test Qore-format requests against it
+    # Part 2: Start SDK server and test against it
     print(f"\nStarting SDK echo server on port {args.sdk_port}...")
     try:
         server = start_sdk_server(args.sdk_port)
         sdk_url = f"http://127.0.0.1:{args.sdk_port}"
+        # Test raw wire format against SDK server
         tester.test_qore_format_against_sdk_server(sdk_url)
+        # Test actual Qore A2aClient binary against SDK server
+        tester.test_qore_client_against_sdk_server(sdk_url)
     except Exception as e:
         print(f"  SDK server failed to start: {e}")
 

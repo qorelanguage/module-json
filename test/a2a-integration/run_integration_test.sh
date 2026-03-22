@@ -184,66 +184,65 @@ run_server_tests() {
 }
 
 # ================================================================
-# Part 2: Test our A2A client against Python reference server
+# Part 2: SDK Interop (replaces Python reference server)
+# Tests against the official a2a-sdk — the only independent implementation
 # ================================================================
-run_client_tests() {
+run_sdk_interop_tests() {
     echo -e "\n${YELLOW}========================================${NC}"
-    echo -e "${YELLOW}Part 2: Client Validation${NC}"
-    echo -e "${YELLOW}Testing Qore A2aClient against Python reference server${NC}"
+    echo -e "${YELLOW}Part 2: SDK Interoperability${NC}"
+    echo -e "${YELLOW}Testing against official a2a-sdk${NC}"
     echo -e "${YELLOW}========================================${NC}"
 
-    REF_PORT_FILE="/tmp/a2a_ref_port_$$"
-    REF_SERVER_LOG="/tmp/a2a_ref_server_$$.log"
+    if ! $PYTHON -c "import a2a" 2>/dev/null; then
+        echo -e "${RED}ERROR: a2a-sdk not installed — SDK interop tests required${NC}"
+        return 1
+    fi
 
-    # Find an available port
-    local ref_port=$($PYTHON -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
+    # Start our Qore server for SDK tests
+    A2A_PORT_FILE="/tmp/a2a_sdk_port_$$"
+    SERVER_LOG="/tmp/a2a_sdk_server_$$.log"
+    export A2A_PORT_FILE
+    qore "$SCRIPT_DIR/a2a_test_server.q" >"$SERVER_LOG" 2>&1 &
+    SERVER_PID=$!
 
-    # Start Python reference server
-    echo -e "${YELLOW}Starting Python A2A reference server on port $ref_port...${NC}"
-    export A2A_REF_PORT_FILE="$REF_PORT_FILE"
-    $PYTHON "$SCRIPT_DIR/a2a_reference_server.py" "$ref_port" >"$REF_SERVER_LOG" 2>&1 &
-    REF_SERVER_PID=$!
-
-    # Wait for server to start
-    echo -e "${YELLOW}Waiting for reference server to start...${NC}"
     WAIT_COUNT=0
-    MAX_WAIT=30
-    while [ ! -f "$REF_PORT_FILE" ] && [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-        if ! kill -0 "$REF_SERVER_PID" 2>/dev/null; then
-            echo -e "${RED}ERROR: Reference server process died${NC}"
+    MAX_WAIT=60
+    while [ ! -f "$A2A_PORT_FILE" ] && [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+        if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo -e "${RED}ERROR: Server process died${NC}"
             echo -e "${RED}Server log:${NC}"
-            cat "$REF_SERVER_LOG" 2>/dev/null
+            cat "$SERVER_LOG" 2>/dev/null
             return 1
         fi
         sleep 1
         WAIT_COUNT=$((WAIT_COUNT + 1))
     done
 
-    if [ ! -f "$REF_PORT_FILE" ]; then
-        echo -e "${RED}ERROR: Reference server did not start within ${MAX_WAIT}s${NC}"
+    if [ ! -f "$A2A_PORT_FILE" ]; then
+        echo -e "${RED}ERROR: Server did not start within ${MAX_WAIT}s${NC}"
         echo -e "${RED}Server log:${NC}"
-        cat "$REF_SERVER_LOG" 2>/dev/null
+        cat "$SERVER_LOG" 2>/dev/null
         return 1
     fi
 
-    echo -e "${GREEN}Python reference server started on port $ref_port (PID: $REF_SERVER_PID)${NC}"
-    sleep 1
+    local port=$(cat "$A2A_PORT_FILE")
+    echo -e "${GREEN}Qore A2A server started on port $port (PID: $SERVER_PID)${NC}"
 
-    # Run our Qore A2A client tests against the Python server
-    local server_url="http://localhost:$ref_port"
-    if qore "$SCRIPT_DIR/test_a2a_client.q" "$server_url"; then
-        echo -e "${GREEN}Client validation PASSED${NC}"
+    local sdk_test_port=$($PYTHON -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
+    if $PYTHON "$SCRIPT_DIR/test_a2a_sdk_interop.py" \
+            "http://localhost:$port" \
+            --sdk-port "$sdk_test_port"; then
+        echo -e "${GREEN}SDK interop PASSED${NC}"
         local result=0
     else
-        echo -e "${RED}Client validation FAILED${NC}"
+        echo -e "${RED}SDK interop FAILED${NC}"
         local result=1
     fi
 
-    # Stop reference server
-    kill "$REF_SERVER_PID" 2>/dev/null || true
-    wait "$REF_SERVER_PID" 2>/dev/null || true
-    REF_SERVER_PID=""
-    rm -f "$REF_PORT_FILE" "$REF_SERVER_LOG"
+    kill "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
+    SERVER_PID=""
+    rm -f "$A2A_PORT_FILE" "$SERVER_LOG"
 
     return $result
 }
@@ -256,55 +255,11 @@ case "$TEST_MODE" in
         run_server_tests || OVERALL_EXIT=1
         ;;
     client)
-        run_client_tests || OVERALL_EXIT=1
+        run_sdk_interop_tests || OVERALL_EXIT=1
         ;;
     both)
         run_server_tests || OVERALL_EXIT=1
-        run_client_tests || OVERALL_EXIT=1
-
-        # Run SDK interop tests if a2a-sdk is installed (optional, non-blocking on missing SDK)
-        if $PYTHON -c "import a2a" 2>/dev/null; then
-            echo -e "\n${YELLOW}========================================${NC}"
-            echo -e "${YELLOW}Part 3: SDK Interoperability${NC}"
-            echo -e "${YELLOW}Testing against official a2a-sdk${NC}"
-            echo -e "${YELLOW}========================================${NC}"
-
-            # Start our Qore server for SDK client tests
-            A2A_PORT_FILE="/tmp/a2a_sdk_port_$$"
-            SERVER_LOG="/tmp/a2a_sdk_server_$$.log"
-            export A2A_PORT_FILE
-            qore "$SCRIPT_DIR/a2a_test_server.q" >"$SERVER_LOG" 2>&1 &
-            SERVER_PID=$!
-
-            WAIT_COUNT=0
-            while [ ! -f "$A2A_PORT_FILE" ] && [ $WAIT_COUNT -lt 60 ]; do
-                if ! kill -0 "$SERVER_PID" 2>/dev/null; then break; fi
-                sleep 1
-                WAIT_COUNT=$((WAIT_COUNT + 1))
-            done
-
-            if [ -f "$A2A_PORT_FILE" ]; then
-                sdk_test_port=$($PYTHON -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
-                if $PYTHON "$SCRIPT_DIR/test_a2a_sdk_interop.py" \
-                        "http://localhost:$(cat $A2A_PORT_FILE)" \
-                        --sdk-port "$sdk_test_port"; then
-                    echo -e "${GREEN}SDK interop PASSED${NC}"
-                else
-                    echo -e "${RED}SDK interop FAILED${NC}"
-                    OVERALL_EXIT=1
-                fi
-            else
-                echo -e "${YELLOW}Could not start server for SDK tests${NC}"
-            fi
-
-            kill "$SERVER_PID" 2>/dev/null || true
-            wait "$SERVER_PID" 2>/dev/null || true
-            SERVER_PID=""
-            rm -f "$A2A_PORT_FILE" "$SERVER_LOG"
-        else
-            echo -e "\n${RED}ERROR: a2a-sdk not installed — SDK interop tests required${NC}"
-            OVERALL_EXIT=1
-        fi
+        run_sdk_interop_tests || OVERALL_EXIT=1
         ;;
     *)
         echo -e "${RED}Unknown test mode: $TEST_MODE${NC}"
