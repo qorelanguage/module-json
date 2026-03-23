@@ -922,13 +922,13 @@ public class A2aClient {
         # Extract path from URL; acquireStream() only uses host/port/protocol
         string stream_path = parse_url(streaming_url).path ?? "/";
 
-        HttpClientIo::HttpClientStreamHandle stream = streaming_mgr.acquireStream(streaming_url);
+        hash<auto> stream_headers = {
+            "Accept": MimeTypeSse,
+            "Content-Type": MimeTypeJson,
+        } + default_headers + extra_headers;
+        HttpClientIo::HttpClientStreamHandle stream = streaming_mgr.acquireAndStartStreaming(
+            streaming_url, "POST", stream_path, stream_headers, False, body);
         try {
-            hash<auto> stream_headers = {
-                "Accept": MimeTypeSse,
-                "Content-Type": MimeTypeJson,
-            } + default_headers + extra_headers;
-            stream.startStreaming("POST", stream_path, stream_headers, False, body);
 
             HttpClientStreamingIo::SseStreamReader reader(stream);
 
