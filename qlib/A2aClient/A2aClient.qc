@@ -460,6 +460,9 @@ public class A2aClient {
 
         #! Extra headers for all requests (e.g., auth tokens)
         hash<auto> default_headers;
+
+        #! Protocol for the streaming connection manager ("h1", "h2", "h3", or "auto")
+        string streaming_protocol;
     }
 
     #! Creates the A2aClient with the given URL and options
@@ -489,6 +492,14 @@ public class A2aClient {
         }
         streaming_url = url;
         default_headers = opts.headers ?? {};
+        # Map http_version to HttpClientIo protocol; default to "h1" for plain HTTP, "auto" for HTTPS
+        if (opts.http_version == "1.0" || opts.http_version == "1.1") {
+            streaming_protocol = "h1";
+        } else if (url =~ /^https/i) {
+            streaming_protocol = "auto";
+        } else {
+            streaming_protocol = "h1";
+        }
     }
 
     #! Destroys the client and cleans up resources
@@ -974,6 +985,7 @@ public class A2aClient {
                 <HttpClientIo::HttpClientConnectionManagerOptions>{
                     "connect_timeout": connect_timeout,
                     "request_timeout": timeout,
+                    "protocol": streaming_protocol,
                 });
         }
     }
