@@ -40,12 +40,7 @@ sub main() {
 
     stdout.printf("Qore A2aClient → SDK Server (%s)\n", server_url);
 
-    # Force HTTP/1.1 since the SDK server (uvicorn/h11) only supports HTTP/1.1
-    A2aClient::A2aClient client(server_url, {
-        "timeout": 10000,
-        "connect_timeout": 5000,
-        "http_version": "1.1",
-    });
+    A2aClient::A2aClient client(server_url, {"timeout": 10000, "connect_timeout": 5000});
 
     # Agent card discovery — SDK serves at /.well-known/agent-card.json
     test("agent card discovery", sub () {
