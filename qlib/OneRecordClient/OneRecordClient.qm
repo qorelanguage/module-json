@@ -29,6 +29,7 @@
 %requires Util
 %requires Logger
 %requires JsonLd
+%requires HttpClientIo
 %requires(reexport) ConnectionProvider >= 1.4
 
 %modern
@@ -216,6 +217,8 @@ module OneRecordClient {
 
     @subsection onerecordclientv1_0 OneRecordClient v1.0
     - initial release with IATA ONE Record API v2.2.0 support
+    - async I/O via @ref HttpClientIo::HttpClientConnectionManager with automatic
+      protocol negotiation (HTTP/3 → HTTP/2 → HTTP/1.1) and connection pooling
     - logistics object CRUD with JSON-LD
     - change request lifecycle management
     - logistics events, audit trail, subscriptions

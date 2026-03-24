@@ -642,7 +642,7 @@ class McpClientTest inherits QUnit::Test {
 
         # Test with unreachable host (connection should fail during initialize)
         McpClient::McpClient client4b("http://localhost:59999");
-        assertThrows("SOCKET-CONNECT-ERROR", sub () {
+        assertThrows("HTTPCLIENT-CONNECT-ERROR", sub () {
             client4b.initialize(<McpClientInfo>{"name": "TestClient", "version": "1.0"});
         });
 

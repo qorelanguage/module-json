@@ -419,8 +419,11 @@ public class A2aClient {
         #! The server URL
         string url;
 
-        #! HTTP client for JSON-RPC requests
-        Qore::HTTPClient http;
+        #! The request path extracted from the URL
+        string url_path;
+
+        #! Async I/O connection manager for all HTTP requests (JSON-RPC and SSE streaming)
+        HttpClientIo::HttpClientConnectionManager mgr;
 
         #! Connect timeout in milliseconds
         int connect_timeout;
@@ -452,17 +455,11 @@ public class A2aClient {
         #! Detected/configured A2A protocol version
         string protocol_version = A2aVersionV03;
 
-        #! Streaming connection manager (lazy-initialized for SSE streaming via HttpClientIo)
-        *HttpClientIo::HttpClientConnectionManager streaming_mgr;
-
-        #! URL for streaming connections
-        string streaming_url;
-
         #! Extra headers for all requests (e.g., auth tokens)
         hash<auto> default_headers;
 
-        #! Protocol for the streaming connection manager ("h1", "h2", "h3", or "auto")
-        string streaming_protocol = "auto";
+        #! Protocol for the connection manager ("h1", "h2", "h3", or "auto")
+        string protocol = "auto";
     }
 
     #! Creates the A2aClient with the given URL and options
@@ -474,27 +471,16 @@ public class A2aClient {
     */
     constructor(string url, *hash<auto> opts) {
         self.url = url;
+        url_path = parse_url(url).path ?? "/";
         connect_timeout = opts.connect_timeout ?? DefaultConnectTimeout;
         timeout = opts.timeout ?? DefaultTimeout;
         logger = opts.logger;
-
-        http = new Qore::HTTPClient({
-            "url": url,
-            "connect_timeout": connect_timeout,
-            "timeout": timeout,
-            "headers": {
-                "Content-Type": MimeTypeJson,
-                "Accept": MimeTypeJson,
-            } + (opts.headers ?? {}),
-        });
-        if (opts.http_version) {
-            http.setHTTPVersion(opts.http_version);
-        }
-        streaming_url = url;
         default_headers = opts.headers ?? {};
+
         if (opts.http_version == "1.0" || opts.http_version == "1.1") {
-            streaming_protocol = "h1";
+            protocol = "h1";
         }
+        mgr = createConnectionManager();
     }
 
     #! Destroys the client and cleans up resources
@@ -532,18 +518,20 @@ public class A2aClient {
         @throw A2A-AGENT-CARD-ERROR if the response cannot be parsed
     */
     hash<auto> getAgentCard() {
-        hash<auto> info;
         try {
             # Try v1.0 path first
             string card_path = AgentCardPathV10;
             *string response_body;
             bool got_card = False;
 
+            hash<auto> req_headers = {
+                "Accept": MimeTypeJson,
+            } + default_headers;
+
             try {
-                response_body = http.get(card_path, NOTHING, \info);
-                hash<auto> response_info = info."response-headers";
-                int status_code = response_info.status_code ?? 0;
-                if (status_code >= 200 && status_code < 300) {
+                hash<auto> resp = mgr.request(url, "GET", card_path, req_headers);
+                if (resp.status_code >= 200 && resp.status_code < 300) {
+                    response_body = resp.body;
                     got_card = True;
                 }
             } catch () {
@@ -553,13 +541,12 @@ public class A2aClient {
             # Fall back to v0.3 path
             if (!got_card) {
                 card_path = AgentCardPath;
-                response_body = http.get(card_path, NOTHING, \info);
-                hash<auto> response_info = info."response-headers";
-                int status_code = response_info.status_code ?? 0;
-                if (status_code < 200 || status_code >= 300) {
-                    throw "A2A-HTTP-ERROR", sprintf("Failed to get agent card: HTTP %d %s",
-                        status_code, response_info.status_message ?? "");
+                hash<auto> resp = mgr.request(url, "GET", card_path, req_headers);
+                if (resp.status_code < 200 || resp.status_code >= 300) {
+                    throw "A2A-HTTP-ERROR", sprintf("Failed to get agent card: HTTP %d",
+                        resp.status_code);
                 }
+                response_body = resp.body;
             }
 
             hash<auto> card = parse_json(response_body);
@@ -771,11 +758,9 @@ public class A2aClient {
         on_exit lck.unlock();
         remove agent_card;
         remove callbacks;
-        if (streaming_mgr) {
-            streaming_mgr.closeAll();
-            remove streaming_mgr;
-        }
-        # Reset stop flag so client can be reused after close
+        mgr.closeAll();
+        # Recreate the manager so the client can be reused after close
+        mgr = createConnectionManager();
         sse_stop_flag = False;
     }
 
@@ -821,19 +806,19 @@ public class A2aClient {
         logDebug("A2A RPC request: method=%y wire_method=%y id=%d version=%y",
             method, wire_method, id, protocol_version);
 
-        hash<auto> info;
         try {
-            string response_body = http.post("", body, wire_headers, \info);
+            hash<auto> req_headers = {
+                "Content-Type": MimeTypeJson,
+                "Accept": MimeTypeJson,
+            } + default_headers + wire_headers;
+            hash<auto> resp = mgr.request(url, "POST", url_path, req_headers, body, timeout);
 
-            hash<auto> response_info = info."response-headers";
-            int status_code = response_info.status_code ?? 0;
-
-            if (status_code < 200 || status_code >= 300) {
-                throw "A2A-HTTP-ERROR", sprintf("HTTP %d %s calling %y",
-                    status_code, response_info.status_message ?? "", method);
+            if (resp.status_code < 200 || resp.status_code >= 300) {
+                throw "A2A-HTTP-ERROR", sprintf("HTTP %d calling %y",
+                    resp.status_code, method);
             }
 
-            hash<auto> result = parse_json(response_body);
+            hash<auto> result = parse_json(resp.body);
 
             if (result.error) {
                 throw "A2A-ERROR", sprintf("A2A error %d: %s", result.error.code, result.error.message),
@@ -916,20 +901,20 @@ public class A2aClient {
         sse_cnt.inc();
         on_exit sse_cnt.dec();
 
-        # Ensure streaming connection manager is initialized
-        ensureStreamingManager();
-
-        # Extract path from URL; acquireStream() only uses host/port/protocol
-        string stream_path = parse_url(streaming_url).path ?? "/";
-
         hash<auto> stream_headers = {
             "Accept": MimeTypeSse,
             "Content-Type": MimeTypeJson,
         } + default_headers + extra_headers;
-        HttpClientIo::HttpClientStreamHandle stream = streaming_mgr.acquireAndStartStreaming(
-            streaming_url, "POST", stream_path, stream_headers, False, body);
+        HttpClientIo::HttpClientStreamHandle stream = mgr.acquireAndStartStreaming(
+            url, "POST", url_path, stream_headers, False, body);
+        on_exit {
+            # Ensure the streaming connection is properly closed so it's not
+            # returned to the connection pool with unread SSE data
+            try {
+                stream.cancel();
+            } catch () {}
+        }
         try {
-
             HttpClientStreamingIo::SseStreamReader reader(stream);
 
             while (!sse_stop_flag) {
@@ -968,21 +953,14 @@ public class A2aClient {
         }
     }
 
-    #! Internal: ensures the streaming connection manager is initialized
-    private ensureStreamingManager() {
-        if (streaming_mgr) {
-            return;
-        }
-        lck.lock();
-        on_exit lck.unlock();
-        if (!streaming_mgr) {
-            streaming_mgr = new HttpClientIo::HttpClientConnectionManager(
-                <HttpClientIo::HttpClientConnectionManagerOptions>{
-                    "connect_timeout": connect_timeout,
-                    "request_timeout": timeout,
-                    "protocol": streaming_protocol,
-                });
-        }
+    #! Creates a new connection manager with current settings
+    private HttpClientIo::HttpClientConnectionManager createConnectionManager() {
+        return new HttpClientIo::HttpClientConnectionManager(
+            <HttpClientIo::HttpClientConnectionManagerOptions>{
+                "connect_timeout": connect_timeout,
+                "request_timeout": timeout,
+                "protocol": protocol,
+            });
     }
 
     #! Logs a debug message

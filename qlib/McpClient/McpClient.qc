@@ -256,11 +256,17 @@ public class McpClient {
         #! The server URL
         string url;
 
-        #! HTTP client for requests
-        HTTPClient http;
+        #! The request path extracted from the URL
+        string url_path;
 
-        #! HTTP client for streamable GET listener
-        HTTPClient stream_http;
+        #! Async I/O connection manager for all HTTP requests
+        HttpClientIo::HttpClientConnectionManager mgr;
+
+        #! Connect timeout in milliseconds
+        int connect_timeout;
+
+        #! Transfer timeout in milliseconds
+        int io_timeout;
 
         #! MCP session ID
         *string session_id;
@@ -289,18 +295,6 @@ public class McpClient {
         #! Event callbacks
         hash<string, code> callbacks;
 
-        #! SSE client for receiving server messages
-        *ServerSentEventClient::ServerSentEventClient sse_client;
-
-        #! SSE options
-        bool sse_reconnect = True;
-
-        #! SSE shutdown counter
-        Counter sse_cnt(0);
-
-        #! SSE stopping flag
-        bool sse_stopping = False;
-
         #! Streamable HTTP enabled
         bool streamable_enabled = True;
 
@@ -314,24 +308,21 @@ public class McpClient {
         timeout streamable_read_timeout = 30s;
         timeout streamable_listener_timeout = 250ms;
 
-        #! Streamable GET listener thread pool
-        ThreadPool stream_tp;
-
         #! Streamable GET listener enabled
         bool streamable_listener_enabled = True;
 
-        #! Streamable GET response stream
-        *HttpStreamClient::HTTPResponseStream streamable_stream;
+        #! Listener stream handle for async SSE notifications
+        *HttpClientIo::HttpClientStreamHandle listener_stream;
 
-        #! Streamable GET listener state
-        bool streamable_listener_started = False;
-        bool streamable_stop_flag = False;
+        #! Listener state
+        bool listener_started = False;
+        bool listener_stop_flag = False;
 
-        #! Streamable listener counter
-        Counter streamable_cnt();
+        #! Listener counter for shutdown synchronization
+        Counter listener_cnt();
 
-        #! Streamable listener lock
-        Mutex streamable_lck();
+        #! Listener lock
+        Mutex listener_lck();
 
         #! Pending requests waiting for responses
         hash<string, hash<auto>> pending_requests;
@@ -346,14 +337,12 @@ public class McpClient {
     */
     constructor(string url, *hash<auto> opts) {
         self.url = url;
+        url_path = parse_url(url).path ?? "/";
 
         # Parse options
-        int connect_timeout = opts.connect_timeout ?? DefaultConnectTimeout;
-        int timeout = opts.timeout ?? DefaultTimeout;
+        connect_timeout = opts.connect_timeout ?? DefaultConnectTimeout;
+        io_timeout = opts.timeout ?? DefaultTimeout;
         self.logger = opts.logger;
-        if (exists opts.sse_reconnect) {
-            sse_reconnect = opts.sse_reconnect;
-        }
         if (exists opts.enable_streamable) {
             streamable_enabled = opts.enable_streamable;
         }
@@ -373,27 +362,7 @@ public class McpClient {
             streamable_listener_enabled = opts.enable_streamable_listener;
         }
 
-        # Initialize HTTP client with default headers
-        http = new HTTPClient({
-            "url": url,
-            "connect_timeout": connect_timeout,
-            "timeout": timeout,
-            "headers": {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-            },
-        });
-
-        stream_http = new HTTPClient({
-            "url": url,
-            "connect_timeout": connect_timeout,
-            "timeout": timeout,
-            "headers": {
-                "Accept": "text/event-stream",
-            },
-        });
-
-        stream_tp = new ThreadPool();
+        mgr = createConnectionManager();
 
         logDebug("McpClient created for URL: %s", url);
     }
@@ -754,20 +723,12 @@ public class McpClient {
     startSseListener() {
         ensureInitialized();
 
-        if (streamable_enabled && streamable_listener_enabled) {
-            if (startStreamableListener()) {
-                return;
-            }
-            logDebug("Streamable HTTP listener unavailable; falling back to legacy SSE listener");
-        }
-
-        startLegacySseListener();
+        startNotificationListener();
     }
 
     #! Stops the SSE listener
     stopSseListener() {
-        stopStreamableListener();
-        stopLegacySseListener();
+        stopNotificationListener();
     }
 
     #! Checks if SSE listener is running
@@ -775,210 +736,122 @@ public class McpClient {
         @return True if SSE listener is active
     */
     bool isSseListenerRunning() {
-        if (streamable_listener_started) {
-            return True;
-        }
-        return exists sse_client && sse_client.isOpen();
+        return listener_started;
     }
 
-    #! Starts the legacy SSE listener
-    private startLegacySseListener() {
-        if (sse_client) {
-            logDebug("Legacy SSE listener already running");
-            return;
-        }
-
-        sse_stopping = False;
-        sse_cnt.inc();
-
-        # Create SSE client - convert URL scheme if needed
-        string sse_url = url;
-        if (sse_url =~ /^http:/) {
-            sse_url = regex_subst(sse_url, "^http:", "sse:");
-        } else if (sse_url =~ /^https:/) {
-            sse_url = regex_subst(sse_url, "^https:", "sses:");
-        }
-
-        hash<auto> sse_opts = {
-            "url": sse_url,
-            "reconnect": sse_reconnect,
-            "data": "json",
-            "logger": logger,
-        };
-
-        sse_opts.headers."Accept" = "text/event-stream";
-
-        # Add session ID header if we have one
-        if (session_id) {
-            sse_opts.headers{McpSessionHeader} = session_id;
-        }
-
-        sse_client = new ServerSentEventClient::ServerSentEventClient(sse_opts);
-
-        # Register ourselves as the observer
-        sse_client.registerObserver(self);
-
-        # Connect and start receiving events
-        sse_client.connect();
-
-        logDebug("Legacy SSE listener started");
-    }
-
-    #! Stops the legacy SSE listener
-    private stopLegacySseListener() {
-        if (sse_client) {
-            sse_stopping = True;
-            sse_client.disconnect();
-            sse_cnt.waitForZero();
-            date start = now_us();
-            while (sse_client.isOpen() || sse_client.isReconnecting()) {
-                if ((now_us() - start) > 5s) {
-                    break;
-                }
-                sleep(100ms);
-            }
-            sse_client.deregisterObserver(self);
-            sse_client = NOTHING;
-            sse_stopping = False;
-            logDebug("Legacy SSE listener stopped");
-        }
-    }
-
-    #! Starts the streamable HTTP GET listener
-    private bool startStreamableListener() {
+    #! Starts the notification listener via async I/O streaming
+    private bool startNotificationListener() {
         {
-            streamable_lck.lock();
-            on_exit streamable_lck.unlock();
-            if (streamable_listener_started) {
-                logDebug("Streamable HTTP listener already running");
+            listener_lck.lock();
+            on_exit listener_lck.unlock();
+            if (listener_started) {
+                logDebug("Notification listener already running");
                 return True;
             }
         }
 
-        *HttpStreamClient::HTTPResponseStream stream = openStreamableGet();
+        *HttpClientIo::HttpClientStreamHandle stream = openListenerStream();
         if (!stream) {
             return False;
         }
 
         {
-            streamable_lck.lock();
-            on_exit streamable_lck.unlock();
-            streamable_stream = stream;
-            streamable_stop_flag = False;
-            streamable_listener_started = True;
+            listener_lck.lock();
+            on_exit listener_lck.unlock();
+            listener_stream = stream;
+            listener_stop_flag = False;
+            listener_started = True;
         }
 
-        streamable_cnt.inc();
-        on_error streamable_cnt.dec();
-        stream_tp.submit(sub () {
-            streamableEventLoop();
-        });
+        listener_cnt.inc();
+        on_error listener_cnt.dec();
+        background listenerEventLoop();
 
         return True;
     }
 
-    #! Stops the streamable HTTP GET listener
-    private stopStreamableListener() {
+    #! Stops the notification listener
+    private stopNotificationListener() {
         bool wait = False;
         {
-            streamable_lck.lock();
-            on_exit streamable_lck.unlock();
-            if (streamable_listener_started) {
-                streamable_stop_flag = True;
-                if (streamable_stream) {
-                    streamable_stream.setReadTimeout(0ms);
-                    streamable_stream.close();
+            listener_lck.lock();
+            on_exit listener_lck.unlock();
+            if (listener_started) {
+                listener_stop_flag = True;
+                if (listener_stream) {
+                    listener_stream.cancel();
                 }
                 wait = True;
             }
         }
 
         if (wait) {
-            streamable_cnt.waitForZero();
+            listener_cnt.waitForZero();
         }
     }
 
-    #! Opens a streamable HTTP GET event stream
-    private *HttpStreamClient::HTTPResponseStream openStreamableGet() {
-        hash<auto> headers = {};
+    #! Opens a streaming GET connection for SSE notifications
+    private *HttpClientIo::HttpClientStreamHandle openListenerStream() {
+        hash<auto> headers = {
+            "Accept": "text/event-stream",
+        };
         if (session_id) {
             headers{McpSessionHeader} = session_id;
         }
 
-        hash<auto> info;
-        HttpStreamClient::HTTPResponseStream stream;
         try {
-            stream = HttpStreamClient::sendAndStream(stream_http, "GET", "", NOTHING, headers, \info,
-                streamable_read_timeout);
+            return mgr.acquireAndStartStreaming(url, "GET", url_path, headers);
         } catch (hash<ExceptionInfo> ex) {
-            logDebug("Streamable GET failed: %s: %s", ex.err, ex.desc);
+            logDebug("Listener stream failed: %s: %s", ex.err, ex.desc);
             return;
         }
-
-        hash<HttpStreamClient::HTTPResponseStreamInfo> resp = stream.getInfo();
-        if (resp.headers{McpSessionHeader.lwr()}) {
-            session_id = resp.headers{McpSessionHeader.lwr()};
-            logDebug("Received session ID: %s", session_id);
-        }
-
-        if ((resp.status_code / 100) != 2) {
-            stream.close();
-            return;
-        }
-
-        if (resp.content_type != "text/event-stream") {
-            stream.close();
-            return;
-        }
-
-        return stream;
     }
 
-    #! Streamable GET event loop
-    private streamableEventLoop() {
+    #! Notification listener event loop
+    private listenerEventLoop() {
         on_exit {
-            streamable_lck.lock();
-            on_exit streamable_lck.unlock();
-            streamable_listener_started = False;
-            streamable_stream = NOTHING;
-            streamable_cnt.dec();
+            listener_lck.lock();
+            on_exit listener_lck.unlock();
+            listener_started = False;
+            listener_stream = NOTHING;
+            listener_cnt.dec();
         }
 
         bool connected = False;
         while (True) {
-            HttpStreamClient::HTTPResponseStream stream;
+            HttpClientIo::HttpClientStreamHandle stream;
             {
-                streamable_lck.lock();
-                on_exit streamable_lck.unlock();
-                stream = streamable_stream;
+                listener_lck.lock();
+                on_exit listener_lck.unlock();
+                stream = listener_stream;
             }
 
             if (!stream) {
                 break;
             }
 
-            if (!connected) {
-                connected = True;
-                invokeCallback("onConnected");
-            }
+            HttpClientStreamingIo::SseStreamReader reader(stream);
 
-            while (!streamable_stop_flag && !stream.isEof()) {
+            while (!listener_stop_flag) {
                 *hash<SseMessageInfo> evt;
                 try {
-                    evt = stream.readServerSentEvent(streamable_listener_timeout);
+                    evt = reader.readEvent(streamable_listener_timeout);
                 } catch (hash<ExceptionInfo> ex) {
-                    if (ex.err == "SOCKET-TIMEOUT") {
-                        if (streamable_stop_flag) {
-                            break;
-                        }
-                        continue;
-                    }
-                    logDebug("Streamable listener error: %s: %s", ex.err, ex.desc);
-                    invokeCallback("onError", (("Streamable listener error: " + ex.desc),));
+                    logDebug("Listener error: %s: %s", ex.err, ex.desc);
+                    invokeCallback("onError", (("Listener error: " + ex.desc),));
                     break;
                 }
                 if (!evt) {
-                    break;
+                    if (reader.isDone()) {
+                        break;
+                    }
+                    continue;
+                }
+                # Fire onConnected after first event arrives — proves server-side
+                # SSE registration is complete and events can be delivered
+                if (!connected) {
+                    connected = True;
+                    invokeCallback("onConnected");
                 }
                 if (!evt.data.val()) {
                     continue;
@@ -987,18 +860,17 @@ public class McpClient {
                 try {
                     msg = parse_json(evt.data);
                 } catch (hash<ExceptionInfo> ex) {
-                    logDebug("Failed to parse streamable SSE message: %s: %s", ex.err, ex.desc);
+                    logDebug("Failed to parse SSE message: %s: %s", ex.err, ex.desc);
                     invokeCallback("onError", (("Failed to parse SSE message: " + ex.desc),));
                     continue;
                 }
                 handleStreamableMessage(msg, -1);
             }
 
-            if (streamable_stop_flag) {
+            if (listener_stop_flag) {
                 break;
             }
 
-            stream.close();
             invokeCallback("onDisconnected");
             connected = False;
 
@@ -1008,14 +880,14 @@ public class McpClient {
 
             sleep(1);
 
-            *HttpStreamClient::HTTPResponseStream new_stream = openStreamableGet();
+            *HttpClientIo::HttpClientStreamHandle new_stream = openListenerStream();
             if (!new_stream) {
                 break;
             }
             {
-                streamable_lck.lock();
-                on_exit streamable_lck.unlock();
-                streamable_stream = new_stream;
+                listener_lck.lock();
+                on_exit listener_lck.unlock();
+                listener_stream = new_stream;
             }
         }
 
@@ -1031,6 +903,9 @@ public class McpClient {
         protocol_version = NOTHING;
         server_info = NOTHING;
         server_capabilities = NOTHING;
+        mgr.closeAll();
+        # Recreate the manager so the client can be reused after close
+        mgr = createConnectionManager();
 
         logDebug("MCP client closed");
     }
@@ -1099,33 +974,29 @@ public class McpClient {
         logDebug("Sending request: %s", body);
 
         # Build headers
-        hash<auto> headers = {};
+        hash<auto> headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        };
         if (session_id) {
             headers{McpSessionHeader} = session_id;
         }
 
-        hash<auto> info;
-        string response_body = http.post("", body, headers, \info);
+        hash<auto> resp = mgr.request(url, "POST", url_path, headers, body);
 
-        # Get response info from the response-headers
-        hash<auto> response_info = info."response-headers";
-        int status_code = response_info.status_code ?? 0;
-        string status_message = response_info.status_message ?? "";
-
-        logDebug("Response status: %d, body: %s", status_code, response_body);
+        logDebug("Response status: %d", resp.status_code);
 
         # Check for session ID in response headers
-        if (response_info{McpSessionHeader.lwr()}) {
-            session_id = response_info{McpSessionHeader.lwr()};
+        if (resp.headers{McpSessionHeader.lwr()}) {
+            session_id = resp.headers{McpSessionHeader.lwr()};
             logDebug("Received session ID: %s", session_id);
         }
 
-        if (status_code < 200 || status_code >= 300) {
-            throw "MCP-HTTP-ERROR", sprintf("HTTP error: %d %s", status_code, status_message);
+        if (resp.status_code < 200 || resp.status_code >= 300) {
+            throw "MCP-HTTP-ERROR", sprintf("HTTP error: %d", resp.status_code);
         }
 
-        hash<auto> response = parse_json(response_body);
-        return response;
+        return parse_json(resp.body);
     }
 
     #! Internal: Sends a JSON-RPC request using streamable HTTP
@@ -1145,23 +1016,25 @@ public class McpClient {
         string body = make_json(request);
         logDebug("Sending streamable request: %s", body);
 
-        hash<auto> headers = {};
+        hash<auto> headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        };
         if (session_id) {
             headers{McpSessionHeader} = session_id;
         }
 
-        hash<auto> info;
-        HttpStreamClient::HTTPResponseStream stream;
+        hash<auto> resp;
         try {
-            stream = HttpStreamClient::sendAndStream(http, "POST", "", body, headers, \info, streamable_read_timeout);
+            resp = mgr.request(url, "POST", url_path, headers, body, streamable_read_timeout);
         } catch (hash<ExceptionInfo> ex) {
-            if (ex.err == "SOCKET-CONNECT-ERROR" || ex.err == "SOCKET-ERROR" || ex.err == "SOCKET-CLOSED") {
+            if (ex.err == "SOCKET-CONNECT-ERROR" || ex.err == "SOCKET-ERROR"
+                    || ex.err == "SOCKET-CLOSED" || ex.err == "HTTPCLIENT-CONNECT-ERROR"
+                    || ex.err == "HTTPCLIENT-REQUEST-ERROR") {
                 rethrow;
             }
             throw "MCP-STREAMABLE-ERROR", sprintf("Streamable HTTP request failed: %s: %s", ex.err, ex.desc);
         }
-
-        hash<HttpStreamClient::HTTPResponseStreamInfo> resp = stream.getInfo();
 
         # Check for session ID in response headers
         if (resp.headers{McpSessionHeader.lwr()}) {
@@ -1170,48 +1043,35 @@ public class McpClient {
         }
 
         if ((resp.status_code / 100) != 2) {
-            string error_body = readStreamableBody(stream);
-            stream.close();
             if (resp.status_code == 404 || resp.status_code == 405 || resp.status_code == 415) {
                 throw "MCP-STREAMABLE-UNSUPPORTED",
-                    sprintf("Streamable HTTP unsupported: %d %s %s", resp.status_code, resp.status_message,
-                        error_body);
+                    sprintf("Streamable HTTP unsupported: %d %s", resp.status_code, resp.body ?? "");
             }
-            throw "MCP-HTTP-ERROR", sprintf("HTTP error: %d %s %s", resp.status_code, resp.status_message,
-                error_body);
+            throw "MCP-HTTP-ERROR", sprintf("HTTP error: %d %s", resp.status_code, resp.body ?? "");
         }
 
-        if (resp.content_type == "text/event-stream") {
-            hash<auto> response = readStreamableSseResponse(stream, id);
-            stream.close();
-            return response;
+        *string content_type = resp.headers."content-type";
+        if (content_type && content_type =~ /text\/event-stream/) {
+            # Parse SSE events from the response body
+            return parseSseResponseBody(resp.body, id);
         }
 
-        hash<auto> response = readStreamableJsonResponse(stream);
-        stream.close();
-        return response;
+        return parse_json(resp.body);
     }
 
-    #! Internal: Reads a streamable JSON response
-    private hash<auto> readStreamableJsonResponse(HttpStreamClient::HTTPResponseStream stream) {
-        binary body;
-        while (*binary chunk = stream.readChunk(streamable_read_timeout)) {
-            body += chunk;
-        }
-        if (!body) {
-            return {};
-        }
-        return parse_json(body.toString());
-    }
-
-    #! Internal: Reads a streamable SSE response and returns the matching response
-    private hash<auto> readStreamableSseResponse(HttpStreamClient::HTTPResponseStream stream, int request_id) {
-        while (!stream.isEof()) {
-            *hash<SseMessageInfo> evt = stream.readServerSentEvent(streamable_read_timeout);
-            if (!evt) {
-                break;
+    #! Internal: Parses SSE events from a complete response body
+    private hash<auto> parseSseResponseBody(auto body, int request_id) {
+        string body_str = body.typeCode() == NT_BINARY ? body.toString() : string(body);
+        # Split by double-newline (SSE event boundaries)
+        list<string> event_blocks = body_str.split("\n\n");
+        for (int i = 0; i < event_blocks.size(); ++i) {
+            string block = event_blocks[i];
+            if (!block.val()) {
+                continue;
             }
-            if (!evt.data.val()) {
+            # Ensure trailing \n\n for parser
+            *hash<SseMessageInfo> evt = Socket::parseServerSentEvent(block + "\n\n");
+            if (!evt || !evt.data.val()) {
                 continue;
             }
             auto msg;
@@ -1258,18 +1118,6 @@ public class McpClient {
         return;
     }
 
-    #! Internal: Reads remaining stream body into a string
-    private string readStreamableBody(HttpStreamClient::HTTPResponseStream stream) {
-        binary body;
-        while (*binary chunk = stream.readChunk(streamable_read_timeout)) {
-            body += chunk;
-        }
-        if (!body) {
-            return "";
-        }
-        return body.toString();
-    }
-
     #! Internal: Sends a JSON-RPC notification (no response expected)
     private sendNotification(string method, *hash<auto> params) {
         hash<auto> request = {
@@ -1286,13 +1134,15 @@ public class McpClient {
         logDebug("Sending notification: %s", body);
 
         # Build headers
-        hash<auto> headers = {};
+        hash<auto> headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        };
         if (session_id) {
             headers{McpSessionHeader} = session_id;
         }
 
-        hash<auto> info;
-        http.post("", body, headers, \info);
+        mgr.request(url, "POST", url_path, headers, body);
 
         # We don't expect a response for notifications
     }
@@ -1309,67 +1159,9 @@ public class McpClient {
         if (cb) {
             try {
                 call_function_args(cb, args);
-            } catch (hash<auto> ex) {
+            } catch (hash<ExceptionInfo> ex) {
                 logDebug("Callback %s threw exception: %s: %s", event, ex.err, ex.desc);
             }
-        }
-    }
-
-    #! Internal: Handles an incoming SSE message (called by observer)
-    handleSseMessage(hash<auto> message) {
-        logDebug("Received SSE message: %y", message);
-
-        # Check if it's a notification (no id field)
-        if (!exists message.id) {
-            handleNotification(message);
-        } else {
-            # It's a response - check if we have a pending request
-            lck.lock();
-            on_exit lck.unlock();
-
-            string id_str = string(message.id);
-            if (pending_requests{id_str}) {
-                pending_requests{id_str}.response = message;
-                pending_requests{id_str}.cond.signal();
-            }
-        }
-    }
-
-    #! Internal: Handles SSE connection events
-    handleSseConnected() {
-        logDebug("SSE connected");
-        invokeCallback("onConnected");
-    }
-
-    #! Internal: Handles SSE disconnection events
-    handleSseClosed() {
-        logDebug("SSE closed");
-        bool do_callback = True;
-        if (sse_stopping) {
-            do_callback = False;
-        }
-        sse_cnt.dec();
-        if (do_callback) {
-            invokeCallback("onDisconnected");
-        }
-    }
-
-    #! Observer callback for SSE client events
-    update(string event_id, hash<auto> data_) {
-        switch (event_id) {
-            case ServerSentEventClient::EVENT_SSE_DATA:
-                if (data_.data) {
-                    handleSseMessage(data_.data);
-                }
-                break;
-
-            case ServerSentEventClient::EVENT_SSE_CONNECTED:
-                handleSseConnected();
-                break;
-
-            case ServerSentEventClient::EVENT_SSE_CLOSED:
-                handleSseClosed();
-                break;
         }
     }
 
@@ -1404,6 +1196,15 @@ public class McpClient {
             default:
                 logDebug("Unknown notification: %s", method);
         }
+    }
+
+    #! Creates a new connection manager with current settings
+    private HttpClientIo::HttpClientConnectionManager createConnectionManager() {
+        return new HttpClientIo::HttpClientConnectionManager(
+            <HttpClientIo::HttpClientConnectionManagerOptions>{
+                "connect_timeout": connect_timeout,
+                "request_timeout": io_timeout,
+            });
     }
 
     #! Internal: Logs a debug message

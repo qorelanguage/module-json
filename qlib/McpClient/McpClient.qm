@@ -29,8 +29,8 @@
 %requires Util
 %requires Logger
 %requires DataProvider
-%requires ServerSentEventClient
-%requires HttpStreamClient
+%requires HttpClientIo
+%requires HttpClientStreamingIo
 %requires(reexport) ConnectionProvider >= 1.4
 
 %modern
@@ -66,8 +66,10 @@ module McpClient {
     @subsection McpClient_features Features
 
     - Full MCP protocol support with automatic version negotiation
-    - Streamable HTTP transport with legacy HTTP + SSE fallback
-    - Streamable HTTP GET listener for notifications (enabled by default; legacy SSE fallback)
+    - Async I/O via @ref HttpClientIo::HttpClientConnectionManager with automatic
+      protocol negotiation (HTTP/3 → HTTP/2 → HTTP/1.1) and connection pooling
+    - Streamable HTTP transport with legacy HTTP fallback
+    - SSE notification listener for server push events
     - Tools: list and call server tools
     - Resources: list and read server resources
     - Prompts: list and get server prompts with arguments
@@ -78,11 +80,11 @@ module McpClient {
 
     @subsection McpClient_usage Basic Usage
 
-    @code
+    @code{.py}
     %requires McpClient
 
-    # Create client
-    McpClient client("http://localhost:8080/mcp");
+    # Create client — the URL may include a sub-path
+    McpClient client("https://server:8080/mcp");
 
     # Initialize connection
     hash<auto> server_info = client.initialize({
@@ -106,11 +108,34 @@ module McpClient {
     client.close();
     @endcode
 
+    @par SSE Notification Listener Example
+    @code{.py}
+    McpClient client("https://server:8080/mcp");
+    client.initialize({"name": "MyApp", "version": "1.0"});
+
+    # Register callbacks for server notifications
+    client.setCallback("onToolsChanged", sub () { printf("Tools changed!\n"); });
+    client.setCallback("onLogMessage", sub (string level, auto data, *string logger) {
+        printf("[%s] %s: %s\n", level, logger ?? "server", data);
+    });
+
+    # Start the SSE listener for server push events
+    client.startSseListener();
+
+    # ... do work ...
+
+    client.stopSseListener();
+    client.close();
+    @endcode
+
     @section McpClient_relnotes McpClient Release Notes
 
     @subsection McpClient_1_0 McpClient v1.0
     - initial release with full MCP protocol support
-    - HTTP + SSE transport
+    - async I/O via @ref HttpClientIo::HttpClientConnectionManager with automatic
+      protocol negotiation and connection pooling
+    - streamable HTTP transport with legacy HTTP fallback
+    - SSE notification listener via @ref HttpClientStreamingIo::SseStreamReader
     - tools, resources, prompts, completion support
     - event callbacks for notifications
 */

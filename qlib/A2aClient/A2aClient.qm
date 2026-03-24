@@ -79,17 +79,17 @@ module A2aClient {
 
     @subsection A2aClient_usage Basic Usage
 
-    @code
+    @code{.py}
     %requires A2aClient
 
-    # Create client
-    A2aClient client("http://localhost:8080");
+    # Create client — the URL may include a sub-path (e.g., /api/v1/a2a)
+    A2aClient client("https://server:8011/api/v1/a2a");
 
-    # Get agent card
+    # Get agent card (auto-detects v0.3 vs v1.0)
     hash<auto> card = client.getAgentCard();
     printf("Agent: %s - %s\n", card.name, card.description);
 
-    # Send a message
+    # Send a message (synchronous)
     hash<auto> task = client.sendMessage({
         "role": "user",
         "parts": ({"type": "text", "text": "Hello, agent!"},),
@@ -100,6 +100,35 @@ module A2aClient {
     client.close();
     @endcode
 
+    @par SSE Streaming Example
+    @code{.py}
+    A2aClient client("https://server:8011/api/v1/a2a");
+
+    # Stream a message with real-time token delivery
+    client.sendMessageStream(
+        {"role": "user", "parts": ({"type": "text", "text": "Explain quantum computing"},)},
+        sub (string event_type, hash<auto> event_data) {
+            if (event_type == "TaskArtifactUpdateEvent") {
+                printf("Token: %s", event_data.params.artifact.parts[0].text);
+            } else if (event_type == "TaskStatusUpdateEvent") {
+                printf("\nTask %s: %s\n", event_data.params.id, event_data.params.status.state);
+            }
+        },
+    );
+
+    # Retrieve the completed task after streaming
+    hash<auto> task = client.getTask(task_id);
+    @endcode
+
+    @par Protocol Selection
+    @code{.py}
+    # Force HTTP/1.1 (disables HTTP/2 multiplexing)
+    A2aClient client("https://server/a2a", {"http_version": "1.1"});
+
+    # Default: auto-selects best protocol (HTTP/3 → HTTP/2 → HTTP/1.1)
+    A2aClient client("https://server/a2a");
+    @endcode
+
     @section A2aClient_relnotes A2aClient Release Notes
 
     @subsection A2aClient_1_0 A2aClient v1.0
@@ -108,7 +137,9 @@ module A2aClient {
     - Agent Card discovery at both v1.0 and v0.3 paths
     - all 11 JSON-RPC methods in both v0.3 and v1.0 naming
     - transparent wire format translation (states, roles, parts, events)
-    - SSE streaming for real-time updates (both event formats)
+    - async I/O via @ref HttpClientIo::HttpClientConnectionManager with automatic
+      protocol negotiation (HTTP/3 → HTTP/2 → HTTP/1.1) and connection pooling
+    - SSE streaming for real-time updates via @ref HttpClientStreamingIo::SseStreamReader
     - ConnectionProvider integration with a2a:// and a2as:// schemes
 */
 

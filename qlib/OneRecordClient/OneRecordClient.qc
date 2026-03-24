@@ -71,8 +71,11 @@ public class OneRecordClient {
         #! The server URL
         string url;
 
-        #! HTTP client
-        Qore::HTTPClient http;
+        #! The base path extracted from the URL
+        string url_path;
+
+        #! Async I/O connection manager for all HTTP requests
+        HttpClientIo::HttpClientConnectionManager mgr;
 
         #! Connect timeout in milliseconds
         int connect_timeout;
@@ -110,6 +113,7 @@ public class OneRecordClient {
     */
     constructor(string url, *hash<OneRecordClientOptions> opts) {
         self.url = url;
+        url_path = parse_url(url).path ?? "";
         connect_timeout = opts.connect_timeout ?? DefaultConnectTimeout;
         timeout = opts.timeout ?? DefaultTimeout;
         logger = opts.logger;
@@ -118,16 +122,11 @@ public class OneRecordClient {
         client_secret = opts.clientSecret;
         bearer_token = opts.bearerToken;
 
-        http = new Qore::HTTPClient({
-            "url": url,
-            "connect_timeout": connect_timeout,
-            "timeout": timeout,
-            "error_passthru": True,
-            "headers": {
-                "Content-Type": MimeTypeOneRecord,
-                "Accept": MimeTypeOneRecord,
-            },
-        });
+        mgr = new HttpClientIo::HttpClientConnectionManager(
+            <HttpClientIo::HttpClientConnectionManagerOptions>{
+                "connect_timeout": connect_timeout,
+                "request_timeout": timeout,
+            });
     }
 
     #! Destroys the client
@@ -142,7 +141,7 @@ public class OneRecordClient {
 
     #! Closes the client connection
     close() {
-        http.disconnect();
+        mgr.closeAll();
     }
 
     # ========================================================================
@@ -407,22 +406,16 @@ public class OneRecordClient {
         @since json 1.12
     */
     sendNotification(string notification_url, hash<auto> notification) {
-        Qore::HTTPClient push_client({
-            "url": notification_url,
-            "timeout": timeout,
-            "error_passthru": True,
-        });
         string body = make_json(notification);
-        hash<auto> info;
         hash<auto> push_headers = {
             "Content-Type": MimeTypeOneRecord,
             "Accept": MimeTypeOneRecord,
         };
-        push_client.send(body, "POST", NOTHING, push_headers, False, \info);
-        int status_code = info."response-headers".status_code ?? 0;
-        if (status_code < 200 || status_code >= 300) {
+        hash<auto> resp = mgr.request(notification_url, "POST",
+            parse_url(notification_url).path ?? "/", push_headers, body, timeout);
+        if (resp.status_code < 200 || resp.status_code >= 300) {
             throw "ONE-RECORD-HTTP-ERROR",
-                sprintf("notification delivery failed: HTTP %d", status_code);
+                sprintf("notification delivery failed: HTTP %d", resp.status_code);
         }
     }
 
@@ -464,28 +457,25 @@ public class OneRecordClient {
         @throw ONE-RECORD-HTTP-ERROR if the request fails
     */
     private hash<auto> doRequest(string method, string path, *hash<auto> body) {
-        hash<auto> headers = getAuthHeaders();
+        hash<auto> headers = {
+            "Content-Type": MimeTypeOneRecord,
+            "Accept": MimeTypeOneRecord,
+        } + getAuthHeaders();
 
         *string request_body;
         if (exists body) {
             request_body = make_json(body);
         }
 
-        hash<auto> info;
         try {
-            auto response_raw = http.send(request_body ?? "", method, path, headers, False, \info);
+            hash<auto> resp = mgr.request(url, method, url_path + path, headers, request_body, timeout);
+
             *string response_body;
-            if (response_raw.typeCode() == NT_STRING) {
-                response_body = string(response_raw);
-            } else if (response_raw.typeCode() == NT_HASH && exists response_raw.body) {
-                response_body = response_raw.body.typeCode() == NT_STRING
-                    ? string(response_raw.body) : NOTHING;
+            if (resp.body.typeCode() == NT_STRING) {
+                response_body = resp.body;
             }
 
-            hash<auto> response_headers = info."response-headers";
-            int status_code = response_headers.status_code ?? 0;
-
-            if (status_code >= 400) {
+            if (resp.status_code >= 400) {
                 *hash<auto> error_body;
                 if (exists response_body && response_body.val()) {
                     try {
@@ -495,23 +485,22 @@ public class OneRecordClient {
                     }
                 }
                 throw "ONE-RECORD-HTTP-ERROR",
-                    sprintf("HTTP %d %s: %s", status_code,
-                        response_headers.status_message ?? "",
+                    sprintf("HTTP %d: %s", resp.status_code,
                         exists error_body
                             ? make_json(error_body)
                             : (response_body ?? "")),
-                    {"status_code": status_code, "error": error_body};
+                    {"status_code": resp.status_code, "error": error_body};
             }
 
             hash<auto> result = {
                 "headers": {
-                    "status_code": status_code,
-                    "type": response_headers."type",
-                    "revision": response_headers."revision",
-                    "latest-revision": response_headers."latest-revision",
-                    "last-modified": response_headers."last-modified",
-                    "location": response_headers.location,
-                    "content-type": response_headers."content-type",
+                    "status_code": resp.status_code,
+                    "type": resp.headers."type",
+                    "revision": resp.headers."revision",
+                    "latest-revision": resp.headers."latest-revision",
+                    "last-modified": resp.headers."last-modified",
+                    "location": resp.headers.location,
+                    "content-type": resp.headers."content-type",
                 },
             };
 
@@ -573,37 +562,25 @@ public class OneRecordClient {
         lck.unlock();
         on_error lck.lock();
 
-        Qore::HTTPClient auth_client({
-            "url": token_endpoint,
-            "connect_timeout": connect_timeout,
-            "timeout": timeout,
-            "error_passthru": True,
-        });
-
         string auth_body = sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s",
             encode_url(client_id, True), encode_url(client_secret, True));
 
-        hash<auto> info;
         hash<auto> auth_headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": MimeTypeJson,
         };
-        auto response_body = auth_client.send(auth_body, "POST", NOTHING,
-            auth_headers, False, \info);
+        hash<auto> resp = mgr.request(token_endpoint, "POST",
+            parse_url(token_endpoint).path ?? "/", auth_headers, auth_body, timeout);
 
-        int status_code = info."response-headers".status_code ?? 0;
-        if (status_code < 200 || status_code >= 300) {
+        if (resp.status_code < 200 || resp.status_code >= 300) {
             lck.lock();
             throw "ONE-RECORD-AUTH-ERROR",
-                sprintf("OAuth token request failed: HTTP %d", status_code);
+                sprintf("OAuth token request failed: HTTP %d", resp.status_code);
         }
 
         *string body_str;
-        if (response_body.typeCode() == NT_STRING) {
-            body_str = response_body;
-        } else if (response_body.typeCode() == NT_HASH && exists response_body.body) {
-            body_str = response_body.body.typeCode() == NT_STRING
-                ? response_body.body : NOTHING;
+        if (resp.body.typeCode() == NT_STRING) {
+            body_str = resp.body;
         }
         if (!exists body_str || !body_str.val()) {
             lck.lock();

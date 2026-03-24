@@ -60,6 +60,7 @@ class A2aServerHandlerTest inherits QUnit::Test {
         addTestCase("v1.0 response format test", \v10ResponseFormatTest());
         addTestCase("v1.0 send message params test", \v10SendMessageParamsTest());
         addTestCase("v1.0 version detection test", \v10VersionDetectionTest());
+        addTestCase("non-root path SSE streaming test", \nonRootPathSseStreamTest());
 
         set_return_value(main());
     }
@@ -1426,5 +1427,70 @@ class A2aServerHandlerTest inherits QUnit::Test {
         body = parse_json(resp.body);
         assertEq("completed", body.result.status.state,
             "v0.3 request should return v0.3 state");
+    }
+
+    # ================================================================
+    # Non-root path tests (catches URL path handling bugs)
+    # ================================================================
+
+    nonRootPathSseStreamTest() {
+        # Test that A2aClient correctly uses the URL path for all requests,
+        # not just "/". This is critical when the A2A handler is at a sub-path
+        # like /api/v1/a2a (common in real deployments like Qorus).
+
+        # Use a URL with a non-root path against the existing server
+        # The server handler is registered at root, so both "/" and "/api/v1/a2a"
+        # reach it — we test that the client SENDS the correct path.
+        string sub_url = sprintf("http://localhost:%d/api/v1/a2a", port);
+
+        # Register a stream handler
+        handler.setStreamMessageHandler(
+            sub (hash<auto> task_info, hash<auto> msg, code token_callback) {
+                token_callback({"parts": ({"type": "text", "text": "Token1"},)});
+                token_callback({"parts": ({"type": "text", "text": " Token2"},)});
+            });
+        on_exit handler.setStreamMessageHandler(NOTHING);
+
+        A2aClient::A2aClient client(sub_url);
+        on_exit client.close();
+
+        # Verify the url_path is correctly extracted
+        # (the internal url_path member should be "/api/v1/a2a")
+        hash<auto> card = client.getAgentCard();
+        assertTrue(card.name.val(), "Should get agent card");
+
+        # SSE streaming
+        list<hash<auto>> events = ();
+        client.sendMessageStream(
+            {"role": "user", "parts": ({"type": "text", "text": "Sub-path test"},)},
+            sub (string event_type, hash<auto> event_data) {
+                events += {"event": event_type, "data": event_data};
+            },
+        );
+        assertTrue(events.size() >= 2, "Should have events from SSE stream");
+
+        # Get task ID
+        *string task_id;
+        foreach hash<auto> evt in (events) {
+            if (evt.data.id.val()) {
+                task_id = evt.data.id;
+                break;
+            }
+            if (evt.data.params.id.val()) {
+                task_id = evt.data.params.id;
+                break;
+            }
+        }
+        assertTrue(task_id.val(), "Should have task ID from SSE");
+
+        # getTask() after SSE streaming — the request must go to /api/v1/a2a, not "/"
+        hash<auto> task = client.getTask(task_id);
+        assertEq(A2aTaskState::Completed, task.status.state,
+            "getTask after SSE streaming on sub-path should work");
+
+        # Verify non-streaming JSON-RPC also uses the correct path
+        hash<auto> task2 = client.getTask(task_id);
+        assertEq(A2aTaskState::Completed, task2.status.state,
+            "Second getTask should also work");
     }
 }
