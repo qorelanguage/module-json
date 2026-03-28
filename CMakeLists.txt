@@ -58,6 +58,7 @@ set(QMOD
     qlib/A2aServerHandler
     qlib/A2aClientDataProvider
     qlib/NdjsonDataProvider
+    qlib/JsonFileDataProvider
     qlib/JsonLd
     qlib/OneRecordClient
     qlib/OneRecordServerHandler
@@ -103,6 +104,7 @@ qore_external_user_module("qlib/A2aClient" "")
 qore_external_user_module("qlib/A2aServerHandler" "JsonRpcHandler;A2aClient")
 qore_external_user_module("qlib/A2aClientDataProvider" "A2aClient")
 qore_external_user_module("qlib/NdjsonDataProvider" "")
+qore_external_user_module("qlib/JsonFileDataProvider" "")
 qore_external_user_module("qlib/JsonLd" "")
 qore_external_user_module("qlib/OneRecordClient" "JsonLd")
 qore_external_user_module("qlib/OneRecordServerHandler" "OneRecordClient;JsonLd")
