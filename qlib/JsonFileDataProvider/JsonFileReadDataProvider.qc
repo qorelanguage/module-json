@@ -78,6 +78,7 @@ public class JsonFileReadDataProvider inherits DataProvider::AbstractDataProvide
                 "short_desc": "JSON data as a string",
                 "type": AbstractDataProviderTypeMap."string",
                 "desc": "JSON data provided directly as a string; mutually exclusive with `path` and `stream`",
+                "example_value": "[{\"name\": \"Alice\", \"age\": 30}]",
             },
             "encoding": <DataProviderOptionInfo>{
                 "display_name": "Encoding",
@@ -86,6 +87,28 @@ public class JsonFileReadDataProvider inherits DataProvider::AbstractDataProvide
                 "desc": "The character encoding to use when reading the input (default: `UTF-8`)",
                 "default_value": DefaultEncoding,
                 "example_value": "UTF-8",
+                "allowed_values": (
+                    <AllowedValueInfo>{
+                        "value": "UTF-8",
+                        "display_name": "UTF-8",
+                        "desc": "UTF-8 encoding (recommended)",
+                    },
+                    <AllowedValueInfo>{
+                        "value": "UTF-16",
+                        "display_name": "UTF-16",
+                        "desc": "UTF-16 encoding",
+                    },
+                    <AllowedValueInfo>{
+                        "value": "ISO-8859-1",
+                        "display_name": "ISO-8859-1",
+                        "desc": "Latin-1 encoding",
+                    },
+                    <AllowedValueInfo>{
+                        "value": "US-ASCII",
+                        "display_name": "US-ASCII",
+                        "desc": "US-ASCII encoding",
+                    },
+                ),
             },
         };
     }

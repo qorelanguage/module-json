@@ -76,6 +76,28 @@ public class JsonFileWriteDataProvider inherits DataProvider::AbstractDataProvid
                 "desc": "The character encoding to use when writing the output (default: `UTF-8`)",
                 "default_value": DefaultEncoding,
                 "example_value": "UTF-8",
+                "allowed_values": (
+                    <AllowedValueInfo>{
+                        "value": "UTF-8",
+                        "display_name": "UTF-8",
+                        "desc": "UTF-8 encoding (recommended)",
+                    },
+                    <AllowedValueInfo>{
+                        "value": "UTF-16",
+                        "display_name": "UTF-16",
+                        "desc": "UTF-16 encoding",
+                    },
+                    <AllowedValueInfo>{
+                        "value": "ISO-8859-1",
+                        "display_name": "ISO-8859-1",
+                        "desc": "Latin-1 encoding",
+                    },
+                    <AllowedValueInfo>{
+                        "value": "US-ASCII",
+                        "display_name": "US-ASCII",
+                        "desc": "US-ASCII encoding",
+                    },
+                ),
             },
             "pretty_print": <DataProviderOptionInfo>{
                 "display_name": "Pretty Print",
