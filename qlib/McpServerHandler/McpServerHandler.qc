@@ -972,8 +972,13 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             };
         } catch (hash<ExceptionInfo> ex) {
             # put any response body data in the exception description
-            if (ex.arg."response-body") {
-                rethrow ex.err, sprintf("%s (%y)", ex.desc, ex.arg."response-body");
+            if (ex.arg.typeCode() == NT_HASH) {
+                if (ex.arg.hasKey("response-body")) {
+                    rethrow ex.err, sprintf("%s (%y)", ex.desc, ex.arg."response-body");
+                }
+                if (ex.arg.hasKey("response_body_raw")) {
+                    rethrow ex.err, sprintf("%s (%y)", ex.desc, ex.arg.response_body_raw);
+                }
             }
             rethrow;
         }

@@ -289,6 +289,9 @@ public class McpClient {
         #! Lock for thread safety
         Mutex lck();
 
+        #! Default headers to include in all requests (e.g., auth tokens)
+        hash<string, string> default_headers;
+
         #! Logger interface
         *LoggerInterface logger;
 
@@ -360,6 +363,9 @@ public class McpClient {
         }
         if (exists opts.enable_streamable_listener) {
             streamable_listener_enabled = opts.enable_streamable_listener;
+        }
+        if (opts.headers.typeCode() == NT_HASH) {
+            default_headers += cast<hash<string, string>>(opts.headers);
         }
 
         mgr = createConnectionManager();
@@ -446,6 +452,14 @@ public class McpClient {
     */
     *string getProtocolVersion() {
         return protocol_version;
+    }
+
+    #! Sets a default header to include in all requests
+    /** @param name the header name
+        @param value the header value
+    */
+    setDefaultHeader(string name, string value) {
+        default_headers{name} = value;
     }
 
     #! Gets server information
@@ -794,7 +808,7 @@ public class McpClient {
     private *HttpClientIo::HttpClientStreamHandle openListenerStream() {
         hash<auto> headers = {
             "Accept": "text/event-stream",
-        };
+        } + default_headers;
         if (session_id) {
             headers{McpSessionHeader} = session_id;
         }
@@ -977,7 +991,7 @@ public class McpClient {
         hash<auto> headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-        };
+        } + default_headers;
         if (session_id) {
             headers{McpSessionHeader} = session_id;
         }
@@ -1019,7 +1033,7 @@ public class McpClient {
         hash<auto> headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
-        };
+        } + default_headers;
         if (session_id) {
             headers{McpSessionHeader} = session_id;
         }
@@ -1137,7 +1151,7 @@ public class McpClient {
         hash<auto> headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-        };
+        } + default_headers;
         if (session_id) {
             headers{McpSessionHeader} = session_id;
         }
