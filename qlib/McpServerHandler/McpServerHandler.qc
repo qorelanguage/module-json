@@ -964,6 +964,14 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             *hash<McpToolCallContext> call_info) {
         try {
             auto rv = info.needs_map ? info.tool(params.arguments."data") : info.tool(params.arguments);
+            # If the tool returns a list, treat as pre-formatted MCP content parts
+            if (rv.typeCode() == NT_LIST) {
+                return {"content": rv};
+            }
+            # If the tool returns a hash with a "content" key, pass through as-is
+            if (rv.typeCode() == NT_HASH && rv.hasKey("content")) {
+                return rv;
+            }
             return {
                 "content": ({
                     "type": "text",
