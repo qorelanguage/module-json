@@ -931,6 +931,13 @@ public class McpClient {
     }
 
     #! Sends notifications/cancelled for all in-flight requests
+    /** Cancellation notifications are submitted asynchronously via
+        \c submitRequestAsync() and then deterministically flushed to the
+        network via \c flushPendingWrites() on the underlying connection.
+        This guarantees the QUIC packets are on the wire before \c close()
+        proceeds to shut down the connection manager, without waiting for
+        the server's HTTP response.
+    */
     private cancelInflightRequests() {
         list<string> ids;
         {
@@ -942,14 +949,44 @@ public class McpClient {
             return;
         }
         logDebug("Cancelling %d in-flight request(s): %y", ids.size(), ids);
+
+        # Submit all cancellation notifications concurrently, then flush
+        # the underlying connection to guarantee packets are on the wire
+        hash<string, bool> flushed_connections;
         foreach string id in (ids) {
             try {
-                sendNotification("notifications/cancelled", {
-                    "requestId": id.toInt(),
-                    "reason": "Client closing",
-                });
+                hash<auto> notif = {
+                    "jsonrpc": JsonRpcVersion,
+                    "method": "notifications/cancelled",
+                    "params": {
+                        "requestId": id.toInt(),
+                        "reason": "Client closing",
+                    },
+                };
+                string body = make_json(notif);
+                logDebug("Sending cancellation (async): %s", body);
+
+                hash<auto> headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                } + default_headers;
+                if (session_id) {
+                    headers{McpSessionHeader} = session_id;
+                }
+
+                hash<auto> result = mgr.submitRequestAsync(url, "POST", url_path, headers, body);
+
+                # Flush pending writes on the connection to ensure QUIC
+                # packets are sent before closeAll() cancels operations
+                HttpClientIo::HttpClientConnection conn = result.stream.getConnection();
+                string conn_key = conn.getConnectionId().toString();
+                if (!flushed_connections{conn_key}) {
+                    conn.flushPendingWrites();
+                    flushed_connections{conn_key} = True;
+                }
             } catch (hash<ExceptionInfo> ex) {
-                logDebug("Failed to send cancellation for request %s: %s: %s", id, ex.err, ex.desc);
+                logDebug("Failed to submit cancellation for request %s: %s: %s",
+                    id, ex.err, ex.desc);
             }
         }
     }
