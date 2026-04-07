@@ -329,6 +329,10 @@ public class McpClient {
 
         #! Pending requests waiting for responses
         hash<string, hash<auto>> pending_requests;
+
+        #! In-flight synchronous request IDs (for cancellation on close)
+        Mutex inflight_lck();
+        hash<string, bool> inflight_requests;
     }
 
     #! Creates the MCP client
@@ -736,7 +740,6 @@ public class McpClient {
     */
     startSseListener() {
         ensureInitialized();
-
         startNotificationListener();
     }
 
@@ -759,7 +762,6 @@ public class McpClient {
             listener_lck.lock();
             on_exit listener_lck.unlock();
             if (listener_started) {
-                logDebug("Notification listener already running");
                 return True;
             }
         }
@@ -846,6 +848,13 @@ public class McpClient {
 
             HttpClientStreamingIo::SseStreamReader reader(stream);
 
+            # Fire onConnected when the SSE stream is established; the HTTP
+            # connection succeeding proves the server accepted the listener
+            if (!connected) {
+                connected = True;
+                invokeCallback("onConnected");
+            }
+
             while (!listener_stop_flag) {
                 *hash<SseMessageInfo> evt;
                 try {
@@ -860,12 +869,6 @@ public class McpClient {
                         break;
                     }
                     continue;
-                }
-                # Fire onConnected after first event arrives — proves server-side
-                # SSE registration is complete and events can be delivered
-                if (!connected) {
-                    connected = True;
-                    invokeCallback("onConnected");
                 }
                 if (!evt.data.val()) {
                     continue;
@@ -910,6 +913,9 @@ public class McpClient {
 
     #! Closes the MCP connection
     close() {
+        # Cancel any in-flight requests before closing connections
+        cancelInflightRequests();
+
         stopSseListener();
 
         initialized = False;
@@ -922,6 +928,30 @@ public class McpClient {
         mgr = createConnectionManager();
 
         logDebug("MCP client closed");
+    }
+
+    #! Sends notifications/cancelled for all in-flight requests
+    private cancelInflightRequests() {
+        list<string> ids;
+        {
+            inflight_lck.lock();
+            on_exit inflight_lck.unlock();
+            ids = keys inflight_requests;
+        }
+        if (!ids) {
+            return;
+        }
+        logDebug("Cancelling %d in-flight request(s): %y", ids.size(), ids);
+        foreach string id in (ids) {
+            try {
+                sendNotification("notifications/cancelled", {
+                    "requestId": id.toInt(),
+                    "reason": "Client closing",
+                });
+            } catch (hash<ExceptionInfo> ex) {
+                logDebug("Failed to send cancellation for request %s: %s: %s", id, ex.err, ex.desc);
+            }
+        }
     }
 
     #! Gets the session ID
@@ -972,6 +1002,7 @@ public class McpClient {
     #! Internal: Sends a JSON-RPC request using legacy HTTP transport
     private hash<auto> sendRequestLegacy(string method, *hash<auto> params) {
         int id = getNextRequestId();
+        string id_str = id.toString();
 
         hash<auto> request = {
             "jsonrpc": JsonRpcVersion,
@@ -986,6 +1017,18 @@ public class McpClient {
         string body = make_json(request);
 
         logDebug("Sending request: %s", body);
+
+        # Track in-flight request for cancellation on close()
+        {
+            inflight_lck.lock();
+            on_exit inflight_lck.unlock();
+            inflight_requests{id_str} = True;
+        }
+        on_exit {
+            inflight_lck.lock();
+            on_exit inflight_lck.unlock();
+            remove inflight_requests{id_str};
+        }
 
         # Build headers
         hash<auto> headers = {
@@ -1016,6 +1059,7 @@ public class McpClient {
     #! Internal: Sends a JSON-RPC request using streamable HTTP
     private hash<auto> sendRequestStreamable(string method, *hash<auto> params) {
         int id = getNextRequestId();
+        string id_str = id.toString();
 
         hash<auto> request = {
             "jsonrpc": JsonRpcVersion,
@@ -1029,6 +1073,18 @@ public class McpClient {
 
         string body = make_json(request);
         logDebug("Sending streamable request: %s", body);
+
+        # Track in-flight request for cancellation on close()
+        {
+            inflight_lck.lock();
+            on_exit inflight_lck.unlock();
+            inflight_requests{id_str} = True;
+        }
+        on_exit {
+            inflight_lck.lock();
+            on_exit inflight_lck.unlock();
+            remove inflight_requests{id_str};
+        }
 
         hash<auto> headers = {
             "Content-Type": "application/json",

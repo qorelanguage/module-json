@@ -226,11 +226,9 @@ public class McpNotificationEventDataProvider inherits McpClientDataProviderBase
         on_exit m.unlock();
 
         if (started) {
-            @debug("McpNotificationEventDataProvider::start(): already started");
             return;
         }
         started = True;
-        @debug("McpNotificationEventDataProvider::start(): starting notification listener for %s", mcp.getUrl());
         registerCallbacks();
         try {
             mcp.startSseListener();
@@ -240,7 +238,6 @@ public class McpNotificationEventDataProvider inherits McpClientDataProviderBase
             throw "MCP-NOTIFICATION-ERROR", sprintf("Failed to start MCP notification listener: %s: %s",
                 ex.err, ex.desc);
         }
-        @debug("McpNotificationEventDataProvider::start(): notification listener started");
     }
 
     #! Stops the SSE listener and clears callbacks

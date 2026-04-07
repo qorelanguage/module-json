@@ -261,6 +261,9 @@ public hashdecl McpToolCallContext {
 
     #! Network context
     hash<auto> cx;
+
+    #! The MCP server handler (for cancellation checks)
+    *McpServerHandler handler;
 }
 
 # NOTE: MCP protocol constants (McpVersion, McpLogLevel, McpCompletionRefType enums,
@@ -349,6 +352,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         #! Session ID map
         hash<string, int> sidmap;
+
+        #! Session created by the last initialize() call (read by handleRequest)
+        *string last_init_session;
 
         #! Request ID counter
         int rid = 0;
@@ -522,7 +528,17 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             }
             return AbstractHttpRequestHandler::makeResponse(405, "Client does not accept SSE responses");
         }
+        last_init_session = NOTHING;
         hash<HttpResponseInfo> rv = JsonRpcHandler::handleRequest(cx, hdr, b);
+        # Pick up session created by initialize() for streamable HTTP clients
+        if (!session.val() && last_init_session.val()) {
+            session = last_init_session;
+            cx.mcp_session = session;
+        }
+        # Include session ID in response headers so client can track it
+        if (session.val()) {
+            rv.hdr{McpSessionHeader} = session;
+        }
         # return answer on SSE stream if possible
         if (rv.body.val() && session.val() && ((rv."code" / 100) == 2)) {
             # Get SSE connection reference while holding the lock, then release before sending
@@ -563,7 +579,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     int getNextIdForSession(string session) {
-        AutoWriteLock al(rwl);
+        *AutoWriteLock al = rwl.writeLockOwner() ? NOTHING : new AutoWriteLock(rwl);
         return ++sidmap{session};
     }
 
@@ -672,6 +688,22 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     private registerNewConnectionIntern(string cid, ServerSentEventConnection conn) {
         ServerSentEventHandler::registerNewConnectionIntern(cid, conn);
         smap{conn.getSession()}.ssemap{conn.uniqueHash()} = conn;
+    }
+
+    #! Called when an SSE connection terminates; cancels all in-progress tasks for the session
+    deregisterConnectionImpl(ServerSentEventConnection conn) {
+        McpServerConnection mcp_conn = cast<McpServerConnection>(conn);
+        string sessionId = mcp_conn.getSession();
+        info("SSE connection closed for session %y — cancelling in-progress requests", sessionId);
+
+        # Remove from session's SSE map
+        {
+            AutoWriteLock al(rwl);
+            remove smap{sessionId}.ssemap{mcp_conn.uniqueHash()};
+        }
+
+        # Cancel all in-progress tasks for this session — the client is gone
+        cancelSessionRequests(sessionId, "client disconnected");
     }
 
     private static bool clientAcceptsSse(hash<auto> hdr) {
@@ -824,6 +856,13 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         hash<auto> rv = ServerInfo;
         if (AllMcpVersions{params.protocolVersion}) {
             rv.protocolVersion = params.protocolVersion;
+        }
+        # Create a session for streamable HTTP clients that don't have one yet;
+        # stored in last_init_session so handleRequest() can include it in response headers
+        # (cx is copied by JsonRpcHandler::callMethod so changes don't propagate back)
+        if (!cx.mcp_session.val()) {
+            cx.mcp_session = getSessionId(cx.hdr);
+            last_init_session = cx.mcp_session;
         }
         # Store client capabilities if we have a session
         if (cx.mcp_session.val() && params.capabilities) {
@@ -1800,6 +1839,97 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         }
     }
 
+    #! Cancels all in-progress tasks and pending requests for a session
+    /** Called when the client's SSE connection drops to stop orphaned server-side processing.
+
+        @param sessionId the session ID
+        @param reason the cancellation reason
+    */
+    cancelSessionRequests(string sessionId, string reason = "session disconnected") {
+        list<hash<McpTaskInfo>> cancelledTasks;
+        list<string> cancelledTaskIds;
+        int syncCount;
+
+        {
+            AutoWriteLock al(rwl);
+            if (!smap{sessionId}) {
+                return;
+            }
+
+            # Cancel all working tasks
+            foreach string tid in (keys smap{sessionId}.tasks) {
+                hash<McpTaskInfo> task = smap{sessionId}.tasks{tid};
+                if (task.status == McpTaskStatus::Working
+                        || task.status == McpTaskStatus::InputRequired) {
+                    smap{sessionId}.tasks{tid}.cancelled = True;
+                    smap{sessionId}.tasks{tid}.status = McpTaskStatus::Cancelled;
+                    smap{sessionId}.tasks{tid}.statusMessage = reason;
+                    smap{sessionId}.tasks{tid}.lastUpdatedAt = now_us();
+                    cancelledTasks += task;
+                    cancelledTaskIds += tid;
+
+                    # Also record as a cancellation for isRequestCancelled() checks
+                    if (task.requestId) {
+                        smap{sessionId}.cancellations{task.requestId} = <McpCancellationInfo>{
+                            "requestId": task.requestId,
+                            "reason": reason,
+                            "receivedAt": now_us(),
+                        };
+                    }
+                }
+            }
+
+            # Cancel active synchronous requests (non-task tools/call in progress)
+            foreach string rid in (keys smap{sessionId}.activeRequests) {
+                smap{sessionId}.cancellations{rid} = <McpCancellationInfo>{
+                    "requestId": rid,
+                    "reason": reason,
+                    "receivedAt": now_us(),
+                };
+            }
+            syncCount = smap{sessionId}.activeRequests.size();
+
+            # Complete all pending server-to-client requests
+            foreach string rid in (keys smap{sessionId}.pendingRequests) {
+                if (!smap{sessionId}.pendingRequests{rid}.completed) {
+                    smap{sessionId}.pendingRequests{rid}.error = {
+                        "code": -32800,
+                        "message": reason,
+                    };
+                    smap{sessionId}.pendingRequests{rid}.completed = True;
+                }
+            }
+        }
+
+        # Signal waiters outside the write lock
+        foreach hash<McpTaskInfo> task in (cancelledTasks) {
+            task.lck.lock();
+            on_exit task.lck.unlock();
+            task.cond.broadcast();
+        }
+
+        if (cancelledTaskIds || syncCount) {
+            info("Session %y: cancelled %d task(s) and %d synchronous request(s): %s", sessionId,
+                cancelledTaskIds.size(), syncCount, reason);
+        }
+    }
+
+    #! Checks if the current tool call has been cancelled
+    /** Can be called from within a tool implementation to check if the client has disconnected
+        or sent a cancellation notification.
+
+        @return True if the current call has been cancelled
+
+        @note this method uses the thread-local \c McpToolCallContext to find the session and request IDs
+    */
+    static bool isCallCancelled() {
+        *hash<McpToolCallContext> ctx = McpCallContextHelper::get();
+        if (!ctx || !ctx.handler || !ctx.sid || !ctx.cx.id) {
+            return False;
+        }
+        return ctx.handler.isRequestCancelled(ctx.sid, ctx.cx.id);
+    }
+
     #
     # Server-to-Client Request Methods
     #
@@ -1998,8 +2128,28 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             "sid": cx.mcp_session,
             "arguments": params.arguments,
             "cx": cx,
+            "handler": self,
         };
         McpCallContextHelper mcch(call_info);
+
+        # Track this synchronous request for cancellation support
+        *string sessionId = cx.mcp_session;
+        *string requestId = exists cx.id ? cx.id.toString() : NOTHING;
+        if (sessionId.val() && requestId.val()) {
+            AutoWriteLock al(rwl);
+            if (smap{sessionId}) {
+                smap{sessionId}.activeRequests{requestId} = True;
+            }
+        }
+        on_exit {
+            if (sessionId.val() && requestId.val()) {
+                AutoWriteLock al(rwl);
+                if (smap{sessionId}) {
+                    remove smap{sessionId}.activeRequests{requestId};
+                }
+            }
+        }
+
         return makeToolCall(info, params, call_info);
     }
 
@@ -2037,6 +2187,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             "sid": sessionId,
             "arguments": params.arguments,
             "cx": cx,
+            "handler": self,
         };
         McpCallContextHelper mcch(call_info);
 
@@ -2221,6 +2372,9 @@ hashdecl McpSessionInfo {
 
     # Active cancellations: requestId -> cancellation info
     hash<string, hash<McpCancellationInfo>> cancellations;
+
+    # Active synchronous request IDs (for cancellation tracking)
+    hash<string, bool> activeRequests;
 
     # Client capabilities from initialize
     *hash<auto> clientCapabilities;
