@@ -1328,6 +1328,26 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         conn.sendNotification("notifications/tasks/status", params);
     }
 
+    #! Sends a notification to a session's SSE connection
+    /** @param sessionId the session ID
+        @param method the notification method (e.g., "notifications/progress")
+        @param params optional notification parameters
+
+        @since McpServerHandler 1.2
+    */
+    sendSessionNotification(string sessionId, string method, *hash<auto> params) {
+        *McpServerConnection conn;
+        {
+            AutoReadLock al(rwl);
+            if (smap{sessionId}) {
+                conn = smap{sessionId}.ssemap.firstValue();
+            }
+        }
+        if (conn) {
+            conn.sendNotification(method, params);
+        }
+    }
+
     #! Gets a task's current information
     /** @param sessionId the session ID
         @param taskId the task ID

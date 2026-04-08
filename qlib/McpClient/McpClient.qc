@@ -1302,6 +1302,12 @@ public class McpClient {
                 }
                 break;
 
+            case "notifications/progress":
+                if (message.params) {
+                    invokeCallback("onProgress", (message.params,));
+                }
+                break;
+
             default:
                 logDebug("Unknown notification: %s", method);
         }
