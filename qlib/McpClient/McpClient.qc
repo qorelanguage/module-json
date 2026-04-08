@@ -848,13 +848,6 @@ public class McpClient {
 
             HttpClientStreamingIo::SseStreamReader reader(stream);
 
-            # Fire onConnected when the SSE stream is established; the HTTP
-            # connection succeeding proves the server accepted the listener
-            if (!connected) {
-                connected = True;
-                invokeCallback("onConnected");
-            }
-
             while (!listener_stop_flag) {
                 *hash<SseMessageInfo> evt;
                 try {
@@ -870,6 +863,15 @@ public class McpClient {
                     }
                     continue;
                 }
+
+                # Fire onConnected after the first SSE event is received; this
+                # confirms the server has fully registered the SSE connection
+                # and can deliver server-initiated notifications
+                if (!connected) {
+                    connected = True;
+                    invokeCallback("onConnected");
+                }
+
                 if (!evt.data.val()) {
                     continue;
                 }
@@ -939,7 +941,7 @@ public class McpClient {
         the server's HTTP response.
     */
     private cancelInflightRequests() {
-        list<string> ids;
+        *list<string> ids;
         {
             inflight_lck.lock();
             on_exit inflight_lck.unlock();
