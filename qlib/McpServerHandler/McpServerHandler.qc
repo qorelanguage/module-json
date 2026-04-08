@@ -539,25 +539,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         if (session.val()) {
             rv.hdr{McpSessionHeader} = session;
         }
-        # return answer on SSE stream if possible
-        if (rv.body.val() && session.val() && ((rv."code" / 100) == 2)) {
-            # Get SSE connection reference while holding the lock, then release before sending
-            # to avoid deadlock (send() needs a write lock to get next ID)
-            *McpServerConnection sse;
-            {
-                AutoReadLock al(rwl);
-                # Check session still exists (could have been removed by DELETE or timeout)
-                if (smap{session}) {
-                    sse = smap{session}.ssemap.firstValue();
-                }
-            }
-            if (sse) {
-                sse.send(<SseMessageInfo>{
-                   "data": rv.body,
-                });
-                remove rv{"body", "hdr"};
-            }
-        }
+        # NOTE: POST responses are always returned in the HTTP response body per the
+        # MCP streamable HTTP spec. The SSE channel is only for server-initiated
+        # notifications (tools/changed, log messages, etc.), not request/response pairs.
         return rv;
     }
 
@@ -1924,10 +1908,19 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     */
     static bool isCallCancelled() {
         *hash<McpToolCallContext> ctx = McpCallContextHelper::get();
-        if (!ctx || !ctx.handler || !ctx.sid || !ctx.cx.id) {
+        if (!ctx) {
             return False;
         }
-        return ctx.handler.isRequestCancelled(ctx.sid, ctx.cx.id);
+        if (!ctx.handler || !ctx.sid || !ctx.cx.id) {
+            ctx.handler.info("isCallCancelled: missing context: handler=%y sid=%y cx.id=%y",
+                exists ctx.handler, ctx.sid, ctx.cx.id);
+            return False;
+        }
+        bool rv = ctx.handler.isRequestCancelled(ctx.sid, ctx.cx.id);
+        if (rv) {
+            ctx.handler.info("isCallCancelled: request %y in session %y IS cancelled", ctx.cx.id, ctx.sid);
+        }
+        return rv;
     }
 
     #
