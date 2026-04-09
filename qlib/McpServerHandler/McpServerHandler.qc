@@ -485,6 +485,8 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     hash<HttpResponseInfo> handleRequest(hash<auto> cx, hash<auto> hdr, *data b) {
         *string session;
+        # Track whether this is an SSE client (session from query param) vs streamable (session from header)
+        bool sse_session = False;
         if (((cx.hdr.method == "GET") || (cx.hdr.method == "POST") || (cx.hdr.method == "DELETE"))
             && (session = hdr{McpSessionHeaderLwr}).val()) {
             AutoReadLock al(rwl);
@@ -496,6 +498,8 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             hash<UriQueryInfo> info = parse_uri_query(cx.url.path);
             if (info.params.session.val()) {
                 session = info.params.session;
+                # Session from query parameter indicates an SSE client (2024-11-05 protocol)
+                sse_session = True;
                 # Validate session from query parameter
                 AutoReadLock al(rwl);
                 if (!smap{session}) {
@@ -539,9 +543,28 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         if (session.val()) {
             rv.hdr{McpSessionHeader} = session;
         }
-        # NOTE: POST responses are always returned in the HTTP response body per the
-        # MCP streamable HTTP spec. The SSE channel is only for server-initiated
-        # notifications (tools/changed, log messages, etc.), not request/response pairs.
+        # For SSE clients (2024-11-05 protocol), the response must be sent via the SSE
+        # event stream, not in the HTTP response body.  SSE clients are identified by
+        # having the session in the URL query parameter (not the Mcp-Session-Id header).
+        # Streamable HTTP clients may also have SSE connections for notifications, but
+        # their POST responses must still be returned in the HTTP body.
+        if (sse_session) {
+            *McpServerConnection conn;
+            {
+                AutoReadLock al(rwl);
+                conn = smap{session}.ssemap.firstValue();
+            }
+            if (conn) {
+                # Send the JSON-RPC response as a "message" event on the SSE stream
+                conn.send(<SseMessageInfo>{
+                    "event": "message",
+                    "data": rv.body,
+                });
+                return AbstractHttpRequestHandler::makeResponse(202, "");
+            }
+        }
+        # For streamable HTTP sessions, return the response in the HTTP body per the
+        # MCP streamable HTTP spec.
         return rv;
     }
 
@@ -663,10 +686,10 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         ), smap.iterator();
     }
 
-    #! Use MCP ping as heartbeat message
-    private string getHeartbeatMessage(McpServerConnection conn) {
-        return make_jsonrpc_request("ping", "2.0", getNextRequestId());
-    }
+    #! Returns the heartbeat message to send as a keep-alive
+    /** Uses the default SSE comment format (":hb") which is properly ignored by SSE
+        parsers, rather than a JSON-RPC ping which would require SSE-formatted encoding.
+    */
 
     #! Called while holding the write lock to register the new connection
     private registerNewConnectionIntern(string cid, ServerSentEventConnection conn) {
