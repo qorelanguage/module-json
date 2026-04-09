@@ -145,6 +145,12 @@ public hashdecl McpClientOptions {
 
     #! Enable streamable HTTP GET listener for notifications (default: True)
     *bool enable_streamable_listener;
+
+    #! HTTP protocol selection: "auto" (default), "h1", "h2", or "h3"
+    /** Set to "h2" to prevent Alt-Svc HTTP/3 upgrades that may fail on reconnect.
+        @see HttpClientIo::HttpClientProtocol
+    */
+    *string http_protocol;
 }
 
 #! Tool information from server
@@ -268,6 +274,9 @@ public class McpClient {
         #! Transfer timeout in milliseconds
         int io_timeout;
 
+        #! HTTP protocol selection (forwarded to HttpClientConnectionManager)
+        *string http_protocol;
+
         #! MCP session ID
         *string session_id;
 
@@ -367,6 +376,9 @@ public class McpClient {
         }
         if (exists opts.enable_streamable_listener) {
             streamable_listener_enabled = opts.enable_streamable_listener;
+        }
+        if (exists opts.http_protocol) {
+            http_protocol = opts.http_protocol;
         }
         if (opts.headers.typeCode() == NT_HASH) {
             default_headers += cast<hash<string, string>>(opts.headers);
@@ -1319,6 +1331,7 @@ public class McpClient {
             <HttpClientIo::HttpClientConnectionManagerOptions>{
                 "connect_timeout": connect_timeout,
                 "request_timeout": io_timeout,
+                "protocol": http_protocol ?? "auto",
             });
     }
 
