@@ -48,8 +48,16 @@ module JsonRpcConnection {
 
     @section jsonrpcconnectionintro Introduction to the JsonRpcConnection Module
 
-    The %JsonRpcConnection module provides an JSON-RPC client connection definition
+    The %JsonRpcConnection module provides a JSON-RPC client connection definition
     for the ConnectionProvider module in %Qore.
+
+    @note For new code, use the
+    <a href="../../JsonRpcClientIo/html/index.html">JsonRpcClientIo</a> module and its
+    \c JsonRpcIoConnection class instead. The %JsonRpcClientIo module provides async I/O with
+    automatic HTTP protocol negotiation (HTTP/3 &rarr; HTTP/2 &rarr; HTTP/1.1), connection
+    pooling, and JSON-RPC 2.0 notification support. This module uses the native
+    @ref Qore::Json::JsonRpcClient "JsonRpcClient" class, which is limited to synchronous
+    blocking I/O on HTTP/1.x.
 
     To use this module, use \c "%requires JsonRpcConnection" in your code.
 

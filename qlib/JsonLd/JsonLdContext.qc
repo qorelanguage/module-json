@@ -373,7 +373,7 @@ public class JsonLdContext {
             override_protected, propagate, validate_scoped);
     }
 
-    #! Processes an @import directive
+    #! Processes an \@import directive
     private processImport(reference<hash<auto>> context_hash, *string base_url,
             list<string> remote_contexts) {
         auto import_val = context_hash."@import";
@@ -1134,7 +1134,7 @@ public class JsonLdContext {
         return term;
     }
 
-    #! Expands a compact IRI in the context of the active context (for @vocab expansion)
+    #! Expands a compact IRI in the context of the active context (for \@vocab expansion)
     private string expandIriInContext(hash<JsonLdActiveContext> ctx, string value, bool vocab = False) {
         if (isJsonLdKeyword(value)) {
             return value;

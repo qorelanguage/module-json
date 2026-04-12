@@ -192,7 +192,7 @@ public class JsonLdRdf {
         return result;
     }
 
-    #! Reconstructs RDF lists (rdf:first/rdf:rest chains) into @list objects
+    #! Reconstructs RDF lists (rdf:first/rdf:rest chains) into \@list objects
     private reconstructLists(reference<auto> graph,
             hash<string, bool> shared_bnodes = {}) {
         if (graph.typeCode() != NT_HASH) {
@@ -945,7 +945,7 @@ public class JsonLdRdf {
         }
     }
 
-    #! Converts a JSON-LD @list to RDF list structure
+    #! Converts a JSON-LD \@list to RDF list structure
     private hash<RdfTerm> listToRdf(reference<hash<RdfDataset>> dataset, list<auto> items,
             string graph_name) {
         if (items.empty()) {

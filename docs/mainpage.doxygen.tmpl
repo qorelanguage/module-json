@@ -36,6 +36,7 @@
       - <a href="../../JsonLd/html/index.html">JsonLd</a>
       - <a href="../../OneRecordClient/html/index.html">OneRecordClient</a>
       - <a href="../../OneRecordServerHandler/html/index.html">OneRecordServerHandler</a>
+      - <a href="../../JsonRpcClientIo/html/index.html">JsonRpcClientIo</a>
 
     This module is released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
@@ -61,6 +62,7 @@
     - <a href="../../JsonLd/html/index.html">JsonLd</a> user module
     - <a href="../../OneRecordClient/html/index.html">OneRecordClient</a> user module
     - <a href="../../OneRecordServerHandler/html/index.html">OneRecordServerHandler</a> user module
+    - <a href="../../JsonRpcClientIo/html/index.html">JsonRpcClientIo</a> user module
 
     @note JSON functionality was included in the main %Qore shared library until version 0.8.1, at which time the code
     was removed to make this module.
@@ -110,12 +112,19 @@
 
     JSON-RPC is a lightweight but powerful JSON over HTTP web service protocol.
     The json module includes builtin support for several versions of the JSON-RPC protocol; the default protocol
-    version used is \c "2.0" unless explicitly changed in the
-    @ref Qore::Json::JsonRpcClient::constructor() "JsonRpcClient::constructor()".
+    version used is \c "2.0" unless explicitly changed in the client constructor.
+
+    For new code, use the <a href="../../JsonRpcClientIo/html/index.html">JsonRpcClientIo</a> module, which
+    provides async I/O via \c HttpClientIo::HttpClientConnectionManager with automatic HTTP protocol negotiation
+    (HTTP/3 &rarr; HTTP/2 &rarr; HTTP/1.1), connection pooling, and JSON-RPC 2.0 notification support.
+
+    The native @ref Qore::Json::JsonRpcClient "JsonRpcClient" class is still available for backwards compatibility
+    but uses synchronous blocking I/O limited to HTTP/1.x.
 
     <b>Classes Providing JSON-RPC Functionality</b>
     |!Class|!Description
-    |@ref Qore::Json::JsonRpcClient "JsonRpcClient"|For communicating with JSON-RPC servers
+    |<a href="../../JsonRpcClientIo/html/index.html">JsonRpcClientIo</a>|Preferred: async I/O JSON-RPC client with HTTP/3, HTTP/2, HTTP/1.1 support
+    |@ref Qore::Json::JsonRpcClient "JsonRpcClient"|Legacy: synchronous JSON-RPC client (HTTP/1.x only)
 
     <b>Functions Providing JSON-RPC Functionality</b>
     |!Function Name|!Description
@@ -192,6 +201,14 @@
     @section jsonreleasenotes Release Notes
 
     @subsection json_v1_12 json Module Version 1.12
+    - added the <a href="../../JsonRpcClientIo/html/index.html">JsonRpcClientIo</a> module: pure-Qore JSON-RPC
+      client with async I/O via HttpClientIo:
+      - full JSON-RPC 1.0, 1.1, and 2.0 protocol support
+      - async I/O with automatic protocol negotiation (HTTP/3, HTTP/2, HTTP/1.1) and connection pooling
+      - API-compatible with the native JsonRpcClient class
+      - JSON-RPC 2.0 notification support
+      - debug info variants for all call methods
+      - ConnectionProvider integration with \c jsonrpcio:// and \c jsonrpcios:// URL schemes
     - added the <a href="../../JsonLd/html/index.html">JsonLd</a> module with full W3C JSON-LD 1.1 compliance:
       - expansion, compaction, flattening, framing algorithms
       - toRdf/fromRdf with N-Quads serialization

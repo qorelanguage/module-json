@@ -38,7 +38,7 @@ public class JsonLdValue {
         @param active_property the active property (term)
         @param value the value to expand
 
-        @return the expanded value (a value object or @id reference)
+        @return the expanded value (a value object or \@id reference)
 
         @since json 1.12
     */

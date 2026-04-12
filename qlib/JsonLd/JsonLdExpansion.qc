@@ -564,8 +564,8 @@ public class JsonLdExpansion {
     }
 
     #! Expands nest content recursively
-    /** Handles @nest properties by flattening their content into the parent result.
-        Supports nested @nest (nest within nest).
+    /** Handles \@nest properties by flattening their content into the parent result.
+        Supports nested \@nest (nest within nest).
     */
     private expandNestContent(reference<hash<auto!>> result,
             hash<JsonLdActiveContext> nest_ctx, *string active_property,
@@ -1234,7 +1234,7 @@ public class JsonLdExpansion {
         return result;
     }
 
-    #! Checks if the active property has a @list container
+    #! Checks if the active property has a \@list container
     private bool hasListContainer(hash<JsonLdActiveContext> active_context, *string active_property) {
         if (!exists active_property) {
             return False;

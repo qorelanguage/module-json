@@ -44,7 +44,7 @@ public class JsonLdFlattening {
 
     #! Flattens an expanded JSON-LD document
     /** @param expanded the expanded document (list of node objects)
-        @return a flattened document with @graph containing all nodes
+        @return a flattened document with \@graph containing all nodes
 
         @since json 1.12
     */
@@ -93,7 +93,7 @@ public class JsonLdFlattening {
         @param active_graph the active graph name
         @param active_subject the active subject (node being built)
         @param active_property the active property
-        @param list_ reference to the list being built (for @list)
+        @param list_ reference to the list being built (for \@list)
 
         @since json 1.12
     */

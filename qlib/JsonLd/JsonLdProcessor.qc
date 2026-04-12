@@ -214,7 +214,7 @@ public class JsonLdProcessor {
     }
 
     #! Flattens a JSON-LD document
-    /** Collects all node objects into a single @graph array.
+    /** Collects all node objects into a single \@graph array.
 
         @param input the JSON-LD document
         @param ctx optional context to compact the result
