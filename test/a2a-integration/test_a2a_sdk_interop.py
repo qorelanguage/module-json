@@ -38,13 +38,19 @@ import argparse
 try:
     import httpx
     import uvicorn
-    from a2a.server.apps.jsonrpc import A2AFastAPIApplication
     from a2a.server.request_handlers import DefaultRequestHandler
     from a2a.server.agent_execution import AgentExecutor
     from a2a.server.agent_execution.context import RequestContext
     from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
     from a2a.server.events.in_memory_queue_manager import InMemoryQueueManager
-    from a2a.types import a2a_pb2
+    from a2a.types import (
+        AgentCard, AgentInterface, AgentCapabilities, AgentSkill,
+        Part, Message,
+    )
+    # v1.0.0a1+: apps module removed, use routes + Starlette directly
+    from a2a.server.routes.jsonrpc_routes import create_jsonrpc_routes
+    from a2a.server.routes.agent_card_routes import create_agent_card_routes
+    from starlette.applications import Starlette
 except ImportError as e:
     print(f"ERROR: a2a-sdk not installed ({e})")
     print("Install with: pip install 'a2a-sdk[sqlite,http-server]'")
@@ -61,9 +67,9 @@ class EchoExecutor(AgentExecutor):
                 if part.text:
                     text += part.text
         await event_queue.enqueue_event(
-            a2a_pb2.Message(
+            Message(
                 role="ROLE_AGENT",
-                parts=[a2a_pb2.Part(text=f"SDK Echo: {text}")],
+                parts=[Part(text=f"SDK Echo: {text}")],
                 message_id=str(uuid.uuid4()),
             )
         )
@@ -74,22 +80,22 @@ class EchoExecutor(AgentExecutor):
 
 def start_sdk_server(port):
     """Start the a2a-sdk echo server on the given port."""
-    agent_card = a2a_pb2.AgentCard(
+    agent_card = AgentCard(
         name="SDK Echo Agent",
         description="Official a2a-sdk echo agent for interop testing",
         version="1.0",
         supported_interfaces=[
-            a2a_pb2.AgentInterface(
+            AgentInterface(
                 url=f"http://127.0.0.1:{port}",
                 protocol_binding="JSONRPC",
                 protocol_version="1.0",
             ),
         ],
-        capabilities=a2a_pb2.AgentCapabilities(streaming=True),
+        capabilities=AgentCapabilities(streaming=True),
         default_input_modes=["text/plain"],
         default_output_modes=["text/plain"],
         skills=[
-            a2a_pb2.AgentSkill(
+            AgentSkill(
                 id="echo", name="Echo",
                 description="Echoes messages back",
                 tags=["test"],
@@ -100,16 +106,20 @@ def start_sdk_server(port):
     handler = DefaultRequestHandler(
         agent_executor=EchoExecutor(),
         task_store=InMemoryTaskStore(),
+        agent_card=agent_card,
         queue_manager=InMemoryQueueManager(),
     )
 
-    app = A2AFastAPIApplication(
-        agent_card=agent_card,
-        http_handler=handler,
+    # Build Starlette app from routes (v1.0.0a1+ API)
+    routes = create_agent_card_routes(agent_card=agent_card)
+    routes += create_jsonrpc_routes(
+        request_handler=handler,
+        rpc_url="/",
         enable_v0_3_compat=True,
     )
+    app = Starlette(routes=routes)
 
-    config = uvicorn.Config(app.build(), host="127.0.0.1", port=port, log_level="error")
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
