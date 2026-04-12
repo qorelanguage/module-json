@@ -3,6 +3,7 @@
 
 %modern
 
+%requires ../qlib/JsonRpcClientIo
 %requires ../qlib/JsonRpcConnection.qm
 %requires QUnit
 
@@ -16,6 +17,7 @@ class JsonRpcClientTest inherits QUnit::Test {
         addTestCase("Connection scheme info test", \testConnectionSchemeInfo());
         addTestCase("Connection hash constructor test", \testConnectionHashConstructor());
         addTestCase("Connection negative tests", \testConnectionNegative());
+        addTestCase("Connection getAsync test", \testConnectionGetAsync());
 
         # Return for compatibility with test harness that checks return value.
         set_return_value(main());
@@ -159,5 +161,26 @@ class JsonRpcClientTest inherits QUnit::Test {
         conn = new JsonRpcConnection("path-test", "Path test", url, {"monitor": False});
         client = conn.get(False);
         assertEq("http://localhost:8080/api/v1/test", client.getURL());
+    }
+
+    testConnectionGetAsync() {
+        # getAsync() should return a JsonRpcClientIo object
+        string url = "jsonrpcs://localhost:8099/";
+        JsonRpcConnection conn("async-test", "async test", url, {"monitor": False});
+        auto async_client = conn.getAsync(False);
+        assertTrue(async_client instanceof JsonRpcClientIo::JsonRpcClientIo,
+            "getAsync should return JsonRpcClientIo");
+        string yurl = url;
+        yurl =~ s/^jsonrpc/http/;
+        assertEq(yurl, async_client.getUrl(), "async client URL should be mapped");
+
+        # Test with non-SSL scheme
+        url = "jsonrpc://localhost:8080/api";
+        conn = new JsonRpcConnection("async-http", "async HTTP test", url, {"monitor": False});
+        async_client = conn.getAsync(False);
+        assertTrue(async_client instanceof JsonRpcClientIo::JsonRpcClientIo,
+            "getAsync should return JsonRpcClientIo for non-SSL");
+        assertEq("http://localhost:8080/api", async_client.getUrl(),
+            "async client URL for non-SSL");
     }
 }
