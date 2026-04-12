@@ -29,9 +29,10 @@
 
 %requires(reexport) json
 %requires(reexport) ConnectionProvider >= 1.4
+%requires JsonRpcClientIo
 
 module JsonRpcConnection {
-    version = "1.4";
+    version = "1.5";
     desc = "user module for providing JSON-RPC client connections";
     author = "David Nichols <david@qore.org>";
     url = "http://qore.org";
@@ -69,6 +70,11 @@ module JsonRpcConnection {
     - @ref JsonRpcConnection::JsonRpcConnection "JsonRpcConnection"
 
     @section jsonrpcconnection_relnotes JsonRpcConnection Module Release History
+
+    @subsection jsonrpcconnection_v1_5 JsonRpcConnection v1.5
+    - added \c getAsyncImpl() returning a
+      <a href="../../JsonRpcClientIo/html/index.html">JsonRpcClientIo</a> object for async I/O;
+      call \c getAsync() on the connection to get the async variant
 
     @subsection jsonrpcconnection_v1_4 JsonRpcConnection v1.4
     - implemented support for a data provider scheme cache and rich option information for connections
@@ -179,6 +185,26 @@ public class JsonRpcConnection inherits ConnectionProvider::HttpBasedConnection 
     */
     private Qore::Json::JsonRpcClient getImpl(bool connect = True, *hash<auto> rtopts) {
         return new Qore::Json::JsonRpcClient(real_opts, !connect);
+    }
+
+    #! returns a @ref JsonRpcClientIo::JsonRpcClientIo object for async I/O
+    /** @param connect this parameter is accepted for compatibility but connections are established on demand
+        @param rtopts this connection type does not accept any runtime options, so this parameter is ignored
+
+        @return a @ref JsonRpcClientIo::JsonRpcClientIo object
+
+        @since JsonRpcConnection 1.5
+    */
+    private JsonRpcClientIo::JsonRpcClientIo getAsyncImpl(bool connect = True, *hash<auto> rtopts) {
+        # Convert jsonrpc/jsonrpcs URL to http/https
+        string http_url = real_opts.url;
+        if (http_url =~ /^jsonrpcs:/) {
+            http_url = regex_subst(http_url, "^jsonrpcs:", "https:");
+        } else if (http_url =~ /^jsonrpc:/) {
+            http_url = regex_subst(http_url, "^jsonrpc:", "http:");
+        }
+
+        return new JsonRpcClientIo::JsonRpcClientIo(http_url, real_opts - "url");
     }
 
     #! Returns the ConnectionSchemeInfo hash for this object

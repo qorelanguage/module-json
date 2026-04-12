@@ -96,7 +96,7 @@ qore_external_binary_module(${module_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${
 qore_dist("${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 qore_user_modules("${QMOD}")
 
-qore_external_user_module("qlib/JsonRpcConnection.qm" "")
+qore_external_user_module("qlib/JsonRpcConnection.qm" "JsonRpcClientIo")
 qore_external_user_module("qlib/JsonRpcHandler.qm" "")
 qore_external_user_module("qlib/JsonRpcClientIo" "")
 qore_external_user_module("qlib/McpServerHandler" "JsonRpcHandler")
