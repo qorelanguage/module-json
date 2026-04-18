@@ -323,15 +323,18 @@ public class McpClient {
         #! Streamable GET listener enabled
         bool streamable_listener_enabled = True;
 
-        #! Listener stream handle for async SSE notifications
-        *HttpClientIo::HttpClientStreamHandle listener_stream;
+        #! SSE observable for async notifications (replaces the old
+        #! synchronous SseStreamReader polling loop).  Dispatches events
+        #! via AsyncIoController's worker pool — no dedicated reader
+        #! thread, no blocking reads; observer callbacks fire as soon as
+        #! each event lands in the queue.
+        *HttpClientStreamingIo::SseObservable listener_obs;
+
+        #! Observer registered on listener_obs — kept so we can deregister
+        *object listener_observer;
 
         #! Listener state
         bool listener_started = False;
-        bool listener_stop_flag = False;
-
-        #! Listener counter for shutdown synchronization
-        Counter listener_cnt();
 
         #! Listener lock
         Mutex listener_lck();
@@ -768,7 +771,16 @@ public class McpClient {
         return listener_started;
     }
 
-    #! Starts the notification listener via async I/O streaming
+    #! Starts the notification listener via the SseObservable pattern
+    /** Uses @ref HttpClientStreamingIo::SseObservable — notifications are
+        dispatched on the global AsyncIoController's worker pool as soon
+        as the SSE framer produces an event, not polled on a dedicated
+        thread.  Callbacks (\c onProgress, \c onConnected, etc.) are
+        invoked from the worker pool via an observer adapter.
+
+        Returns True if the listener started cleanly; False on any
+        failure to open the stream.
+    */
     private bool startNotificationListener() {
         {
             listener_lck.lock();
@@ -778,152 +790,88 @@ public class McpClient {
             }
         }
 
-        *HttpClientIo::HttpClientStreamHandle stream = openListenerStream();
-        if (!stream) {
+        hash<auto> headers = default_headers;
+        if (session_id) {
+            headers{McpSessionHeader} = session_id;
+        }
+
+        HttpClientStreamingIo::SseObservable obs;
+        object observer;
+        try {
+            obs = new HttpClientStreamingIo::SseObservable(mgr, url, "GET",
+                url_path, headers, NOTHING, {"serialization": "none"});
+            # Adapter: translate SseObservable events to McpClient callbacks
+            observer = new McpClientSseObserver(self);
+            obs.registerObserver(observer);
+            obs.observersReady();
+        } catch (hash<ExceptionInfo> ex) {
+            logDebug("Listener start failed: %s: %s", ex.err, ex.desc);
             return False;
         }
 
         {
             listener_lck.lock();
             on_exit listener_lck.unlock();
-            listener_stream = stream;
-            listener_stop_flag = False;
+            listener_obs = obs;
+            listener_observer = observer;
             listener_started = True;
         }
-
-        listener_cnt.inc();
-        on_error listener_cnt.dec();
-        background listenerEventLoop();
-
         return True;
     }
 
     #! Stops the notification listener
     private stopNotificationListener() {
-        bool wait = False;
+        *HttpClientStreamingIo::SseObservable obs;
         {
             listener_lck.lock();
             on_exit listener_lck.unlock();
-            if (listener_started) {
-                listener_stop_flag = True;
-                if (listener_stream) {
-                    listener_stream.cancel();
-                }
-                wait = True;
+            if (!listener_started) {
+                return;
             }
+            obs = listener_obs;
+            listener_obs = NOTHING;
+            listener_observer = NOTHING;
+            listener_started = False;
         }
-
-        if (wait) {
-            listener_cnt.waitForZero();
+        if (obs) {
+            try {
+                obs.stopEvents();
+            } catch () {
+            }
         }
     }
 
-    #! Opens a streaming GET connection for SSE notifications
-    private *HttpClientIo::HttpClientStreamHandle openListenerStream() {
-        hash<auto> headers = {
-            "Accept": "text/event-stream",
-        } + default_headers;
-        if (session_id) {
-            headers{McpSessionHeader} = session_id;
-        }
-
-        try {
-            return mgr.acquireAndStartStreaming(url, "GET", url_path, headers);
-        } catch (hash<ExceptionInfo> ex) {
-            logDebug("Listener stream failed: %s: %s", ex.err, ex.desc);
+    #! Called by the SseObservable observer adapter when an event arrives
+    /** Parses the JSON payload and dispatches through the existing
+        handleStreamableMessage → handleNotification pipeline so observer
+        delivery is indistinguishable from the old polling path for
+        everything downstream.
+    */
+    onSseData(hash<auto> data) {
+        if (!data.data.val()) {
             return;
         }
+        auto msg;
+        try {
+            msg = parse_json(data.data);
+        } catch (hash<ExceptionInfo> ex) {
+            logDebug("Failed to parse SSE message: %s: %s", ex.err, ex.desc);
+            invokeCallback("onError", (("Failed to parse SSE message: " + ex.desc),));
+            return;
+        }
+        handleStreamableMessage(msg, -1);
     }
 
-    #! Notification listener event loop
-    private listenerEventLoop() {
-        on_exit {
-            listener_lck.lock();
-            on_exit listener_lck.unlock();
-            listener_started = False;
-            listener_stream = NOTHING;
-            listener_cnt.dec();
-        }
-
-        bool connected = False;
-        while (True) {
-            HttpClientIo::HttpClientStreamHandle stream;
-            {
-                listener_lck.lock();
-                on_exit listener_lck.unlock();
-                stream = listener_stream;
-            }
-
-            if (!stream) {
-                break;
-            }
-
-            HttpClientStreamingIo::SseStreamReader reader(stream);
-
-            while (!listener_stop_flag) {
-                *hash<SseMessageInfo> evt;
-                try {
-                    evt = reader.readEvent(streamable_listener_timeout);
-                } catch (hash<ExceptionInfo> ex) {
-                    logDebug("Listener error: %s: %s", ex.err, ex.desc);
-                    invokeCallback("onError", (("Listener error: " + ex.desc),));
-                    break;
-                }
-                if (!evt) {
-                    if (reader.isDone()) {
-                        break;
-                    }
-                    continue;
-                }
-
-                # Fire onConnected after the first SSE event is received; this
-                # confirms the server has fully registered the SSE connection
-                # and can deliver server-initiated notifications
-                if (!connected) {
-                    connected = True;
-                    invokeCallback("onConnected");
-                }
-
-                if (!evt.data.val()) {
-                    continue;
-                }
-                auto msg;
-                try {
-                    msg = parse_json(evt.data);
-                } catch (hash<ExceptionInfo> ex) {
-                    logDebug("Failed to parse SSE message: %s: %s", ex.err, ex.desc);
-                    invokeCallback("onError", (("Failed to parse SSE message: " + ex.desc),));
-                    continue;
-                }
-                handleStreamableMessage(msg, -1);
-            }
-
-            if (listener_stop_flag) {
-                break;
-            }
-
-            invokeCallback("onDisconnected");
-            connected = False;
-
-            if (!streamable_reconnect) {
-                break;
-            }
-
-            sleep(1);
-
-            *HttpClientIo::HttpClientStreamHandle new_stream = openListenerStream();
-            if (!new_stream) {
-                break;
-            }
-            {
-                listener_lck.lock();
-                on_exit listener_lck.unlock();
-                listener_stream = new_stream;
-            }
-        }
-
-        # state cleared in on_exit
+    #! Called by the observer adapter on SSE connection established
+    onSseConnected() {
+        invokeCallback("onConnected");
     }
+
+    #! Called by the observer adapter on SSE connection closed
+    onSseClosed() {
+        invokeCallback("onDisconnected");
+    }
+
 
     #! Closes the MCP connection
     close() {
@@ -1340,6 +1288,46 @@ public class McpClient {
         if (logger) {
             string msg = vsprintf(fmt, argv);
             logger.debug(msg);
+        }
+    }
+}
+
+#! Observer adapter that routes SseObservable events to the McpClient
+/** Inherits from @ref DataProvider::Observer so it satisfies the
+    abstract @ref DataProvider::Observer::update() signature required by
+    @ref DataProvider::Observable::registerObserver().
+
+    The adapter translates the three SSE event types
+    (\c EVENT_SSE_CONNECTED, \c EVENT_SSE_DATA, \c EVENT_SSE_CLOSED) into
+    the McpClient's existing callback API so downstream consumers don't
+    have to change.
+
+    @since McpClient 1.3
+*/
+public class McpClientSseObserver inherits DataProvider::Observer {
+    private {
+        McpClient client;
+    }
+
+    constructor(McpClient client) {
+        self.client = client;
+    }
+
+    #! Observer::update hook
+    update(string event_id, hash<auto> data_) {
+        if (!client) {
+            return;
+        }
+        switch (event_id) {
+            case HttpClientStreamingIo::EVENT_SSE_CONNECTED:
+                client.onSseConnected();
+                break;
+            case HttpClientStreamingIo::EVENT_SSE_DATA:
+                client.onSseData(data_);
+                break;
+            case HttpClientStreamingIo::EVENT_SSE_CLOSED:
+                client.onSseClosed();
+                break;
         }
     }
 }

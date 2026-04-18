@@ -1359,15 +1359,27 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         @since McpServerHandler 1.2
     */
     sendSessionNotification(string sessionId, string method, *hash<auto> params) {
-        *McpServerConnection conn;
+        # Broadcast to all SSE connections for this session.  A session can
+        # hold multiple streams concurrently — the persistent listener (from
+        # startSseListener()) plus any tool-call response streams serving
+        # text/event-stream — and which one the client is actively reading
+        # depends on the request shape.  Delivering to all ensures the
+        # client's listener callback fires regardless of which stream is
+        # the "primary" for the session at this moment.
+        list<McpServerConnection> conns = ();
         {
             AutoReadLock al(rwl);
             if (smap{sessionId}) {
-                conn = smap{sessionId}.ssemap.firstValue();
+                conns = map $1, smap{sessionId}.ssemap.iterator();
             }
         }
-        if (conn) {
-            conn.sendNotification(method, params);
+        foreach McpServerConnection conn in (conns) {
+            try {
+                conn.sendNotification(method, params);
+            } catch (hash<ExceptionInfo> ex) {
+                # Best-effort — a closed/broken stream should not break the
+                # notification fan-out to the others
+            }
         }
     }
 
