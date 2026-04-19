@@ -397,7 +397,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     #! Creates the handler
     /**
     */
-    constructor() {
+    constructor() : ServerSentEventHandler(SseHandlerOpts) {
         setupMethods();
     }
 
