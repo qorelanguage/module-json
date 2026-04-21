@@ -299,7 +299,7 @@ public class McpClient {
         Mutex lck();
 
         #! Default headers to include in all requests (e.g., auth tokens)
-        hash<string, string> default_headers;
+        hash<string, string> default_headers = {};
 
         #! Logger interface
         *LoggerInterface logger;
@@ -1307,6 +1307,15 @@ public class McpClient {
 public class McpClientSseObserver inherits DataProvider::Observer {
     private {
         McpClient client;
+        #! True after onSseConnected has been fired to the client
+        /** EVENT_SSE_CONNECTED fires as soon as the SSE request has been
+            submitted — before the server has necessarily processed it and
+            registered the stream.  Defer firing onSseConnected until the
+            first real SSE signal (data or heartbeat) arrives, which
+            confirms the server has fully registered the stream and can
+            deliver server-initiated notifications.
+        */
+        bool connected_fired = False;
     }
 
     constructor(McpClient client) {
@@ -1319,16 +1328,25 @@ public class McpClientSseObserver inherits DataProvider::Observer {
             return;
         }
         switch (event_id) {
-            case HttpClientStreamingIo::EVENT_SSE_CONNECTED:
-                client.onSseConnected();
-                break;
             case HttpClientStreamingIo::EVENT_SSE_DATA:
+                fireConnectedOnce();
                 client.onSseData(data_);
+                break;
+            case HttpClientStreamingIo::EVENT_SSE_HEARTBEAT:
+                fireConnectedOnce();
                 break;
             case HttpClientStreamingIo::EVENT_SSE_CLOSED:
                 client.onSseClosed();
                 break;
         }
+    }
+
+    private fireConnectedOnce() {
+        if (connected_fired) {
+            return;
+        }
+        connected_fired = True;
+        client.onSseConnected();
     }
 }
 
