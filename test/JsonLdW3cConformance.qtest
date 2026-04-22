@@ -118,6 +118,8 @@ class JsonLdW3cConformanceTest inherits QUnit::Test {
         # Assert a minimum pass rate
         assertTrue(total > 0, "at least one test was run");
         assertTrue(passed > 0, "at least one test passed");
+        assertEq(0, failed, "all non-skipped conformance tests passed");
+        assertEq(total - skipped, passed, "100% pass rate for non-skipped conformance tests");
     }
 
     #! Runs a test suite from a manifest file
@@ -165,11 +167,14 @@ class JsonLdW3cConformanceTest inherits QUnit::Test {
             }
 
             bool is_positive = inlist("jld:PositiveEvaluationTest", test_types);
+            bool is_positive_syntax = inlist("jld:PositiveSyntaxTest", test_types);
             bool is_negative = inlist("jld:NegativeEvaluationTest", test_types);
 
             bool passed;
             if (is_positive) {
                 passed = runPositiveTest(suite_name, t);
+            } else if (is_positive_syntax) {
+                passed = runPositiveSyntaxTest(suite_name, t);
             } else if (is_negative) {
                 passed = runNegativeTest(suite_name, t);
             } else {
@@ -277,6 +282,53 @@ class JsonLdW3cConformanceTest inherits QUnit::Test {
             };
             return False;
         }
+    }
+
+    #! Runs a positive syntax test (expects syntactically valid output)
+    private bool runPositiveSyntaxTest(string suite, hash<auto> t) {
+        string test_id = t."@id";
+        string input_file = testDir + "/" + t.input;
+
+        if (!is_file(input_file)) {
+            return False;
+        }
+
+        try {
+            hash<JsonLdOptions> opts = buildOptions(t);
+
+            switch (suite) {
+                case "toRdf": {
+                    auto input = parse_json(ReadOnlyFile::readTextFile(input_file));
+                    hash<RdfDataset> dataset = processor.toRdf(input, opts);
+                    string nquads = JsonLdRdf::toNQuads(dataset);
+                    string error = validateNQuadsSyntax(nquads);
+                    if (error) {
+                        push failures, {
+                            "id": test_id,
+                            "name": t.name,
+                            "error": error,
+                        };
+                        return False;
+                    }
+                    JsonLdRdf::fromNQuads(nquads);
+                    return True;
+                }
+            }
+        } catch (hash<ExceptionInfo> ex) {
+            push failures, {
+                "id": test_id,
+                "name": t.name,
+                "error": sprintf("%s: %s", ex.err, ex.desc),
+            };
+            return False;
+        }
+
+        push failures, {
+            "id": test_id,
+            "name": t.name,
+            "error": sprintf("unsupported positive syntax test suite %y", suite),
+        };
+        return False;
     }
 
     #! Runs a negative evaluation test (expects a specific error)
@@ -509,103 +561,121 @@ class JsonLdW3cConformanceTest inherits QUnit::Test {
 
     #! Checks if two N-Quads datasets are blank-node-isomorphic
     private bool isBlankNodeIsomorphic(list<string> actual, list<string> expected) {
-        # Build a mapping from actual blank node names to expected blank node names
+        list<string> actual_bnodes = collectBlankNodes(actual);
+        list<string> expected_bnodes = collectBlankNodes(expected);
+
+        if (actual_bnodes.size() != expected_bnodes.size()) {
+            return False;
+        }
+        if (actual_bnodes.empty()) {
+            return actual == expected;
+        }
+
         hash<string, string> bn_map = {};
         hash<string, string> reverse_map = {};
-
-        # Try to find a consistent blank node mapping
-        return tryBlankNodeMapping(actual, expected, \bn_map, \reverse_map, 0);
+        return tryCompleteBlankNodeMapping(actual, expected, actual_bnodes,
+            expected_bnodes, \bn_map, \reverse_map, 0);
     }
 
-    #! Recursively tries to find a blank node mapping between two line sets
-    private bool tryBlankNodeMapping(list<string> actual, list<string> expected,
+    #! Collects all unique blank nodes from term positions in sorted order
+    private list<string> collectBlankNodes(list<string> lines) {
+        hash<auto> seen = {};
+        list<string> result = ();
+
+        foreach string line in (lines) {
+            foreach string bn in (extractBlankNodes(line)) {
+                if (!exists seen{bn}) {
+                    seen{bn} = True;
+                    push result, bn;
+                }
+            }
+        }
+
+        return sort(result);
+    }
+
+    #! Tries all complete blank-node bijections and compares the remapped dataset
+    private bool tryCompleteBlankNodeMapping(list<string> actual, list<string> expected,
+            list<string> actual_bnodes, list<string> expected_bnodes,
             reference<hash<string, string>> bn_map, reference<hash<string, string>> reverse_map,
             int idx) {
-        if (idx >= actual.size()) {
-            return True;
+        if (idx >= actual_bnodes.size()) {
+            list<string> mapped = ();
+            foreach string line in (actual) {
+                push mapped, applyBlankNodeMapToLine(line, bn_map);
+            }
+            return sort(mapped) == expected;
         }
 
-        string a_line = actual[idx];
-
-        # Extract blank nodes from actual line
-        list<string> a_bnodes = extractBlankNodes(a_line);
-
-        # Try to match with each remaining expected line
-        foreach string e_line in (expected) {
-            # Check if this mapping is consistent
-            hash<string, string> saved_map = bn_map;
-            hash<string, string> saved_reverse = reverse_map;
-
-            if (tryMapLine(a_line, e_line, a_bnodes, \bn_map, \reverse_map, 0)) {
-                if (tryBlankNodeMapping(actual, expected, \bn_map, \reverse_map, idx + 1)) {
-                    return True;
-                }
+        string actual_bn = actual_bnodes[idx];
+        foreach string expected_bn in (expected_bnodes) {
+            if (exists reverse_map{expected_bn}) {
+                continue;
             }
 
-            # Restore mapping
-            bn_map = saved_map;
-            reverse_map = saved_reverse;
+            bn_map{actual_bn} = expected_bn;
+            reverse_map{expected_bn} = actual_bn;
+
+            if (tryCompleteBlankNodeMapping(actual, expected, actual_bnodes,
+                    expected_bnodes, \bn_map, \reverse_map, idx + 1)) {
+                return True;
+            }
+
+            remove bn_map{actual_bn};
+            remove reverse_map{expected_bn};
         }
 
         return False;
     }
 
-    #! Tries to map blank nodes in one line to another, trying all combinations
-    private bool tryMapLine(string a_line, string e_line, list<string> a_bnodes,
-            reference<hash<string, string>> bn_map, reference<hash<string, string>> reverse_map,
-            int bn_idx) {
-        # Base case: all blank nodes mapped, check if lines match
-        if (bn_idx >= a_bnodes.size()) {
-            # Use simultaneous replacement to avoid cascading substitutions
-            # Sort blank nodes by length (longest first) to avoid prefix matching
-            list<string> sorted_bns = sort(a_bnodes,
-                int sub (string a, string b) { return b.length() <=> a.length(); });
-            # First pass: replace all with unique placeholders
-            string mapped_line = a_line;
-            for (int i = 0; i < sorted_bns.size(); ++i) {
-                string abn = sorted_bns[i];
-                if (exists bn_map{abn}) {
-                    string placeholder = "\x00PLACEHOLDER" + string(i) + "\x00";
-                    mapped_line = replace(mapped_line, abn, placeholder);
+    #! Applies a blank-node mapping only outside quoted literals
+    private string applyBlankNodeMapToLine(string line, hash<string, string> bn_map) {
+        string result;
+        int pos = 0;
+        bool in_string = False;
+
+        while (pos < line.length()) {
+            if (in_string) {
+                result += line[pos];
+                if (line[pos] == "\\" && pos + 1 < line.length()) {
+                    ++pos;
+                    result += line[pos];
+                } else if (line[pos] == "\"") {
+                    in_string = False;
                 }
+                ++pos;
+                continue;
             }
-            # Second pass: replace placeholders with target values
-            for (int i = 0; i < sorted_bns.size(); ++i) {
-                string abn = sorted_bns[i];
-                if (exists bn_map{abn}) {
-                    string placeholder = "\x00PLACEHOLDER" + string(i) + "\x00";
-                    mapped_line = replace(mapped_line, placeholder, bn_map{abn});
-                }
+
+            if (line[pos] == "\"") {
+                in_string = True;
+                result += line[pos];
+                ++pos;
+                continue;
             }
-            return mapped_line == e_line;
+
+            if (line[pos] != "_" || pos + 1 >= line.length() || line[pos + 1] != ":") {
+                result += line[pos];
+                ++pos;
+                continue;
+            }
+
+            int end = pos + 2;
+            while (end < line.length() && line[end] != " " && line[end] != "."
+                    && line[end] != "<" && line[end] != ">") {
+                ++end;
+            }
+
+            string bn = substr(line, pos, end - pos);
+            if (exists bn_map{bn}) {
+                result += bn_map{bn};
+            } else {
+                result += bn;
+            }
+            pos = end;
         }
 
-        string abn = a_bnodes[bn_idx];
-
-        # If already mapped, try with existing mapping
-        if (exists bn_map{abn}) {
-            return tryMapLine(a_line, e_line, a_bnodes, \bn_map, \reverse_map, bn_idx + 1);
-        }
-
-        # Try all blank nodes in the expected line
-        list<string> e_bnodes = extractBlankNodes(e_line);
-        foreach string ebn in (e_bnodes) {
-            if (!exists reverse_map{ebn} || reverse_map{ebn} == abn) {
-                hash<string, string> saved_map = bn_map;
-                hash<string, string> saved_reverse = reverse_map;
-                bn_map{abn} = ebn;
-                reverse_map{ebn} = abn;
-
-                if (tryMapLine(a_line, e_line, a_bnodes, \bn_map, \reverse_map, bn_idx + 1)) {
-                    return True;
-                }
-
-                bn_map = saved_map;
-                reverse_map = saved_reverse;
-            }
-        }
-
-        return False;
+        return result;
     }
 
     #! Extracts blank node identifiers from an N-Quads line (term positions only)
@@ -615,40 +685,93 @@ class JsonLdW3cConformanceTest inherits QUnit::Test {
         # N-Quads format: subject predicate object [graphLabel] .
         # Terms are separated by spaces; strings are enclosed in quotes
         int pos = 0;
+        bool in_string = False;
         while (pos < line.length()) {
-            # Skip quoted strings (literals)
-            if (line[pos] == "\"") {
-                ++pos;
-                while (pos < line.length()) {
-                    if (line[pos] == "\\" && pos + 1 < line.length()) {
-                        pos += 2;  # skip escaped char
-                    } else if (line[pos] == "\"") {
-                        ++pos;
-                        break;
-                    } else {
-                        ++pos;
-                    }
+            if (in_string) {
+                if (line[pos] == "\\" && pos + 1 < line.length()) {
+                    pos += 2;
+                } else if (line[pos] == "\"") {
+                    in_string = False;
+                    ++pos;
+                } else {
+                    ++pos;
                 }
                 continue;
             }
-            int idx = index(line, "_:", pos);
-            if (idx < 0) {
-                break;
+
+            if (line[pos] == "\"") {
+                in_string = True;
+                ++pos;
+                continue;
             }
-            # Check if this _: is inside a quoted string (should be handled above)
+
+            if (line[pos] != "_" || pos + 1 >= line.length() || line[pos + 1] != ":") {
+                ++pos;
+                continue;
+            }
+
             # Find end of blank node identifier
-            int end = idx + 2;
+            int end = pos + 2;
             while (end < line.length() && line[end] != " " && line[end] != "."
                     && line[end] != "<" && line[end] != ">") {
                 ++end;
             }
-            string bn = substr(line, idx, end - idx);
+            string bn = substr(line, pos, end - pos);
             if (!inlist(bn, result)) {
                 push result, bn;
             }
             pos = end;
         }
         return result;
+    }
+
+    #! Validates serialized N-Quads for raw control characters in literals
+    private string validateNQuadsSyntax(string nquads) {
+        int line_num = 0;
+        foreach string line in (nquads.split("\n")) {
+            ++line_num;
+            if (trim(line) == "") {
+                continue;
+            }
+
+            bool in_string = False;
+            for (int i = 0; i < line.length(); ++i) {
+                string ch = line[i];
+                int cp = ord(ch);
+
+                if (in_string) {
+                    if (ch == "\\") {
+                        if (i + 1 >= line.length()) {
+                            return sprintf("invalid N-Quads escape at line %d", line_num);
+                        }
+                        ++i;
+                        continue;
+                    }
+                    if (ch == "\"") {
+                        in_string = False;
+                        continue;
+                    }
+                    if (cp < 0x20) {
+                        return sprintf("raw control character U+%04X in literal at line %d",
+                            cp, line_num);
+                    }
+                    continue;
+                }
+
+                if (ch == "\"") {
+                    in_string = True;
+                } else if (cp < 0x20) {
+                    return sprintf("raw control character U+%04X outside literal at line %d",
+                        cp, line_num);
+                }
+            }
+
+            if (in_string) {
+                return sprintf("unterminated literal at line %d", line_num);
+            }
+        }
+
+        return "";
     }
 
     #! Normalizes a JSON-LD value for comparison (sort keys, normalize arrays)

@@ -1230,12 +1230,41 @@ public class JsonLdRdf {
 
     #! Escapes a string for N-Quads
     private static string escapeNQuadsString(string s) {
-        s = replace(s, "\\", "\\\\");
-        s = replace(s, "\"", "\\\"");
-        s = replace(s, "\n", "\\n");
-        s = replace(s, "\r", "\\r");
-        s = replace(s, "\t", "\\t");
-        return s;
+        string result;
+        for (int i = 0; i < s.length(); ++i) {
+            string ch = s[i];
+            int cp = ord(ch);
+            switch (cp) {
+                case 0x08:
+                    result += "\\b";
+                    break;
+                case 0x09:
+                    result += "\\t";
+                    break;
+                case 0x0a:
+                    result += "\\n";
+                    break;
+                case 0x0c:
+                    result += "\\f";
+                    break;
+                case 0x0d:
+                    result += "\\r";
+                    break;
+                case 0x22:
+                    result += "\\\"";
+                    break;
+                case 0x5c:
+                    result += "\\\\";
+                    break;
+                default:
+                    if (cp < 0x20) {
+                        result += sprintf("\\u%04X", cp);
+                    } else {
+                        result += ch;
+                    }
+            }
+        }
+        return result;
     }
 
     #! Escapes an IRI for N-Quads
@@ -1499,12 +1528,106 @@ public class JsonLdRdf {
 
     #! Unescapes an N-Quads string
     private static string unescapeNQuadsString(string s) {
-        s = replace(s, "\\t", "\t");
-        s = replace(s, "\\r", "\r");
-        s = replace(s, "\\n", "\n");
-        s = replace(s, "\\\"", "\"");
-        s = replace(s, "\\\\", "\\");
-        return s;
+        string result;
+        for (int i = 0; i < s.length(); ++i) {
+            string ch = s[i];
+            if (ch != "\\") {
+                result += ch;
+                continue;
+            }
+
+            if (i + 1 >= s.length()) {
+                throwJsonLdError(JSONLD_ERR_LOADING_DOCUMENT_FAILED,
+                    "invalid trailing escape in N-Quads literal");
+            }
+
+            string esc = s[++i];
+            switch (esc) {
+                case "b":
+                    result += "\b";
+                    break;
+                case "t":
+                    result += "\t";
+                    break;
+                case "n":
+                    result += "\n";
+                    break;
+                case "f":
+                    result += "\f";
+                    break;
+                case "r":
+                    result += "\r";
+                    break;
+                case "\"":
+                    result += "\"";
+                    break;
+                case "'":
+                    result += "'";
+                    break;
+                case "\\":
+                    result += "\\";
+                    break;
+                case "u": {
+                    if (i + 4 >= s.length()) {
+                        throwJsonLdError(JSONLD_ERR_LOADING_DOCUMENT_FAILED,
+                            "short \\u escape in N-Quads literal");
+                    }
+                    string hex = substr(s, i + 1, 4);
+                    if (hex !~ /^[0-9A-Fa-f]{4}$/) {
+                        throwJsonLdError(JSONLD_ERR_LOADING_DOCUMENT_FAILED,
+                            sprintf("invalid \\u escape in N-Quads literal: %y", hex));
+                    }
+                    result += codepointToUtf8String(int(hex, 16));
+                    i += 4;
+                    break;
+                }
+                case "U": {
+                    if (i + 8 >= s.length()) {
+                        throwJsonLdError(JSONLD_ERR_LOADING_DOCUMENT_FAILED,
+                            "short \\U escape in N-Quads literal");
+                    }
+                    string hex = substr(s, i + 1, 8);
+                    if (hex !~ /^[0-9A-Fa-f]{8}$/) {
+                        throwJsonLdError(JSONLD_ERR_LOADING_DOCUMENT_FAILED,
+                            sprintf("invalid \\U escape in N-Quads literal: %y", hex));
+                    }
+                    result += codepointToUtf8String(int(hex, 16));
+                    i += 8;
+                    break;
+                }
+                default:
+                    throwJsonLdError(JSONLD_ERR_LOADING_DOCUMENT_FAILED,
+                        sprintf("invalid escape in N-Quads literal: \\%s", esc));
+            }
+        }
+
+        return result;
+    }
+
+    #! Encodes a Unicode codepoint as a UTF-8 string
+    private static string codepointToUtf8String(int cp) {
+        if (cp < 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) {
+            throwJsonLdError(JSONLD_ERR_LOADING_DOCUMENT_FAILED,
+                sprintf("invalid Unicode codepoint in N-Quads literal: U+%04X", cp));
+        }
+
+        binary encoded = binary();
+        if (cp <= 0x7f) {
+            encoded += chr(cp);
+        } else if (cp <= 0x7ff) {
+            encoded += chr(0xc0 | (cp >> 6));
+            encoded += chr(0x80 | (cp & 0x3f));
+        } else if (cp <= 0xffff) {
+            encoded += chr(0xe0 | (cp >> 12));
+            encoded += chr(0x80 | ((cp >> 6) & 0x3f));
+            encoded += chr(0x80 | (cp & 0x3f));
+        } else {
+            encoded += chr(0xf0 | (cp >> 18));
+            encoded += chr(0x80 | ((cp >> 12) & 0x3f));
+            encoded += chr(0x80 | ((cp >> 6) & 0x3f));
+            encoded += chr(0x80 | (cp & 0x3f));
+        }
+        return encoded.toString("utf-8");
     }
 }
 

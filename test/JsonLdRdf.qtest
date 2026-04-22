@@ -322,7 +322,7 @@ class JsonLdRdfTest inherits QUnit::Test {
             "predicate": <RdfTerm>{"termType": "IRI", "value": "http://example.com/p"},
             "object": <RdfTerm>{
                 "termType": "literal",
-                "value": "line1\nline2\t\"quoted\"",
+                "value": "line1\nline2\t\"quoted\"\\\b\f\u0000\u000f",
                 "datatype": XSD_STRING,
             },
         };
@@ -331,10 +331,16 @@ class JsonLdRdfTest inherits QUnit::Test {
         assertTrue(nquads.find("\\n") >= 0);
         assertTrue(nquads.find("\\t") >= 0);
         assertTrue(nquads.find("\\\"") >= 0);
+        assertTrue(nquads.find("\\\\") >= 0);
+        assertTrue(nquads.find("\\b") >= 0);
+        assertTrue(nquads.find("\\f") >= 0);
+        assertTrue(nquads.find("\\u0000") >= 0);
+        assertTrue(nquads.find("\\u000F") >= 0);
 
         # Parse it back
         hash<RdfDataset> parsed = JsonLdRdf::fromNQuads(nquads);
-        assertEq("line1\nline2\t\"quoted\"", parsed.defaultGraph[0].object.value);
+        assertEq("line1\nline2\t\"quoted\"\\\b\f\u0000\u000f",
+            parsed.defaultGraph[0].object.value);
     }
 
     private toRdfFromRdfRoundTripTest() {
