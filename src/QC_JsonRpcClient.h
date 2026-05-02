@@ -54,8 +54,10 @@ public:
     DLLLOCAL JsonRpcClient(const QoreHashNode* opts, bool no_connect, ExceptionSink* xsink) : JsonRpcClient() {
         // set json-rpc version if possible
         QoreValue vstr = opts->getKeyValue("version");
-        if (vstr.getType() == NT_STRING)
-            jsonrpc_version = vstr.get<const QoreStringNode>()->c_str();
+        if (vstr.getType() == NT_STRING) {
+            QoreStringValueHelper str(vstr);
+            jsonrpc_version = str->c_str();
+        }
 
         // set HTTPClient options
         if (setOptions(opts, xsink))

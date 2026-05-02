@@ -142,7 +142,7 @@ static int do_cbor_value(
     }
 
     if (vtype == NT_STRING) {
-        const QoreStringNode* str = v.get<const QoreStringNode>();
+        QoreStringValueHelper str(v);
         encoder.string_value(jsoncons::string_view(str->c_str(), str->size()));
         return 0;
     }

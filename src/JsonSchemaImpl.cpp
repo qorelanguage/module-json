@@ -109,7 +109,7 @@ jsoncons::json JsonSchemaValidator::qoreToJson(QoreValue val, ExceptionSink* xsi
             return jsoncons::json(val.getAsBool());
 
         case NT_STRING: {
-            const QoreStringNode* str = val.get<const QoreStringNode>();
+            QoreStringValueHelper str(val);
             return jsoncons::json(str->c_str());
         }
 

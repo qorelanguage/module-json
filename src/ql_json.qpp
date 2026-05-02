@@ -911,7 +911,8 @@ static int do_json_value(QoreString* str, QoreValue v, int format, int depth,
     }
 
     if (vtype == NT_STRING) {
-        return do_json_string(xsink, str, v.get<const QoreStringNode>(), format);
+        QoreStringNodeValueHelper s(v);
+        return do_json_string(xsink, str, *s, format);
     }
 
     if (vtype == NT_INT) {
@@ -1047,7 +1048,7 @@ static int do_json_value(QoreString* str, QoreValue v, int format, int depth,
 
 QoreStringNode* make_jsonrpc_request_args(const std::string& version, const QoreListNode* args, QoreValue id,
         unsigned offset, ExceptionSink* xsink) {
-    const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
+    const QoreValue p0 = get_param_value(args, offset);
     const QoreValue p1 = get_param_value(args, offset + 1);
     QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 
@@ -1088,7 +1089,7 @@ QoreStringNode* make_jsonrpc_request_args(const std::string& version, const Qore
 
 QoreStringNode* make_jsonrpc_request(const std::string& version, const QoreListNode* args, QoreValue id,
         unsigned offset, ExceptionSink* xsink) {
-    const QoreStringNode* p0 = HARD_QORE_VALUE_STRING(args, offset);
+    const QoreValue p0 = get_param_value(args, offset);
 
     QoreStringNodeHolder str(new QoreStringNode(QCS_UTF8));
 

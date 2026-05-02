@@ -87,7 +87,8 @@ QoreValue JsonRpcClient::call(QoreStringNode* msg, QoreHashNode* info, Exception
     }
 
     // parse JSON-RPC response
-    return parse_json(ah.get<QoreStringNode>(), xsink);
+    QoreStringNodeValueHelper str(ah);
+    return parse_json(*str, xsink);
 }
 
 //! The JsonRpcClient class provides easy access to JSON-RPC web services

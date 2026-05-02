@@ -244,10 +244,11 @@ bool JsonSchema::validate(auto data, bool throw_on_error = False) {
         if (error_list && error_list->size() > 0) {
             QoreHashNode* first_error = error_list->retrieveEntry(0).get<QoreHashNode>();
             if (first_error) {
-                QoreStringNode* error_msg = first_error->getKeyValue("message").get<QoreStringNode>();
-                if (error_msg) {
+                QoreValue error_msg = first_error->getKeyValue("message");
+                if (error_msg.getType() == NT_STRING) {
+                    QoreStringValueHelper error_msg_str(error_msg);
                     msg->concat(": ");
-                    msg->concat(error_msg, xsink);
+                    msg->concat(error_msg_str->c_str());
                 }
             }
         }

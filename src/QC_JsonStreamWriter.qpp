@@ -394,7 +394,10 @@ int JsonStreamWriter::value(QoreValue v, ExceptionSink* xsink) {
             return numberValue(v.getAsFloat(), xsink);
 
         case NT_STRING:
-            return stringValue(v.get<const QoreStringNode>(), xsink);
+        {
+            QoreStringNodeValueHelper str(v);
+            return stringValue(*str, xsink);
+        }
 
         case NT_LIST: {
             const QoreListNode* l = v.get<const QoreListNode>();
