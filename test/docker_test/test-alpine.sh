@@ -56,8 +56,10 @@ done
 # Install pip and Python dependencies for integration tests
 echo && echo "-- installing Python dependencies for integration tests --"
 apk add --no-cache py3-pip
-python3 -m pip install --break-system-packages mcp httpx 'a2a-sdk[sqlite,http-server]>=1.0.0a0' || \
-    python3 -m pip install mcp httpx 'a2a-sdk[sqlite,http-server]>=1.0.0a0'
+# Pin protobuf<7: a2a-sdk (incl. latest 1.0.2 and main) calls FieldDescriptor.label,
+# which protobuf 7 removed. See https://github.com/a2aproject/a2a-python/issues/1011.
+python3 -m pip install --break-system-packages mcp httpx 'a2a-sdk[sqlite,http-server]>=1.0.0a0' 'protobuf<7' || \
+    python3 -m pip install mcp httpx 'a2a-sdk[sqlite,http-server]>=1.0.0a0' 'protobuf<7'
 
 # run MCP integration tests with Python SDK
 echo && echo "-- running MCP integration tests --"
