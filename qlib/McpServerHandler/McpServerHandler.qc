@@ -82,11 +82,14 @@ public hashdecl McpTaskInfo {
     #! Optional progress token for notifications
     *string progressToken;
 
+    #! Optional caller-provided idempotency key for task creation
+    *string clientOperationId;
+
     #! Condition variable for blocking waits
-    Qore::Thread::Condition cond;
+    *Qore::Thread::Condition cond;
 
     #! Mutex for condition variable
-    Qore::Thread::Mutex lck;
+    *Qore::Thread::Mutex lck;
 
     #! Whether the task has been cancelled
     bool cancelled = False;
@@ -353,6 +356,10 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         #! Session ID map
         hash<string, int> sidmap;
 
+        #! Cancellation markers retained after a session is removed while
+        #! its background tool calls are still unwinding.
+        hash<string, hash<string, bool>> cancelledRequestTombstones;
+
         #! Session created by the last initialize() call (read by handleRequest)
         *string last_init_session;
 
@@ -515,6 +522,12 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 return AbstractHttpRequestHandler::makeResponse(400, "Missing session ID in %y header to delete",
                     McpSessionHeader);
             }
+            # The client has explicitly deleted the session: cancel any
+            # in-progress tool execution so cooperative tools stop and any
+            # waiters are released.  cancelSessionRequests() takes the write
+            # lock itself and no-ops if the session is gone, so it must run
+            # before the removal block.
+            cancelSessionRequests(session, "session deleted by client");
             {
                 AutoWriteLock al(rwl);
                 # close all connections
@@ -657,6 +670,23 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             return 0;
         }
 
+        # Cancel in-progress work for genuinely-expired sessions before removing
+        # them.  cancelSessionRequests() acquires the write lock itself and
+        # no-ops if the session is gone, so it must run outside the removal
+        # write lock.  Re-verify expiry first so a session that became active
+        # between the scan and now is left untouched (matching the removal
+        # double-check below).
+        foreach string sid in (expired) {
+            bool still_expired;
+            {
+                AutoReadLock al(rwl);
+                still_expired = smap{sid} && smap{sid}.last_activity < cutoff;
+            }
+            if (still_expired) {
+                cancelSessionRequests(sid, "session expired");
+            }
+        }
+
         AutoWriteLock al(rwl);
         foreach string sid in (expired) {
             # double-check in case session was updated between locks
@@ -697,20 +727,17 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         smap{conn.getSession()}.ssemap{conn.uniqueHash()} = conn;
     }
 
-    #! Called when an SSE connection terminates; cancels all in-progress tasks for the session
+    #! Called when an SSE connection terminates
     deregisterConnectionImpl(ServerSentEventConnection conn) {
         McpServerConnection mcp_conn = cast<McpServerConnection>(conn);
         string sessionId = mcp_conn.getSession();
-        info("SSE connection closed for session %y — cancelling in-progress requests", sessionId);
+        info("SSE connection closed for session %y", sessionId);
 
         # Remove from session's SSE map
         {
             AutoWriteLock al(rwl);
             remove smap{sessionId}.ssemap{mcp_conn.uniqueHash()};
         }
-
-        # Cancel all in-progress tasks for this session — the client is gone
-        cancelSessionRequests(sessionId, "client disconnected");
     }
 
     private static bool clientAcceptsSse(hash<auto> hdr) {
@@ -737,11 +764,19 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     private *list<hash<auto>> getToolList(hash<auto> cx) {
-        return map (
-            "name": $1.name,
-            "description": $1.description,
-            "inputSchema": $1.input,
-        ), tmap.iterator();
+        list<hash<auto>> rv = ();
+        foreach hash<McpToolInfo> tool in (tmap.iterator()) {
+            hash<auto!> info = {
+                "name": tool.name,
+                "description": tool.description,
+                "inputSchema": tool.input,
+            };
+            if (tool.extra.execution) {
+                info.execution = tool.extra.execution;
+            }
+            push rv, info;
+        }
+        return rv;
     }
 
     private *hash<auto> toolsCall(hash<auto> cx, *hash<auto> params) {
@@ -1237,7 +1272,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         @return the new task info
     */
     private hash<McpTaskInfo> createTask(string sessionId, string method, *hash<auto> params, *int ttl,
-            *auto requestId) {
+            *auto requestId, *string clientOperationId) {
         string taskId = generateTaskId();
         date now = now_us();
 
@@ -1253,6 +1288,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             "sessionId": sessionId,
             "requestId": requestId,
             "progressToken": params._meta.progressToken,
+            "clientOperationId": clientOperationId,
             "cond": new Qore::Thread::Condition(),
             "lck": new Qore::Thread::Mutex(),
         };
@@ -1266,6 +1302,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 throw "MCP-TASK-ERROR", sprintf("Maximum tasks per session (%d) exceeded", maxTasksPerSession);
             }
             smap{sessionId}.tasks{taskId} = task;
+            if (clientOperationId.val()) {
+                smap{sessionId}.taskOperationIds{clientOperationId} = taskId;
+            }
         }
 
         return task;
@@ -1283,9 +1322,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             if (!smap{sessionId}.tasks{taskId}) {
                 throw "MCP-TASK-ERROR", sprintf("Task %y not found in session %y", taskId, sessionId);
             }
-            smap{sessionId}.tasks{taskId}.status = status;
-            smap{sessionId}.tasks{taskId}.statusMessage = message;
-            smap{sessionId}.tasks{taskId}.lastUpdatedAt = now_us();
+            hash<McpTaskInfo> task = smap{sessionId}.tasks{taskId};
+            task.status = status;
+            task.statusMessage = message;
+            task.lastUpdatedAt = now_us();
+            smap{sessionId}.tasks{taskId} = task;
         }
         sendTaskStatusNotification(sessionId, taskId);
     }
@@ -1297,30 +1338,70 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         @param error optional error (for failure)
     */
     private setTaskResult(string sessionId, string taskId, *hash<auto> result, *hash<auto> error) {
-        hash<McpTaskInfo> task;
-        {
-            AutoWriteLock al(rwl);
-            if (!smap{sessionId}.tasks{taskId}) {
-                throw "MCP-TASK-ERROR", sprintf("Task %y not found in session %y", taskId, sessionId);
-            }
-            task = smap{sessionId}.tasks{taskId};
-
-            if (error) {
-                smap{sessionId}.tasks{taskId}.status = McpTaskStatus::Failed;
-                smap{sessionId}.tasks{taskId}.error = error;
-            } else {
-                smap{sessionId}.tasks{taskId}.status = McpTaskStatus::Completed;
-                smap{sessionId}.tasks{taskId}.result = result;
-            }
-            smap{sessionId}.tasks{taskId}.lastUpdatedAt = now_us();
+        *hash<McpTaskInfo> task = getTaskInfo(sessionId, taskId);
+        if (!task) {
+            throw "MCP-TASK-ERROR", sprintf("Task %y not found in session %y", taskId, sessionId);
         }
 
-        # Signal any waiters
-        task.lck.lock();
-        on_exit task.lck.unlock();
-        task.cond.broadcast();
+        {
+            task.lck.lock();
+            on_exit task.lck.unlock();
+
+            {
+                AutoWriteLock al(rwl);
+                if (!smap{sessionId}.tasks{taskId}) {
+                    throw "MCP-TASK-ERROR", sprintf("Task %y not found in session %y", taskId, sessionId);
+                }
+                task = smap{sessionId}.tasks{taskId};
+
+                if (task.status == McpTaskStatus::Cancelled
+                        || task.cancelled) {
+                    task.status = McpTaskStatus::Cancelled;
+                    task.cancelled = True;
+                } else if (error) {
+                    task.status = McpTaskStatus::Failed;
+                    task.error = error;
+                } else {
+                    task.status = McpTaskStatus::Completed;
+                    task.result = result;
+                }
+                task.lastUpdatedAt = now_us();
+                smap{sessionId}.tasks{taskId} = task;
+            }
+
+            # Signal waiters while holding the condition lock so tasks/result
+            # cannot miss completion between checking status and waiting.
+            task.cond.broadcast();
+        }
 
         sendTaskStatusNotification(sessionId, taskId);
+    }
+
+    #! Stores a background task's result, tolerating a session/task removed mid-execution
+    /** A session can be torn down (HTTP \c DELETE or idle expiry) while a tool is still
+        executing in the background.  When that happens there is no task to update and no
+        client waiting for the result, so it is a benign condition: it is logged and
+        ignored rather than allowed to escape as an unhandled exception in the background
+        thread.  This keeps session teardown a fast, safe \c remove with no dependency on
+        in-progress tasks.
+
+        @param sessionId the session ID
+        @param taskId the task ID
+        @param result optional result (for successful completion)
+        @param error optional error (for failure)
+    */
+    private reportTaskResult(string sessionId, string taskId, *hash<auto> result, *hash<auto> error_info) {
+        try {
+            setTaskResult(sessionId, taskId, result, error_info);
+        } catch (hash<ExceptionInfo> ex) {
+            if (!getTaskInfo(sessionId, taskId)) {
+                info("Task %y (session %y) was removed before its result could be stored "
+                    "(session torn down during execution); discarding result", taskId, sessionId);
+            } else {
+                error("Failed to store result for task %y (session %y): %s", taskId, sessionId,
+                    get_exception_string(ex));
+            }
+        }
     }
 
     #! Sends a task status notification to the client
@@ -1341,13 +1422,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         if (!conn) {
             return;
         }
-        hash<auto> params = {
-            "taskId": taskId,
-            "status": task.status,
-        };
-        if (task.statusMessage.val()) {
-            params.statusMessage = task.statusMessage;
-        }
+        hash<auto> params = getTaskResponse(task);
         conn.sendNotification("notifications/tasks/status", params);
     }
 
@@ -1355,31 +1430,22 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     /** @param sessionId the session ID
         @param method the notification method (e.g., "notifications/progress")
         @param params optional notification parameters
-
-        @since McpServerHandler 1.2
     */
     sendSessionNotification(string sessionId, string method, *hash<auto> params) {
-        # Broadcast to all SSE connections for this session.  A session can
-        # hold multiple streams concurrently — the persistent listener (from
-        # startSseListener()) plus any tool-call response streams serving
-        # text/event-stream — and which one the client is actively reading
-        # depends on the request shape.  Delivering to all ensures the
-        # client's listener callback fires regardless of which stream is
-        # the "primary" for the session at this moment.
-        list<McpServerConnection> conns = ();
+        *McpServerConnection conn;
         {
             AutoReadLock al(rwl);
             if (smap{sessionId}) {
-                conns = map $1, smap{sessionId}.ssemap.iterator();
+                conn = smap{sessionId}.ssemap.firstValue();
             }
         }
-        foreach McpServerConnection conn in (conns) {
-            try {
-                conn.sendNotification(method, params);
-            } catch (hash<ExceptionInfo> ex) {
-                # Best-effort — a closed/broken stream should not break the
-                # notification fan-out to the others
-            }
+        if (!conn) {
+            return;
+        }
+        try {
+            conn.sendNotification(method, params);
+        } catch (hash<ExceptionInfo> ex) {
+            # Best-effort: a closed/broken stream should not break request handling.
         }
     }
 
@@ -1424,7 +1490,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         AutoWriteLock al(rwl);
         foreach string tid in (expired) {
+            hash<McpTaskInfo> task = smap{sessionId}.tasks{tid};
             remove smap{sessionId}.tasks{tid};
+            if (task.clientOperationId.val()) {
+                remove smap{sessionId}.taskOperationIds{task.clientOperationId};
+            }
         }
         return expired.size();
     }
@@ -1470,8 +1540,19 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         int timeout_ms = params.timeout ?? task.ttl;
         date deadline = now_us() + milliseconds(timeout_ms);
 
-        # If task is still running, wait for completion
-        while (task.status == McpTaskStatus::Working || task.status == McpTaskStatus::InputRequired) {
+        while (True) {
+            # Re-fetch before every wait.  The background task may complete
+            # between the first lookup and the condition wait; using a stale
+            # hash copy would then miss the broadcast and wait until timeout.
+            task = getTaskInfo(sessionId, params.taskId);
+            if (!task) {
+                throw "MCP-TASK-ERROR", sprintf("Task %y was removed", params.taskId);
+            }
+            if (task.status != McpTaskStatus::Working
+                    && task.status != McpTaskStatus::InputRequired) {
+                break;
+            }
+
             # Check for cancellation
             if (task.cancelled) {
                 throw "MCP-TASK-CANCELLED", sprintf("Task %y was cancelled", params.taskId);
@@ -1483,18 +1564,32 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 throw "MCP-TASK-TIMEOUT", sprintf("Task %y did not complete within timeout", params.taskId);
             }
 
-            # Wait with remaining timeout
-            task.lck.lock();
-            on_exit task.lck.unlock();
-            if (!task.cond.wait(task.lck, remaining_ms)) {
-                throw "MCP-TASK-TIMEOUT", sprintf("Task %y did not complete within timeout", params.taskId);
+            {
+                task.lck.lock();
+                on_exit task.lck.unlock();
+
+                # Re-check while holding the condition lock.  setTaskResult()
+                # updates status and broadcasts under the same lock, avoiding
+                # the lost-wakeup race where completion lands between the
+                # status check and wait().
+                task = getTaskInfo(sessionId, params.taskId);
+                if (!task) {
+                    throw "MCP-TASK-ERROR", sprintf("Task %y was removed", params.taskId);
+                }
+                if (task.status != McpTaskStatus::Working
+                        && task.status != McpTaskStatus::InputRequired) {
+                    continue;
+                }
+                if (task.cond.wait(task.lck, remaining_ms)) {
+                    task = getTaskInfo(sessionId, params.taskId);
+                    if (task && task.status != McpTaskStatus::Working
+                            && task.status != McpTaskStatus::InputRequired) {
+                        continue;
+                    }
+                    throw "MCP-TASK-TIMEOUT", sprintf("Task %y did not complete within timeout", params.taskId);
+                }
             }
 
-            # Re-fetch task status
-            task = getTaskInfo(sessionId, params.taskId);
-            if (!task) {
-                throw "MCP-TASK-ERROR", sprintf("Task %y was removed", params.taskId);
-            }
         }
 
         # Return result or error based on status
@@ -1532,16 +1627,28 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                     params.taskId, task.status);
             }
 
-            smap{sessionId}.tasks{params.taskId}.status = McpTaskStatus::Cancelled;
-            smap{sessionId}.tasks{params.taskId}.cancelled = True;
-            smap{sessionId}.tasks{params.taskId}.statusMessage = params.reason ?? "Cancelled by client";
-            smap{sessionId}.tasks{params.taskId}.lastUpdatedAt = now_us();
+            task.status = McpTaskStatus::Cancelled;
+            task.cancelled = True;
+            task.statusMessage = params.reason ?? "Cancelled by client";
+            task.lastUpdatedAt = now_us();
+            smap{sessionId}.tasks{params.taskId} = task;
+            if (task.requestId) {
+                smap{sessionId}.cancellations{task.requestId} = <McpCancellationInfo>{
+                    "requestId": task.requestId,
+                    "reason": params.reason ?? "Cancelled by client",
+                    "receivedAt": now_us(),
+                };
+                rememberCancellationTombstoneIntern(sessionId,
+                    task.requestId);
+            }
         }
 
         # Signal any waiters
-        task.lck.lock();
-        on_exit task.lck.unlock();
-        task.cond.broadcast();
+        {
+            task.lck.lock();
+            on_exit task.lck.unlock();
+            task.cond.broadcast();
+        }
 
         sendTaskStatusNotification(sessionId, params.taskId);
 
@@ -1590,6 +1697,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         };
         if (task.statusMessage.val()) {
             rv.statusMessage = task.statusMessage;
+        }
+        if (task.clientOperationId.val()) {
+            rv.clientOperationId = task.clientOperationId;
         }
         return rv;
     }
@@ -1778,6 +1888,55 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         return params._meta.progressToken;
     }
 
+    #! Extracts standard MCP task augmentation parameters from a request
+    private *hash<auto> getTaskAugmentation(*hash<auto> params) {
+        if (!params) {
+            return NOTHING;
+        }
+        if (params.hasKey("task")) {
+            if (!params.task) {
+                return {};
+            }
+            if (params.task.typeCode() != NT_HASH) {
+                throw "MCP-TASK-ERROR", "tools/call task parameter must be an object";
+            }
+            return cast<hash<auto>>(params.task);
+        }
+        # Backwards compatibility for older Qore clients.  The current MCP
+        # Tasks spec uses params.task; _meta.task is accepted only so older
+        # clients do not break while they migrate.
+        if (params._meta.task) {
+            return {};
+        }
+        return NOTHING;
+    }
+
+    #! Extracts optional task TTL from the standard task augmentation hash
+    private *int getTaskTtl(*hash<auto> task_params) {
+        if (!task_params || !task_params.ttl.val()) {
+            return NOTHING;
+        }
+        int ttl = int(task_params.ttl);
+        if (ttl <= 0) {
+            throw "MCP-TASK-ERROR", "task.ttl must be a positive integer";
+        }
+        return ttl;
+    }
+
+    #! Extracts a caller idempotency key from request metadata
+    private *string getClientOperationId(*hash<auto> params) {
+        *string id = params._meta.clientOperationId;
+        return id.val() ? id : NOTHING;
+    }
+
+    #! Returns an existing task for a caller idempotency key, if it is still retained
+    private *hash<McpTaskInfo> getTaskByClientOperationId(string sessionId,
+            string clientOperationId) {
+        AutoReadLock al(rwl);
+        *string taskId = smap{sessionId}.taskOperationIds{clientOperationId};
+        return taskId.val() ? smap{sessionId}.tasks{taskId} : NOTHING;
+    }
+
     #
     # Cancellation Methods
     #
@@ -1807,6 +1966,8 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                     "reason": params.reason,
                     "receivedAt": now_us(),
                 };
+                rememberCancellationTombstoneIntern(sessionId,
+                    params.requestId);
 
                 # Find and cancel ONLY tasks associated with this specific requestId
                 foreach string tid in (keys smap{sessionId}.tasks) {
@@ -1816,10 +1977,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                             && (task.status == McpTaskStatus::Working
                                 || task.status == McpTaskStatus::InputRequired)) {
                         # Mark task as cancelled
-                        smap{sessionId}.tasks{tid}.cancelled = True;
-                        smap{sessionId}.tasks{tid}.status = McpTaskStatus::Cancelled;
-                        smap{sessionId}.tasks{tid}.statusMessage = params.reason ?? "Request cancelled";
-                        smap{sessionId}.tasks{tid}.lastUpdatedAt = now_us();
+                        task.cancelled = True;
+                        task.status = McpTaskStatus::Cancelled;
+                        task.statusMessage = params.reason ?? "Request cancelled";
+                        task.lastUpdatedAt = now_us();
+                        smap{sessionId}.tasks{tid} = task;
 
                         # Collect for signaling after lock release
                         cancelledTasks += task;
@@ -1846,9 +2008,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         # Signal waiters and send notifications outside the write lock
         foreach hash<McpTaskInfo> task in (cancelledTasks) {
-            task.lck.lock();
-            on_exit task.lck.unlock();
-            task.cond.broadcast();
+            {
+                task.lck.lock();
+                on_exit task.lck.unlock();
+                task.cond.broadcast();
+            }
         }
 
         # Send status notifications for cancelled tasks
@@ -1864,7 +2028,30 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     */
     bool isRequestCancelled(string sessionId, auto requestId) {
         AutoReadLock al(rwl);
-        return smap{sessionId}.cancellations{requestId}.val();
+        return smap{sessionId}.cancellations{requestId}.val()
+            || cancelledRequestTombstones{sessionId}{requestId.toString()};
+    }
+
+    private rememberCancellationTombstoneIntern(string sessionId,
+            auto requestId) {
+        if (!requestId) {
+            return;
+        }
+        cancelledRequestTombstones{sessionId}{requestId.toString()} = True;
+    }
+
+    private clearCancellationTombstone(string sessionId, auto requestId) {
+        if (!requestId) {
+            return;
+        }
+        AutoWriteLock al(rwl);
+        if (!cancelledRequestTombstones{sessionId}) {
+            return;
+        }
+        remove cancelledRequestTombstones{sessionId}{requestId.toString()};
+        if (!cancelledRequestTombstones{sessionId}) {
+            remove cancelledRequestTombstones{sessionId};
+        }
     }
 
     #! Marks a cancellation as processed
@@ -1879,7 +2066,17 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     }
 
     #! Cancels all in-progress tasks and pending requests for a session
-    /** Called when the client's SSE connection drops to stop orphaned server-side processing.
+    /** Invoked automatically on explicit session teardown — an HTTP \c DELETE of the
+        session and idle session expiry — so cooperative tools stop promptly and any
+        \c tasks/result waiters are released instead of blocking until timeout.  It is
+        deliberately \b not invoked on routine SSE notification-stream disconnects:
+        clients reconnect their listener while background tasks keep running, so a
+        listener drop must not cancel work (see @ref reportTaskResult(), which keeps
+        result storage safe if the session is removed mid-execution).  May also be
+        called directly for explicit, application-driven teardown.
+
+        Acquires the @ref rwl write lock internally, so it must be called \b before
+        (not nested inside) any caller-held write lock.
 
         @param sessionId the session ID
         @param reason the cancellation reason
@@ -1900,10 +2097,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 hash<McpTaskInfo> task = smap{sessionId}.tasks{tid};
                 if (task.status == McpTaskStatus::Working
                         || task.status == McpTaskStatus::InputRequired) {
-                    smap{sessionId}.tasks{tid}.cancelled = True;
-                    smap{sessionId}.tasks{tid}.status = McpTaskStatus::Cancelled;
-                    smap{sessionId}.tasks{tid}.statusMessage = reason;
-                    smap{sessionId}.tasks{tid}.lastUpdatedAt = now_us();
+                    task.cancelled = True;
+                    task.status = McpTaskStatus::Cancelled;
+                    task.statusMessage = reason;
+                    task.lastUpdatedAt = now_us();
+                    smap{sessionId}.tasks{tid} = task;
                     cancelledTasks += task;
                     cancelledTaskIds += tid;
 
@@ -1914,6 +2112,8 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                             "reason": reason,
                             "receivedAt": now_us(),
                         };
+                        rememberCancellationTombstoneIntern(sessionId,
+                            task.requestId);
                     }
                 }
             }
@@ -1925,6 +2125,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                     "reason": reason,
                     "receivedAt": now_us(),
                 };
+                rememberCancellationTombstoneIntern(sessionId, rid);
             }
             syncCount = smap{sessionId}.activeRequests.size();
 
@@ -1942,9 +2143,11 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
         # Signal waiters outside the write lock
         foreach hash<McpTaskInfo> task in (cancelledTasks) {
-            task.lck.lock();
-            on_exit task.lck.unlock();
-            task.cond.broadcast();
+            {
+                task.lck.lock();
+                on_exit task.lck.unlock();
+                task.cond.broadcast();
+            }
         }
 
         if (cancelledTaskIds || syncCount) {
@@ -2025,7 +2228,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         pending.lck.lock();
         on_exit pending.lck.unlock();
 
-        if (!pending.cond.wait(pending.lck, timeout_ms)) {
+        if (pending.cond.wait(pending.lck, timeout_ms)) {
             throw "MCP-TIMEOUT", sprintf("Client request %y timed out after %d ms", method, timeout_ms);
         }
 
@@ -2159,10 +2362,13 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     #! Modified toolsCallIntern to support task-based execution
     private *hash<auto> toolsCallIntern(hash<auto> cx, *hash<auto> params) {
-        # Check if this should be a task-based call
-        if (params._meta.task) {
+        # Check if this should be a task-based call.  The standard MCP
+        # 2025-11-25 shape is params.task; params._meta.task is accepted only
+        # for backwards compatibility.
+        *hash<auto> task_params = getTaskAugmentation(params);
+        if (task_params) {
             # Pass the requestId from context for cancellation tracking
-            return toolsCallAsTask(cx, params, cx.id);
+            return toolsCallAsTask(cx, params, task_params, cx.id);
         }
 
         *hash<McpToolInfo> info = findToolForCall(cx, params.name);
@@ -2196,13 +2402,17 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                     remove smap{sessionId}.activeRequests{requestId};
                 }
             }
+            if (sessionId.val() && requestId.val()) {
+                clearCancellationTombstone(sessionId, requestId);
+            }
         }
 
         return makeToolCall(info, params, call_info);
     }
 
     #! Executes a tool call as a background task
-    private hash<auto> toolsCallAsTask(hash<auto> cx, *hash<auto> params, *auto requestId) {
+    private hash<auto> toolsCallAsTask(hash<auto> cx, *hash<auto> params,
+            *hash<auto> task_params, *auto requestId) {
         string sessionId = cx.mcp_session;
         if (!sessionId.val()) {
             throw "MCP-SESSION-ERROR", "No session ID for task-based call";
@@ -2214,11 +2424,22 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
                 getKnownToolNames(cx));
         }
 
+        *string clientOperationId = getClientOperationId(params);
+        if (clientOperationId.val()) {
+            if (*hash<McpTaskInfo> existing =
+                    getTaskByClientOperationId(sessionId, clientOperationId)) {
+                return {
+                    "task": getTaskResponse(existing),
+                };
+            }
+        }
+
         # Create the task with the requestId for cancellation tracking
-        hash<McpTaskInfo> task = createTask(sessionId, "tools/call", params, NOTHING, requestId);
+        hash<McpTaskInfo> task = createTask(sessionId, "tools/call", params,
+            getTaskTtl(task_params), requestId, clientOperationId);
 
         # Start background execution
-        background executeToolInBackground(sessionId, task.taskId, info, params, cx);
+        background self.executeToolInBackground(sessionId, task.taskId, info, params, cx);
 
         # Return task info
         return {
@@ -2229,17 +2450,23 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     #! Executes a tool in the background and sets the task result
     private executeToolInBackground(string sessionId, string taskId, hash<McpToolInfo> info, hash<auto> params,
             hash<auto> cx) {
-        hash<McpToolCallContext> call_info = <McpToolCallContext>{
-            "name": info.name,
-            "description": info.description,
-            "sid": sessionId,
-            "arguments": params.arguments,
-            "cx": cx,
-            "handler": self,
-        };
-        McpCallContextHelper mcch(call_info);
-
+        *auto requestId = cx.id;
+        on_exit {
+            if (requestId) {
+                clearCancellationTombstone(sessionId, requestId);
+            }
+        }
         try {
+            hash<McpToolCallContext> call_info = <McpToolCallContext>{
+                "name": info.name,
+                "description": info.description,
+                "sid": sessionId,
+                "arguments": params.arguments,
+                "cx": cx,
+                "handler": self,
+            };
+            McpCallContextHelper mcch(call_info);
+
             # Check if cancelled before starting
             *hash<McpTaskInfo> task = getTaskInfo(sessionId, taskId);
             if (!task || task.cancelled) {
@@ -2247,9 +2474,9 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             }
 
             hash<auto> result = makeToolCall(info, params, call_info);
-            setTaskResult(sessionId, taskId, result);
+            reportTaskResult(sessionId, taskId, result);
         } catch (hash<ExceptionInfo> ex) {
-            setTaskResult(sessionId, taskId, NOTHING, {
+            reportTaskResult(sessionId, taskId, NOTHING, {
                 "err": ex.err,
                 "desc": ex.desc,
             });
@@ -2411,6 +2638,9 @@ hashdecl McpSessionInfo {
 
     # Active tasks: taskId -> task info
     hash<string, hash<McpTaskInfo>> tasks;
+
+    # Caller idempotency keys: clientOperationId -> taskId
+    hash<string, string> taskOperationIds;
 
     # Resource subscriptions: uri -> subscription info
     hash<string, hash<McpResourceSubscription>> subscriptions;

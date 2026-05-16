@@ -39,3 +39,6 @@ docs/json/
 docs/*.doxygen
 docs/qlib/Doxyfile.*
 docs/qlib/*.dox.h
+
+# ignore editor/IDE files
+.vscode/

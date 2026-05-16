@@ -146,5 +146,5 @@ public namespace McpClient {
 public const McpClientName = "QoreMcpClient";
 
 #! Client version
-public const McpClientVersion = "1.1";
+public const McpClientVersion = "1.0";
 }

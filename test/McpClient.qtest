@@ -58,9 +58,42 @@ const NumberInputType = new NumberInput();
 
 # Test MCP server handler with tools, resources, and prompts
 class TestMcpServerHandler inherits McpServerHandler {
+    public {
+        #! reaches zero once the cancellable tool has begun executing
+        Qore::Thread::Counter cancel_started(1);
+        #! reaches zero once the cancellable tool has observed cancellation
+        Qore::Thread::Counter cancel_observed(1);
+        #! set True if the cancellable tool observed cooperative cancellation
+        bool cancel_tool_was_cancelled = False;
+        #! reaches zero once the task-cancel tool has begun executing
+        Qore::Thread::Counter task_cancel_started(1);
+        #! reaches zero once the task-cancel tool has observed cancellation
+        Qore::Thread::Counter task_cancel_observed(1);
+        #! set True if the task-cancel tool observed cooperative cancellation
+        bool task_cancel_tool_was_cancelled = False;
+    }
+
     constructor(LoggerInterface logger) : McpServerHandler(logger, new PermissiveAuthenticator()) {
         registerTool("echo", "Echoes the input message", TestInputType, \echoTool());
         registerTool("add", "Adds two numbers", NumberInputType, \addTool());
+        registerTool("slow", "Completes after a short delay", NOTHING,
+            \slowTool(), NOTHING, {
+                "execution": {
+                    "taskSupport": "optional",
+                },
+            }, NOTHING);
+        registerTool("cancel_slow", "Long-running cooperatively-cancellable tool", NOTHING,
+            \cancelSlowTool(), NOTHING, {
+                "execution": {
+                    "taskSupport": "required",
+                },
+            }, NOTHING);
+        registerTool("task_cancel_slow", "Long-running tasks/cancel test tool", NOTHING,
+            \taskCancelSlowTool(), NOTHING, {
+                "execution": {
+                    "taskSupport": "required",
+                },
+            }, NOTHING);
 
         registerResource("file:///test.txt", "test-file", "A test file resource", "text/plain", \readTestFile());
         registerResource("file:///config.json", "config", "Configuration file", "application/json", \readConfigFile());
@@ -77,6 +110,59 @@ class TestMcpServerHandler inherits McpServerHandler {
     private string addTool(hash<auto> args) {
         number result = args.a + args.b;
         return string(result);
+    }
+
+    private hash<auto> slowTool(*hash<auto> args) {
+        int delay_ms = args.delay_ms ?? 100;
+        usleep(delay_ms * 1000);
+        return {
+            "status": "completed",
+            "delay_ms": delay_ms,
+        };
+    }
+
+    # Long-running tool that cooperatively polls isCallCancelled() (the
+    # documented cancellation mechanism) and stops promptly when its session
+    # is torn down.  Bounded so the test fails fast if cancellation never
+    # arrives instead of hanging.
+    private hash<auto> cancelSlowTool(*hash<auto> args) {
+        cancel_started.dec();
+        int i;
+        for (i = 0; i < 400; ++i) {
+            if (McpServerHandler::isCallCancelled()) {
+                cancel_tool_was_cancelled = True;
+                cancel_observed.dec();
+                return {
+                    "status": "cancelled",
+                    "iterations": i,
+                };
+            }
+            usleep(25ms);
+        }
+        return {
+            "status": "completed",
+            "iterations": i,
+        };
+    }
+
+    private hash<auto> taskCancelSlowTool(*hash<auto> args) {
+        task_cancel_started.dec();
+        int i;
+        for (i = 0; i < 400; ++i) {
+            if (McpServerHandler::isCallCancelled()) {
+                task_cancel_tool_was_cancelled = True;
+                task_cancel_observed.dec();
+                return {
+                    "status": "cancelled",
+                    "iterations": i,
+                };
+            }
+            usleep(25ms);
+        }
+        return {
+            "status": "completed",
+            "iterations": i,
+        };
     }
 
     string readTestFile(hash<auto> cx, string uri) {
@@ -128,6 +214,11 @@ class McpClientTest inherits QUnit::Test {
         addTestCase("SSE listener test", \sseListenerTest());
         addTestCase("initialization negative test", \initializationNegativeTest());
         addTestCase("streamable request test", \streamableRequestTest());
+        addTestCase("standard task tool call test", \standardTaskToolCallTest());
+        addTestCase("task survives SSE listener reconnect test", \taskSurvivesSseListenerReconnectTest());
+        addTestCase("tasks/cancel propagates to tool call test",
+            \taskCancelPropagatesToToolCallTest());
+        addTestCase("task cancelled on session delete test", \taskCancelledOnSessionDeleteTest());
         addTestCase("legacy transport test", \legacyTransportTest());
 
         set_return_value(main());
@@ -589,6 +680,158 @@ class McpClientTest inherits QUnit::Test {
         }
 
         client.close();
+    }
+
+    standardTaskToolCallTest() {
+        McpClient::McpClient client(base_url);
+        client.initialize(<McpClientInfo>{"name": "TaskClient", "version": "1.0"});
+        on_exit client.close();
+
+        list<auto> tools = client.listTools();
+        *hash<auto> slow_tool;
+        foreach hash<auto> tool in (tools) {
+            if (tool.name == "slow") {
+                slow_tool = tool;
+                break;
+            }
+        }
+        assertTrue(exists slow_tool, "slow tool is advertised");
+        assertEq("optional", slow_tool.execution.taskSupport,
+            "tools/list advertises execution.taskSupport");
+
+        string operation_id = "task-op-" + get_random_string(8);
+        hash<auto> created = client.callToolAsTask("slow", {
+            "delay_ms": 100,
+        }, {
+            "ttl": 60000,
+        }, {
+            "progressToken": "task-progress-" + get_random_string(8),
+            "clientOperationId": operation_id,
+        });
+        string task_id = created.task.taskId;
+        assertTrue(task_id.val(), "standard params.task call returns task id");
+        assertEq(operation_id, created.task.clientOperationId,
+            "CreateTaskResult echoes the client operation id");
+
+        hash<auto> duplicate = client.callToolAsTask("slow", {
+            "delay_ms": 1,
+        }, {
+            "ttl": 60000,
+        }, {
+            "clientOperationId": operation_id,
+        });
+        assertEq(task_id, duplicate.task.taskId,
+            "same clientOperationId returns the existing task");
+
+        hash<auto> status = client.getTask(task_id);
+        assertEq(task_id, status.taskId, "tasks/get returns the task");
+
+        hash<auto> result = client.getTaskResult(task_id, 5000);
+        assertEq("text", result.content[0].type,
+            "tasks/result returns the original tool-call result shape");
+        hash<auto> body = parse_json(result.content[0].text);
+        assertEq("completed", body.status, "task result body status");
+        assertEq(100, body.delay_ms, "deduped task kept original arguments");
+    }
+
+    taskSurvivesSseListenerReconnectTest() {
+        McpClient::McpClient client(base_url);
+        client.initialize(<McpClientInfo>{"name": "TaskReconnectClient", "version": "1.0"});
+        on_exit client.close();
+
+        client.startSseListener();
+        assertTrue(client.isSseListenerRunning(), "SSE listener started");
+
+        hash<auto> created = client.callToolAsTask("slow", {
+            "delay_ms": 250,
+        }, {
+            "ttl": 60000,
+        }, {
+            "clientOperationId": "sse-task-op-" + get_random_string(8),
+        });
+        string task_id = created.task.taskId;
+        assertTrue(task_id.val(), "task created while SSE listener is active");
+
+        client.stopSseListener();
+        assertFalse(client.isSseListenerRunning(), "SSE listener stopped");
+
+        hash<auto> result = client.getTaskResult(task_id, 5000);
+        hash<auto> body = parse_json(result.content[0].text);
+        assertEq("completed", body.status,
+            "task completes after notification stream disconnects");
+        assertEq(250, body.delay_ms,
+            "task result keeps original arguments after listener disconnect");
+    }
+
+    taskCancelPropagatesToToolCallTest() {
+        McpClient::McpClient client(base_url);
+        client.initialize(<McpClientInfo>{"name": "TaskCancelClient", "version": "1.0"});
+        on_exit client.close();
+
+        hash<auto> created = client.callToolAsTask("task_cancel_slow", NOTHING, {
+            "ttl": 60000,
+        }, {
+            "clientOperationId": "task-cancel-op-" + get_random_string(8),
+        });
+        string task_id = created.task.taskId;
+        assertTrue(task_id.val(), "cancellable task created");
+
+        assertEq(0, mcp_server.task_cancel_started.waitForZero(5000),
+            "tasks/cancel test tool started executing");
+        assertFalse(mcp_server.task_cancel_tool_was_cancelled,
+            "tool not yet cancelled before tasks/cancel");
+
+        hash<auto> cancelled = client.cancelTask(task_id,
+            "unit test tasks/cancel");
+        assertEq("cancelled", cancelled.status,
+            "tasks/cancel marks the task cancelled");
+
+        assertEq(0, mcp_server.task_cancel_observed.waitForZero(5000),
+            "tool observed cancellation after tasks/cancel");
+        assertTrue(mcp_server.task_cancel_tool_was_cancelled,
+            "tasks/cancel reached the running tool call");
+
+        hash<auto> status = client.getTask(task_id);
+        assertEq("cancelled", status.status,
+            "late tool return does not overwrite cancelled task status");
+    }
+
+    taskCancelledOnSessionDeleteTest() {
+        McpClient::McpClient client(base_url);
+        client.initialize(<McpClientInfo>{"name": "CancelClient", "version": "1.0"});
+        on_exit client.close();
+
+        hash<auto> created = client.callToolAsTask("cancel_slow", NOTHING, {
+            "ttl": 60000,
+        }, {
+            "clientOperationId": "cancel-op-" + get_random_string(8),
+        });
+        string task_id = created.task.taskId;
+        assertTrue(task_id.val(), "cancellable task created");
+
+        string sid = client.getSessionId();
+        assertTrue(sid.val(), "client has a session id");
+
+        # Deterministically wait until the tool is actually executing
+        assertEq(0, mcp_server.cancel_started.waitForZero(5000),
+            "cancellable tool started executing");
+        assertFalse(mcp_server.cancel_tool_was_cancelled,
+            "tool not yet cancelled before session delete");
+
+        # Explicitly delete the session via HTTP DELETE; this must cancel the
+        # in-progress tool execution.
+        HTTPClient hc({"url": base_url});
+        on_exit hc.disconnect();
+        hash<auto> info;
+        hc.send("", "DELETE", "/", {McpSessionHeader: sid}, False, \info);
+        assertEq(200, info."response-headers".status_code,
+            "session DELETE returned 200");
+
+        # Deterministically wait for the tool to observe cooperative cancellation
+        assertEq(0, mcp_server.cancel_observed.waitForZero(5000),
+            "tool observed cancellation after session delete");
+        assertTrue(mcp_server.cancel_tool_was_cancelled,
+            "session DELETE cancelled in-progress tool execution");
     }
 
     initializationNegativeTest() {

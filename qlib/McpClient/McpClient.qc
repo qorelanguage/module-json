@@ -26,8 +26,6 @@
 public namespace McpClient {
 
 #! MCP protocol version enum
-/** @since json 1.11
-*/
 public enum McpVersion : string {
     #! Protocol version 2024-11-05 (initial version)
     V2024_11_05 = "2024-11-05",
@@ -55,8 +53,6 @@ public const McpSessionHeader = "Mcp-Session-Id";
 
 #! MCP log level enum
 /** Standard syslog-style log levels for MCP logging protocol.
-
-    @since json 1.11
 */
 public enum McpLogLevel : string {
     #! Debug-level messages for detailed troubleshooting
@@ -90,8 +86,6 @@ public const AllMcpLogLevels = {
 };
 
 #! MCP completion reference type enum
-/** @since json 1.11
-*/
 public enum McpCompletionRefType : string {
     #! Reference a prompt by name
     Prompt = "ref/prompt",
@@ -571,6 +565,174 @@ public class McpClient {
                 if (item.isError) {
                     throw "MCP-ERROR", sprintf("Tool '%s' returned an error: %s", name, item.text ?? "unknown error"),
                         result;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    #! Calls a tool as an MCP task and returns the CreateTaskResult
+    /**
+        @param name the name of the tool to call
+        @param arguments optional arguments for the tool
+        @param task optional MCP task parameters such as \c ttl
+        @param meta optional request metadata such as \c progressToken or
+            \c clientOperationId
+        @return the \c CreateTaskResult hash with a \c task member describing the
+            created (or, for a repeated \c clientOperationId, the existing) task
+
+        @throw MCP-ERROR if the task request fails or the server returns no task
+
+        @note Pass a \c clientOperationId in \a meta to make task creation
+            idempotent: repeating the call with the same id returns the existing
+            task instead of starting a new one.
+    */
+    hash<auto> callToolAsTask(string name, *hash<auto> arguments,
+            *hash<auto> task, *hash<auto> meta) {
+        ensureInitialized();
+
+        hash<auto!> params = {
+            "name": name,
+            "task": task ?? {},
+        };
+        if (arguments) {
+            params.arguments = arguments;
+        }
+        if (meta) {
+            params._meta = meta;
+        }
+
+        hash<auto> response = sendRequest("tools/call", params);
+        if (response.error) {
+            throw "MCP-ERROR", sprintf("task tools/call failed: %s",
+                response.error.message);
+        }
+        if (!response.result.task.taskId.val()) {
+            throw "MCP-ERROR", sprintf("task tools/call returned no task: %y",
+                response.result);
+        }
+        return response.result;
+    }
+
+    #! Gets the current status of an MCP task
+    /**
+        @param taskId the ID of the task to query
+
+        @return the task status hash (\c taskId, \c status, and, when set,
+            \c statusMessage and \c clientOperationId)
+
+        @throw MCP-ERROR if the request fails or the task is unknown
+    */
+    hash<auto> getTask(string taskId) {
+        ensureInitialized();
+
+        hash<auto> response = sendRequest("tasks/get", {
+            "taskId": taskId,
+        });
+        if (response.error) {
+            throw "MCP-ERROR", sprintf("tasks/get failed: %s",
+                response.error.message);
+        }
+        return response.result;
+    }
+
+    #! Blocks until an MCP task completes and returns the original operation result
+    /** The server blocks the \c tasks/result request until the task reaches a
+        terminal state or the timeout elapses, then returns the same payload the
+        underlying operation would have produced synchronously.
+
+        @param taskId the ID of the task to wait for
+        @param timeout_ms optional maximum time to wait in milliseconds; if not
+            given the server uses the task's \c ttl
+
+        @return the original operation result (e.g. the \c tools/call result with
+            \c content / \c isError members)
+
+        @throw MCP-ERROR if the request fails, the task is cancelled, or it does
+            not complete within the timeout
+    */
+    hash<auto> getTaskResult(string taskId, *int timeout_ms) {
+        ensureInitialized();
+
+        hash<auto!> params = {
+            "taskId": taskId,
+        };
+        if (timeout_ms) {
+            params.timeout = timeout_ms;
+        }
+
+        hash<auto> response = sendRequest("tasks/result", params);
+        if (response.error) {
+            throw "MCP-ERROR", sprintf("tasks/result failed: %s",
+                response.error.message);
+        }
+        return response.result;
+    }
+
+    #! Cancels an in-progress MCP task
+    /**
+        @param taskId the ID of the task to cancel
+        @param reason optional human-readable cancellation reason reported to the
+            server and surfaced in the task status
+
+        @return the \c tasks/cancel result hash
+
+        @throw MCP-ERROR if the request fails or the task cannot be cancelled
+    */
+    hash<auto> cancelTask(string taskId, *string reason) {
+        ensureInitialized();
+
+        hash<auto!> params = {
+            "taskId": taskId,
+        };
+        if (reason.val()) {
+            params.reason = reason;
+        }
+
+        hash<auto> response = sendRequest("tasks/cancel", params);
+        if (response.error) {
+            throw "MCP-ERROR", sprintf("tasks/cancel failed: %s",
+                response.error.message);
+        }
+        return response.result;
+    }
+
+    #! Calls a tool as an MCP task and blocks until its result is available
+    /** Convenience wrapper that combines @ref callToolAsTask() and
+        @ref getTaskResult(), then raises an exception if the tool reported an
+        error either at the top level (\c isError) or in any returned content
+        item.
+
+        @param name the name of the tool to call
+        @param arguments optional arguments for the tool
+        @param task optional MCP task parameters such as \c ttl
+        @param meta optional request metadata such as \c progressToken or
+            \c clientOperationId
+        @param timeout_ms optional maximum time to wait in milliseconds for the
+            task to complete; if not given the server uses the task's \c ttl
+
+        @return the original tool-call result (with \c content / \c isError
+            members)
+
+        @throw MCP-ERROR if the task request fails, the task does not complete in
+            time, or the tool reports an error (the offending result is passed as
+            the exception argument)
+    */
+    hash<auto> callToolTaskResult(string name, *hash<auto> arguments,
+            *hash<auto> task, *hash<auto> meta, *int timeout_ms) {
+        hash<auto> created = callToolAsTask(name, arguments, task, meta);
+        hash<auto> result = getTaskResult(created.task.taskId, timeout_ms);
+
+        if (result.isError) {
+            throw "MCP-ERROR", sprintf("Tool '%s' returned an error", name),
+                result;
+        }
+        if (result.content) {
+            foreach hash<auto> item in (result.content) {
+                if (item.isError) {
+                    throw "MCP-ERROR", sprintf("Tool '%s' returned an error: %s",
+                        name, item.text ?? "unknown error"), result;
                 }
             }
         }
@@ -1301,8 +1463,6 @@ public class McpClient {
     (\c EVENT_SSE_CONNECTED, \c EVENT_SSE_DATA, \c EVENT_SSE_CLOSED) into
     the McpClient's existing callback API so downstream consumers don't
     have to change.
-
-    @since McpClient 1.3
 */
 public class McpClientSseObserver inherits DataProvider::Observer {
     private {
