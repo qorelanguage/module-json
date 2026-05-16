@@ -27,6 +27,7 @@
 
 #include "ql_json.h"
 #include "ql_cbor.h"
+#include "ql_toon.h"
 
 #include <stdarg.h>
 
@@ -64,6 +65,7 @@ void json_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) {
    init_json_functions(JNS);
    init_json_constants(JNS);
    init_cbor_functions(JNS);
+   init_toon_functions(JNS);
 }
 
 void json_module_ns_init(QoreNamespace* rns, QoreNamespace* qns, ExceptionSink& xsink) {

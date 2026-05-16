@@ -22,6 +22,7 @@ stamp-h1
 autom4te.cache/
 m4/
 build/
+build-debug/
 src/.deps/
 src/.libs/
 src/Makefile
