@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.5.0)
 project(qore-json-module)
 
 set (VERSION_MAJOR 1)
-set (VERSION_MINOR 11)
+set (VERSION_MINOR 12)
 set (VERSION_PATCH 0)
 
 find_package(Qore 2.0 REQUIRED)
@@ -40,6 +40,7 @@ set(QPP_SRC
     src/QC_JsonStreamWriter.qpp
     src/ql_json.qpp
     src/ql_cbor.qpp
+    src/ql_toon.qpp
 )
 
 set(CPP_SRC

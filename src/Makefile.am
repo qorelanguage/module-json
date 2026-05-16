@@ -9,7 +9,7 @@ endif
 .qpp.cpp:
     $(QPP) -V $<
 
-GENERATED_SOURCES = QC_JsonRpcClient.cpp QC_JsonSaxParser.cpp QC_JsonSchema.cpp ql_json.cpp ql_cbor.cpp
+GENERATED_SOURCES = QC_JsonRpcClient.cpp QC_JsonSaxParser.cpp QC_JsonSchema.cpp ql_json.cpp ql_cbor.cpp ql_toon.cpp
 CLEANFILES = $(GENERATED_SOURCES)
 
 if COND_SINGLE_COMPILATION_UNIT

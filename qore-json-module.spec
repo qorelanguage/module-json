@@ -1,4 +1,4 @@
-%define mod_ver 1.11
+%define mod_ver 1.12
 
 %{?_datarootdir: %global mydatarootdir %_datarootdir}
 %{!?_datarootdir: %global mydatarootdir /usr/share}
@@ -118,6 +118,10 @@ json module.
 %doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler docs/McpClient docs/McpClientDataProvider docs/A2aClient docs/A2aServerHandler docs/A2aClientDataProvider test examples
 
 %changelog
+* Fri May 16 2026 David Nichols <david@qore.org> - 1.12
+- updated to version 1.12
+- added TOON serialization support (make_toon/parse_toon)
+
 * Sat Mar 14 2026 David Nichols <david@qore.org> - 1.11
 - updated to version 1.11
 - added CBOR serialization support (make_cbor/parse_cbor)
