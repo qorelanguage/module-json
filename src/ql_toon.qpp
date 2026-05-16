@@ -126,12 +126,18 @@ static bool toon_match_number_re(const char* s, size_t len) {
     return i == len;
 }
 
-// matches /^0\d+$/ (leading-zero decimals like "05")
+// matches /^-?0\d+$/ - forbidden leading-zero integers such as "05" or
+// "-0001"; the TOON spec (§2/§4) requires these to be treated as strings,
+// not numbers, including the negative forms
 static bool toon_match_leading_zero(const char* s, size_t len) {
-    if (len < 2 || s[0] != '0') {
+    size_t i = 0;
+    if (i < len && s[i] == '-') {
+        ++i;
+    }
+    if (len - i < 2 || s[i] != '0') {
         return false;
     }
-    for (size_t i = 0; i < len; ++i) {
+    for (; i < len; ++i) {
         if (!isdigit(static_cast<unsigned char>(s[i]))) {
             return false;
         }
@@ -613,15 +619,22 @@ static int toon_emit_key(ToonEncCtx& c, const char* k, size_t len) {
     return 0;
 }
 
-// ordered key list for a hash (encounter order, or sorted when sort_keys)
-static void toon_hash_keys(const QoreHashNode* h, bool sort_keys, std::vector<std::string>& keys) {
+// ordered key list for a hash (encounter order, or sorted when sort_keys);
+// returns -1 if cancellation was requested during key collection
+static int toon_hash_keys(ToonEncCtx& c, const QoreHashNode* h, bool sort_keys,
+        std::vector<std::string>& keys) {
+    keys.reserve(h->size());
     ConstHashIterator hi(h);
     while (hi.next()) {
+        if (c.checkCancel("serializing TOON object")) {
+            return -1;
+        }
         keys.push_back(hi.getKey());
     }
     if (sort_keys) {
         std::sort(keys.begin(), keys.end());
     }
+    return 0;
 }
 
 enum ToonArrayForm {
@@ -631,8 +644,9 @@ enum ToonArrayForm {
     TAF_EXPANDED,
 };
 
-// determine the encoding form for a list; on TAF_TABULAR, fields is filled with
-// the ordered field names
+// determine the encoding form for a list; on TAF_TABULAR, fields is filled
+// with the ordered field names.  On cancellation, sets c.xsink and returns
+// TAF_EXPANDED; callers MUST check *c.xsink after calling.
 static ToonArrayForm toon_array_form(ToonEncCtx& c, const QoreListNode* l, std::vector<std::string>& fields) {
     size_t n = l->size();
     if (!n) {
@@ -641,6 +655,9 @@ static ToonArrayForm toon_array_form(ToonEncCtx& c, const QoreListNode* l, std::
     bool all_prim = true;
     bool all_hash = true;
     for (size_t i = 0; i < n; ++i) {
+        if (c.checkCancel("serializing TOON array")) {
+            return TAF_EXPANDED;
+        }
         const QoreValue e = l->retrieveEntry(i);
         if (!toon_is_primitive(e)) {
             all_prim = false;
@@ -658,11 +675,16 @@ static ToonArrayForm toon_array_form(ToonEncCtx& c, const QoreListNode* l, std::
     if (c.tabular && all_hash) {
         const QoreHashNode* first = l->retrieveEntry(0).get<const QoreHashNode>();
         std::vector<std::string> f;
-        toon_hash_keys(first, c.sort_keys, f);
+        if (toon_hash_keys(c, first, c.sort_keys, f)) {
+            return TAF_EXPANDED;
+        }
         if (!f.empty()) {
             std::unordered_set<std::string> fset(f.begin(), f.end());
             bool ok = (fset.size() == f.size());
             for (size_t i = 0; ok && i < n; ++i) {
+                if (c.checkCancel("serializing TOON array")) {
+                    return TAF_EXPANDED;
+                }
                 const QoreHashNode* he = l->retrieveEntry(i).get<const QoreHashNode>();
                 if (static_cast<size_t>(he->size()) != f.size()) {
                     ok = false;
@@ -766,6 +788,9 @@ static int toon_emit_array(ToonEncCtx& c, const char* key, size_t keylen, bool h
     }
     std::vector<std::string> fields;
     ToonArrayForm form = toon_array_form(c, l, fields);
+    if (*c.xsink) {
+        return -1;
+    }
     size_t n = l->size();
 
     toon_indent(c.out, header_depth, c.indent);
@@ -845,7 +870,9 @@ static int toon_emit_object(ToonEncCtx& c, const QoreHashNode* h, int depth) {
     }
     if (c.sort_keys) {
         std::vector<std::string> keys;
-        toon_hash_keys(h, true, keys);
+        if (toon_hash_keys(c, h, true, keys)) {
+            return -1;
+        }
         for (size_t i = 0; i < keys.size(); ++i) {
             if (c.checkCancel("serializing TOON object")) {
                 return -1;
@@ -903,7 +930,9 @@ static int toon_emit_list_item(ToonEncCtx& c, const QoreValue& v, int depth) {
             return 0;
         }
         std::vector<std::string> keys;
-        toon_hash_keys(h, c.sort_keys, keys);
+        if (toon_hash_keys(c, h, c.sort_keys, keys)) {
+            return -1;
+        }
         const std::string& fk = keys[0];
         QoreValue fv = h->getKeyValue(fk.c_str());
 
@@ -913,6 +942,9 @@ static int toon_emit_list_item(ToonEncCtx& c, const QoreValue& v, int depth) {
             const QoreListNode* fl = fv.get<const QoreListNode>();
             std::vector<std::string> tf;
             ToonArrayForm ff = toon_array_form(c, fl, tf);
+            if (*c.xsink) {
+                return -1;
+            }
             toon_indent(c.out, depth, c.indent);
             c.out.concat("- ", 2);
             if (toon_emit_key(c, fk.c_str(), fk.size())) {
@@ -986,6 +1018,9 @@ static int toon_emit_list_item(ToonEncCtx& c, const QoreValue& v, int depth) {
         const QoreListNode* fl = v.get<const QoreListNode>();
         std::vector<std::string> tf;
         ToonArrayForm ff = toon_array_form(c, fl, tf);
+        if (*c.xsink) {
+            return -1;
+        }
         toon_indent(c.out, depth, c.indent);
         c.out.concat("- ", 2);
         if (toon_emit_array_header(c, fl->size(), ff, tf)) {
@@ -1115,7 +1150,18 @@ public:
                     return QoreValue();
                 }
                 pos = first;
-                return parseArrayValue(hdr, fl, p, 0);
+                ValueHolder rv(parseArrayValue(hdr, fl, p, 0), xsink);
+                if (*xsink) {
+                    return QoreValue();
+                }
+                // any remaining non-blank line at depth 0 is an error
+                // (mirrors the object-root path)
+                skipBlank();
+                if (pos < lines.size()) {
+                    err(lines[pos].line_no, "unexpected content after document body");
+                    return QoreValue();
+                }
+                return rv.release();
             }
             if (*xsink) {
                 return QoreValue();
@@ -1199,6 +1245,13 @@ private:
         bool tab_indent_error = false;
         int tab_indent_line = 0;
         while (i <= sz) {
+            // byte-based cancellation: this O(n) pre-pass runs before any
+            // other cancellation point, and a huge single-line document has
+            // no line boundaries to check on (sandboxing guide §3.2)
+            if (i != start && ((i - start) & 0xFFFF) == 0
+                    && qore_check_cancel(xsink, "scanning TOON document")) {
+                return;
+            }
             if (i == sz || p[i] == '\n') {
                 size_t lend = i;
                 if (lend > lstart && p[lend - 1] == '\r') {
@@ -1233,12 +1286,6 @@ private:
                 lines.push_back(std::move(tl));
                 ++line_no;
                 lstart = i + 1;
-                // this O(n) pre-pass runs before any other cancellation point;
-                // keep huge inputs interruptible (sandboxing guide §3.2)
-                if ((line_no % TOON_INTERRUPT_CHECK_INTERVAL) == 0
-                        && qore_check_cancel(xsink, "scanning TOON document")) {
-                    return;
-                }
             }
             ++i;
         }
@@ -1672,7 +1719,11 @@ private:
                 }
                 const ToonLine& cl = lines[pos];
                 if (cl.blank) {
-                    if (strict && rows > 0 && hasMoreAtDepth(body_depth)) {
+                    // strict mode rejects a blank line anywhere inside the
+                    // block, including before the first row (§12, §14.4);
+                    // hasMoreAtDepth() confirms a row still follows so a
+                    // trailing blank before dedent is not flagged
+                    if (strict && hasMoreAtDepth(body_depth)) {
                         err(cl.line_no, "blank line inside tabular array");
                         return QoreValue();
                     }
@@ -1723,7 +1774,9 @@ private:
             }
             const ToonLine& cl = lines[pos];
             if (cl.blank) {
-                if (strict && items > 0 && hasMoreAtDepth(body_depth)) {
+                // strict mode rejects a blank line anywhere inside the block,
+                // including before the first item (§12, §14.4)
+                if (strict && hasMoreAtDepth(body_depth)) {
                     err(cl.line_no, "blank line inside array");
                     return QoreValue();
                 }

@@ -592,6 +592,12 @@ string sub test(auto data) {
         assertEq(300.0, parse_toon("v: 3e2").v);
         assertEq(0, parse_toon("v: -0").v);
         assertEq(-1000.0, parse_toon("v: -1E+03").v);
+        # forbidden leading zeros are strings, incl. negative forms (§2/§4)
+        assertEq("-05", parse_toon("v: -05").v);
+        assertEq("-0001", parse_toon("v: -0001").v);
+        assertEq(-5, parse_toon("v: -5").v);
+        assertEq(-0.5, parse_toon("v: -0.5").v);
+        assertEq("-05", parse_toon(make_toon("-05")));
     }
 
     #! 2. hash round trips
@@ -826,6 +832,21 @@ string sub test(auto data) {
         assertThrows("TOON-PARSE-ERROR", "item count", \parse_toon(), ("x[3]:\n  - 1\n  - 2",));
         # inline array element count mismatch
         assertThrows("TOON-PARSE-ERROR", "element count", \parse_toon(), ("x[2]: 1,2,3",));
+        # trailing content after a root array must be rejected (§5), like the
+        # object-root path
+        assertThrows("TOON-PARSE-ERROR", "unexpected content",
+            \parse_toon(), ("[1]: 1\nextra: 2",));
+        assertThrows("TOON-PARSE-ERROR", "unexpected content",
+            \parse_toon(), ("[1]:\n  - 1\nextra: 2",));
+        # blank line inside an array/tabular block in strict mode, including
+        # before the first row/item (§12, §14.4)
+        assertThrows("TOON-PARSE-ERROR", "blank line", \parse_toon(), ("x[1]{a}:\n\n  1",));
+        assertThrows("TOON-PARSE-ERROR", "blank line", \parse_toon(), ("x[2]{a}:\n  1\n\n  2",));
+        assertThrows("TOON-PARSE-ERROR", "blank line", \parse_toon(), ("x[1]:\n\n  - 1",));
+        assertThrows("TOON-PARSE-ERROR", "blank line", \parse_toon(), ("x[2]:\n  - 1\n\n  - 2",));
+        # non-strict mode tolerates blank lines inside blocks
+        assertEq({"x": ({"a": 1},)}, parse_toon("x[1]{a}:\n\n  1", {"strict": False}));
+        assertEq({"x": (1, 2)}, parse_toon("x[2]:\n  - 1\n\n  - 2", {"strict": False}));
     }
 
     #! 8. representative upstream-spec examples (TOON v3.0, Appendix A)
