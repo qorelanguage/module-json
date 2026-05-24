@@ -15,6 +15,10 @@
 
 %requires QUnit
 
+%try-module dataframe
+%define NoDataFrame
+%endtry
+
 %exec-class JsonTest
 
 class JsonTest inherits QUnit::Test {
@@ -60,6 +64,7 @@ class JsonTest inherits QUnit::Test {
         addTestCase("TOON hash round trips", \toonHashes());
         addTestCase("TOON list round trips", \toonLists());
         addTestCase("TOON tabular arrays", \toonTabular());
+        addTestCase("TOON DataFrame row interchange", \toonDataFrameInterop());
         addTestCase("TOON determinism", \toonDeterminism());
         addTestCase("TOON options", \toonOptions());
         addTestCase("TOON data-model normalization", \toonDataModel());
@@ -717,7 +722,31 @@ string sub test(auto data) {
         assertEq(qf, parse_toon(make_toon(qf)));
     }
 
-    #! 5. determinism
+    #! 5. DataFrame row-list interchange
+    toonDataFrameInterop() {
+%ifdef NoDataFrame
+        testSkip("dataframe module not available");
+%else
+        list<hash<auto>> rows = (
+            {"id": 1, "name": "Ada", "active": True, "score": 95.5},
+            {"id": 2, "name": "Bob", "active": False, "score": 88.25},
+            {"id": 3, "name": "Cid", "active": True, "score": 91.75},
+        );
+
+        DataFrame::DataFrame df(rows);
+        string toon = make_toon(df.toRecords(), {"sort_keys": True});
+        assertEq("[3]{active,id,name,score}:\n  true,1,Ada,95.5\n  false,2,Bob,88.25\n  true,3,Cid,91.75",
+            toon);
+
+        list<hash<auto>> parsed = parse_toon(toon);
+        assertEq(rows, parsed);
+
+        DataFrame::DataFrame round_trip(parsed);
+        assertEq(rows, round_trip.toRecords());
+%endif
+    }
+
+    #! 6. determinism
     toonDeterminism() {
         # default preserves insertion order
         assertEq("b: 2\na: 1", make_toon({"b": 2, "a": 1}));

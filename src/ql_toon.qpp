@@ -557,7 +557,7 @@ static int toon_emit_scalar(ToonEncCtx& c, const QoreValue& v) {
         return 0;
     }
     if (t == NT_STRING) {
-        TempEncodingHelper tmp(v.get<const QoreStringNode>(), QCS_UTF8, c.xsink);
+        QoreStringValueHelper tmp(v, QCS_UTF8, c.xsink);
         if (*c.xsink) {
             return -1;
         }
@@ -2069,10 +2069,36 @@ namespace Qore::Json;
 string toon = make_toon(data);
     @endcode
 
+    @par DataFrame and SQL Row Data Example:
+    @code{.py}
+%requires json
+%requires dataframe
+
+list<hash<auto>> rows = (
+    {"id": 1, "status": "active", "score": 95.5},
+    {"id": 2, "status": "pending", "score": 88.25},
+);
+DataFrame::DataFrame df(rows);
+
+# Serialize DataFrame rows as TOON tabular data.
+string toon = make_toon(df.toRecords(), {"sort_keys": True});
+
+# SQL and DataProvider row results with the same list<hash<auto>> shape can be
+# serialized the same way.
+string sql_toon = make_toon(rows, {"sort_keys": True});
+    @endcode
+
     TOON is a line-oriented, indentation-based notation for the JSON data model
     that is particularly compact for arrays of uniform objects (tabular form).
     See the <a href="https://github.com/toon-format/spec">TOON specification</a>
     (version 3.0).
+
+    TOON serializes plain Qore data, not objects. To exchange DataFrame data,
+    serialize row records with \c DataFrame::toRecords() and construct a new
+    \c DataFrame from the row list returned by \c parse_toon(). This keeps the
+    json module independent of dataframe, SQL, and DataProvider modules. For
+    dense or zero-copy columnar interchange, use DataFrame columnar APIs, Arrow,
+    Parquet, or DBI/BulkSqlUtil packed paths instead of TOON.
 
     @param data the data to serialize to a TOON string
     @param options an optional hash of serialization options:
@@ -2099,7 +2125,8 @@ string toon = make_toon(data);
     - relative \c date values are serialized as ISO-8601 duration strings
     - \c binary values are serialized as base64 strings
     - arbitrary-precision \c number values are serialized in canonical decimal
-      form; non-ordinary values (\c @nan@, \c @inf@) are serialized as \c null
+      form; non-ordinary values (\c \@nan\@, \c \@inf\@) are serialized as
+      \c null
     - \c NaN and \c Inf \c float values are serialized as \c null
     - %Qore \c NOTHING and \c NULL are serialized as TOON \c null
 
@@ -2164,6 +2191,16 @@ string make_toon(auto data, *hash<auto> options) [flags=RET_VALUE_ONLY] {
 auto data = parse_toon(toon_str);
     @endcode
 
+    @par DataFrame Row Data Example:
+    @code{.py}
+%requires json
+%requires dataframe
+
+string toon = "[2]{id,status,score}:\n  1,active,95.5\n  2,pending,88.25";
+list<hash<auto>> rows = parse_toon(toon);
+DataFrame::DataFrame df(rows);
+    @endcode
+
     @param toon_str the TOON string to parse
     @param options an optional hash of parsing options:
     - \c strict: (bool, default \c True) when \c True, enforce TOON strict-mode
@@ -2176,7 +2213,9 @@ auto data = parse_toon(toon_str);
 
     @return the %Qore data structure corresponding to the input string; TOON
     \c null is returned as %Qore \c NOTHING (consistent with parse_json() and
-    parse_cbor())
+    parse_cbor()). TOON tabular arrays are returned as \c list<hash<auto>>,
+    which can be passed to row-oriented SQL/DataProvider APIs or used to create
+    a \c DataFrame.
 
     @throw TOON-PARSE-ERROR syntax error parsing the TOON string (with line and
     column where available), or the maximum nesting depth was exceeded
