@@ -55,6 +55,7 @@ class JsonTest inherits QUnit::Test {
         addTestCase("parse_json UTF-8/Unicode BOM skipping test", \parseJsonBom());
         addTestCase("issue 2655", \issue2655());
         addTestCase("JSON Pointer test", \jsonPointerTest());
+        addTestCase("named arguments for codecs", \namedArgumentCodecs());
         addTestCase("deeply nested structures", \testDeeplyNested());
         addTestCase("sandbox depth limit parse_json", \testSandboxDepthLimitParse());
         addTestCase("sandbox depth limit make_json", \testSandboxDepthLimitMake());
@@ -92,6 +93,26 @@ class JsonTest inherits QUnit::Test {
         string json = make_json(h, JGF_ADD_FORMATTING);
         assertEq(expected, json);
         assertEq(h, parse_json(json));
+    }
+
+    namedArgumentCodecs() {
+        hash<auto> data = {"a": 1, "items": (1, 2)};
+        string json = make_json(data: data);
+        assertEq(data, parse_json(json_str: json));
+
+        binary cbor = make_cbor(data: data);
+        assertEq(data, parse_cbor(cbor_data: cbor));
+
+        string toon = make_toon(data: data, options: {"sort_keys": True});
+        assertEq(data, parse_toon(toon_str: toon, options: {"strict": True}));
+
+        assertEq(2, json_pointer_get(data: data, pointer: "/items/1"));
+        assertEq(True, json_pointer_exists(data: data, pointer: "/items"));
+        assertEq("a~1b~0c", json_pointer_escape(token: "a/b~c"));
+
+        string token = jwt_encode(claims: {"sub": "123"}, key: "secret", algorithm: "HS256");
+        hash<auto> decoded = jwt_decode(token: token, key: "secret", verify_signature: True);
+        assertEq("123", decoded.claims.sub);
     }
 
     floatRoundingTest() {

@@ -2134,7 +2134,7 @@ string sql_toon = make_toon(rows, {"sort_keys": True});
 
     @since json 1.12
 */
-string make_toon(auto data, *hash<auto> options) [flags=RET_VALUE_ONLY] {
+string make_toon(auto data, *hash<auto> options) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     // pre-operation cancellation check (cooperative-cancellation.md Pattern 1)
     if (qore_check_cancel(xsink, "serializing TOON")) {
         return QoreValue();
@@ -2236,7 +2236,7 @@ DataFrame::DataFrame df(rows);
 
     @since json 1.12
 */
-auto parse_toon(string toon_str, *hash<auto> options) [flags=RET_VALUE_ONLY] {
+auto parse_toon(string toon_str, *hash<auto> options) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     // pre-operation cancellation check (cooperative-cancellation.md Pattern 1)
     if (qore_check_cancel(xsink, "parsing TOON")) {
         return QoreValue();
