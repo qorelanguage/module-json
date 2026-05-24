@@ -132,9 +132,9 @@
     |!%Qore Type|!TOON Representation|!Description
     |\c string|string|quoted only when required by the TOON specification (§7.2)
     |\c int|number|canonical decimal
-    |\c float|number|canonical decimal (no exponent, no trailing zeros); \c @nan@ / \c @inf@ are serialized as \
+    |\c float|number|canonical decimal (no exponent, no trailing zeros); \c \@nan\@ / \c \@inf\@ are serialized as \
         \c null
-    |\c number|number|canonical decimal; non-ordinary values (\c @nan@, \c @inf@) are serialized as \c null
+    |\c number|number|canonical decimal; non-ordinary values (\c \@nan\@, \c \@inf\@) are serialized as \c null
     |\c bool|boolean|direct conversion
     |\c date|string|absolute dates as ISO-8601 datetime strings; relative dates (durations) as ISO-8601 duration \
         strings
