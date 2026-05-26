@@ -51,7 +51,7 @@ public class FhirReadResourceDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return fhir.readResource(req.resource_type, req.id);
+        return fhir.readResource(assertFhirR4ResourceType(req.resource_type), req.id);
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -86,7 +86,7 @@ public class FhirSearchResourcesDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return fhir.searchResources(req.resource_type, req.params);
+        return fhir.searchResources(assertFhirR4ResourceType(req.resource_type), req.params);
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -121,7 +121,8 @@ public class FhirCreateResourceDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return getResponseData(fhir.createResource(req.resource_type, req.resource, req.if_none_exist));
+        return getResponseData(fhir.createResource(assertFhirR4ResourceRequestType(req.resource_type, req.resource),
+            req.resource, req.if_none_exist));
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -156,7 +157,8 @@ public class FhirUpdateResourceDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return getResponseData(fhir.updateResource(req.resource_type, req.id, req.resource, req.etag));
+        return getResponseData(fhir.updateResource(assertFhirR4ResourceRequestType(req.resource_type, req.resource),
+            req.id, req.resource, req.etag));
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -191,7 +193,7 @@ public class FhirDeleteResourceDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return getResponseData(fhir.deleteResource(req.resource_type, req.id, req.etag));
+        return getResponseData(fhir.deleteResource(assertFhirR4ResourceType(req.resource_type), req.id, req.etag));
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -226,6 +228,11 @@ public class FhirValidateResourceDataProvider inherits FhirRestDataProviderBase 
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
+        if (req.resource_type != NOTHING) {
+            assertFhirR4ResourceRequestType(req.resource_type, req.resource);
+        } else {
+            assertFhirR4ResourceBodyType(req.resource);
+        }
         return fhir.validateResource(req.resource, req.resource_type, req.id);
     }
 

@@ -103,6 +103,7 @@ qore -l ./json-api-%{module_api}.qmod test/A2aClient.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/A2aServerHandler.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/A2aClientDataProvider.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/FhirRestClient.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/FhirR4ArtifactGenerator.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/FhirRestDataProvider.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/json.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/Jwt.qtest -v
@@ -125,6 +126,7 @@ json module.
 - added TOON serialization support (make_toon/parse_toon)
 - added FhirRestClient module for FHIR R4 JSON REST servers
 - added FhirRestDataProvider module for FHIR REST DataProvider actions
+- added generated FHIR R4 resource type catalog and local validation
 
 * Sat Mar 14 2026 David Nichols <david@qore.org> - 1.11
 - updated to version 1.11

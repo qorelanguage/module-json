@@ -195,6 +195,7 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         addTestCase("factory and action catalog test", \factoryAndActionCatalogTest());
         addTestCase("metadata actions test", \metadataActionsTest());
         addTestCase("resource actions test", \resourceActionsTest());
+        addTestCase("resource type validation test", \resourceTypeValidationTest());
         addTestCase("terminology actions test", \terminologyActionsTest());
         addTestCase("negative constructor test", \negativeConstructorTest());
 
@@ -238,6 +239,9 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertEq("fhir", app.scheme);
         assertTrue(app.legal =~ /HL7/, "legal notice names HL7");
         assertTrue(app.legal =~ /endorsement/, "legal notice disclaims endorsement");
+        assertEq(146, FhirRestDataProvider::FhirR4ResourceTypeList.size());
+        assertTrue(FhirRestDataProvider::isFhirR4ResourceType("Patient"));
+        assertFalse(FhirRestDataProvider::isFhirR4ResourceType("DomainResource"));
 
         *list<hash<auto>> actions = DataProviderActionCatalog::getActions(FhirRestDataProvider::AppName);
         assertTrue(exists actions);
@@ -330,6 +334,45 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         });
         assertEq("OperationOutcome", outcome.resourceType);
         assertEq("information", outcome.issue[0].severity);
+    }
+
+    resourceTypeValidationTest() {
+        FhirRestDataProvider::FhirRestDataProvider provider({"url": base_url});
+        AbstractDataProvider resources = provider.getChildProviderEx("resources");
+
+        assertThrows("FHIR-RESOURCE-TYPE-ERROR", sub () {
+            resources.getChildProviderEx("read").doRequest({
+                "resource_type": "NoSuchResource",
+                "id": "example",
+            });
+        });
+
+        assertThrows("FHIR-RESOURCE-TYPE-ERROR", sub () {
+            resources.getChildProviderEx("create").doRequest({
+                "resource_type": "Patient",
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "obs-1",
+                },
+            });
+        });
+
+        assertThrows("FHIR-RESOURCE-TYPE-ERROR", sub () {
+            resources.getChildProviderEx("create").doRequest({
+                "resource_type": "Patient",
+                "resource": {
+                    "id": "patient-1",
+                },
+            });
+        });
+
+        assertThrows("FHIR-RESOURCE-TYPE-ERROR", sub () {
+            resources.getChildProviderEx("validate").doRequest({
+                "resource": {
+                    "id": "missing-type",
+                },
+            });
+        });
     }
 
     terminologyActionsTest() {

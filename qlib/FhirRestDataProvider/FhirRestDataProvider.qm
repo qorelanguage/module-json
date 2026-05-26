@@ -53,13 +53,14 @@ module FhirRestDataProvider {
 
     This module provides a generic provider foundation for FHIR REST servers:
     - metadata discovery with \c CapabilityStatement and SMART configuration
+    - a generated R4 resource-type catalog for local resource name validation
     - generic resource read, search, create, update, delete, and \c $validate actions
     - terminology delegation through \c $validate-code and \c $expand actions
     - action metadata and typed request/response descriptions suitable for UI integration
 
     Generated R4 resource-specific DataProvider types are intentionally not
-    included here yet. Those artifacts should be generated from official FHIR
-    definition packages after the standards and redistribution gate is settled.
+    included here yet. Those artifacts will build on the committed R4 resource
+    catalog and should be generated from official FHIR definition packages.
 
     @section fhirrestdataproviderexamples Examples
 
@@ -149,6 +150,7 @@ try {
     @subsection fhirrestdataprovider_v1_0 FhirRestDataProvider v1.0
     - initial generic FHIR REST data provider foundation
     - metadata, resource CRUD/search, validation, and terminology actions
+    - generated FHIR R4 resource type catalog and local resource type validation
     - \c fhirrest data provider factory and \c FHIR app registration
 */
 

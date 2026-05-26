@@ -1,0 +1,369 @@
+# -*- mode: qore; indent-tabs-mode: nil -*-
+#! FHIR R4 artifact generator support
+
+/*  FhirR4ArtifactGenerator.qm Copyright (C) 2026 Qore Technologies, s.r.o.
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+*/
+
+%requires qore >= 2.0
+%requires json
+%requires QoreCrypto
+%requires zip
+
+%modern
+
+module FhirR4ArtifactGenerator {
+    version = "0.1.0";
+    desc = "deterministic FHIR R4 JSON artifact generator support";
+    author = "Qore Technologies <info@qoretechnologies.com>";
+    url = "https://qore.org";
+    license = "MIT";
+}
+
+#! contains all public definitions in the FhirR4ArtifactGenerator module
+public namespace FhirR4ArtifactGenerator {
+#! Options for FHIR R4 artifact generation
+public hashdecl FhirR4GenerationOptions {
+    #! Path to the HL7 FHIR R4 definitions JSON ZIP
+    string source_path;
+
+    #! Output directory for generated artifacts
+    string output_dir;
+
+    #! Canonical source URL to record in generated manifests
+    *string source_url;
+
+    #! Expected SHA1 checksum for \c source_path
+    *string expected_sha1;
+}
+
+#! Result hash returned after generation
+public hashdecl FhirR4GenerationResult {
+    #! FHIR version found in the source artifact
+    string fhir_version;
+
+    #! SHA1 checksum of the source artifact
+    string source_sha1;
+
+    #! Generated FHIR R4 resource names
+    list<string> resources;
+
+    #! Generated file paths
+    list<string> generated_files;
+}
+
+#! Deterministic generator for the committed FHIR R4 resource catalog
+public class FhirR4ArtifactGenerator {
+    public {
+        #! Generator version recorded in manifests
+        const Version = "0.1.0";
+
+        #! Official source entry containing resource StructureDefinitions
+        const ResourceProfilesEntry = "profiles-resources.json";
+
+        #! Official source entry containing FHIR version metadata
+        const VersionInfoEntry = "version.info";
+    }
+
+    #! Generates the FHIR R4 resource catalog and manifest
+    /** @param options generation options
+        @return generation result
+
+        @throw FHIR-R4-GENERATOR-ERROR if the source artifact is invalid or unsupported
+        @throw FHIR-R4-GENERATOR-CHECKSUM-ERROR if the expected checksum does not match
+    */
+    static hash<FhirR4GenerationResult> generate(hash<FhirR4GenerationOptions> options) {
+        if (!is_file(options.source_path)) {
+            throw "FHIR-R4-GENERATOR-ERROR", sprintf("source file does not exist: %y", options.source_path);
+        }
+
+        binary source_data = File::readBinaryFile(options.source_path);
+        string source_sha1 = digest("sha1", source_data).toHex();
+        if (options.expected_sha1 && source_sha1 != options.expected_sha1) {
+            throw "FHIR-R4-GENERATOR-CHECKSUM-ERROR",
+                sprintf("source SHA1 mismatch: expected %s, got %s", options.expected_sha1, source_sha1);
+        }
+
+        Zip::ZipFile source = new Zip::ZipFile(options.source_path, "r");
+        FhirR4ArtifactGenerator::checkZipEntry(source, VersionInfoEntry);
+        FhirR4ArtifactGenerator::checkZipEntry(source, ResourceProfilesEntry);
+
+        string fhir_version = FhirR4ArtifactGenerator::parseVersionInfo(source.readText(VersionInfoEntry));
+        if (fhir_version != "4.0.1") {
+            throw "FHIR-R4-GENERATOR-ERROR",
+                sprintf("unsupported FHIR version %y; expected R4 version 4.0.1", fhir_version);
+        }
+
+        list<string> resources = FhirR4ArtifactGenerator::extractResourceTypes(
+            parse_json(source.readText(ResourceProfilesEntry)));
+        if (resources.empty()) {
+            throw "FHIR-R4-GENERATOR-ERROR", "no resource StructureDefinitions found";
+        }
+
+        string module_dir = options.output_dir;
+        FhirR4ArtifactGenerator::ensureDir(module_dir);
+        string manifest_dir = module_dir + "/fhir/r4";
+        FhirR4ArtifactGenerator::ensureDir(manifest_dir);
+
+        hash<auto> manifest = {
+            "artifact": "fhir-r4-resource-catalog",
+            "fhir_version": fhir_version,
+            "package_name": "hl7.fhir.r4.core",
+            "package_version": "4.0.1",
+            "source_url": options.source_url ?? "https://hl7.org/fhir/R4/definitions.json.zip",
+            "source_sha1": source_sha1,
+            "generator": "tools/FhirR4ArtifactGenerator.qm",
+            "generator_version": Version,
+            "license": "HL7 FHIR specification materials are licensed under Creative Commons CC0",
+            "trademark_notice": "HL7, FHIR, and the FHIR flame design are registered trademarks of Health Level "
+                "Seven International; use does not constitute endorsement by HL7.",
+            "terminology_policy": "Third-party terminology expansions are not embedded by this generated catalog.",
+            "resource_count": resources.size(),
+            "resources": resources,
+        };
+
+        string resource_catalog_path = module_dir + "/FhirR4ResourceTypes.qc";
+        string manifest_path = manifest_dir + "/manifest.json";
+        FhirR4ArtifactGenerator::writeTextFile(resource_catalog_path,
+            FhirR4ArtifactGenerator::renderResourceCatalog(resources, manifest));
+        FhirR4ArtifactGenerator::writeTextFile(manifest_path, make_json(manifest, JGF_ADD_FORMATTING) + "\n");
+
+        return <FhirR4GenerationResult>{
+            "fhir_version": fhir_version,
+            "source_sha1": source_sha1,
+            "resources": resources,
+            "generated_files": (resource_catalog_path, manifest_path),
+        };
+    }
+
+    private static checkZipEntry(Zip::ZipFile source, string name) {
+        if (!source.hasEntry(name)) {
+            throw "FHIR-R4-GENERATOR-ERROR", sprintf("source ZIP is missing required entry %y", name);
+        }
+    }
+
+    private static string parseVersionInfo(string data) {
+        foreach string line in (data.split("\n")) {
+            *list<string> match = line =~ x/^version=(.+)$/;
+            if (match) {
+                return trim(match[0]);
+            }
+        }
+        throw "FHIR-R4-GENERATOR-ERROR", "version.info does not contain a version field";
+    }
+
+    private static list<string> extractResourceTypes(hash<auto> bundle) {
+        if (bundle.resourceType != "Bundle" || bundle.type != "collection") {
+            throw "FHIR-R4-GENERATOR-ERROR", "profiles-resources.json must contain a collection Bundle";
+        }
+        if (!exists bundle.entry || bundle.entry.typeCode() != NT_LIST) {
+            throw "FHIR-R4-GENERATOR-ERROR", "profiles-resources.json Bundle is missing an entry list";
+        }
+
+        hash<string, bool> seen;
+        list<string> resources;
+        foreach auto raw_entry in (bundle.entry) {
+            if (raw_entry.typeCode() != NT_HASH) {
+                throw "FHIR-R4-GENERATOR-ERROR", "profiles-resources.json Bundle entry must be a hash";
+            }
+
+            hash<auto> entry = raw_entry;
+            if (!exists entry.resource) {
+                continue;
+            }
+            if (entry.resource.typeCode() != NT_HASH) {
+                throw "FHIR-R4-GENERATOR-ERROR", "profiles-resources.json Bundle entry resource must be a hash";
+            }
+
+            hash<auto> resource = entry.resource;
+            if (resource.resourceType != "StructureDefinition" || resource.kind != "resource"
+                    || resource.derivation != "specialization") {
+                continue;
+            }
+            if (resource.abstract) {
+                continue;
+            }
+
+            string resource_type = resource.type;
+            if (resource_type !~ /^[A-Z][A-Za-z0-9]*$/) {
+                throw "FHIR-R4-GENERATOR-ERROR",
+                    sprintf("unsupported FHIR resource type name for Qore enum generation: %y", resource_type);
+            }
+            if (exists seen{resource_type}) {
+                throw "FHIR-R4-GENERATOR-ERROR", sprintf("duplicate FHIR resource type: %y", resource_type);
+            }
+            seen{resource_type} = True;
+            push resources, resource_type;
+        }
+
+        return sort(resources);
+    }
+
+    private static string renderResourceCatalog(list<string> resources, hash<auto> manifest) {
+        string out = "# -*- mode: qore; indent-tabs-mode: nil -*-\n"
+            "#! Generated FHIR R4 resource type catalog; do not edit manually\n\n"
+            "/*  Copyright (C) 2026 Qore Technologies, s.r.o.\n\n"
+            "    Permission is hereby granted, free of charge, to any person obtaining a\n"
+            "    copy of this software and associated documentation files (the \"Software\"),\n"
+            "    to deal in the Software without restriction, including without limitation\n"
+            "    the rights to use, copy, modify, merge, publish, distribute, sublicense,\n"
+            "    and/or sell copies of the Software, and to permit persons to whom the\n"
+            "    Software is furnished to do so, subject to the following conditions:\n\n"
+            "    The above copyright notice and this permission notice shall be included in\n"
+            "    all copies or substantial portions of the Software.\n\n"
+            "    THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+            "    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+            "    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+            "    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+            "    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\n"
+            "    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\n"
+            "    DEALINGS IN THE SOFTWARE.\n"
+            "*/\n\n"
+            "#! contains all public definitions in the FhirRestDataProvider module\n"
+            "public namespace FhirRestDataProvider {\n"
+            "#! FHIR R4 resource type enum generated from official HL7 R4 definitions\n"
+            "public enum FhirR4ResourceType : string {\n";
+
+        foreach string resource_type in (resources) {
+            out += sprintf("    #! %s resource type\n    %s = %s,\n",
+                resource_type, resource_type, make_json(resource_type));
+        }
+
+        out += "}\n\n#! Sorted FHIR R4 resource type names\npublic const FhirR4ResourceTypeList = (\n";
+        foreach string resource_type in (resources) {
+            out += sprintf("    %s,\n", make_json(resource_type));
+        }
+
+        out += ");\n\n#! FHIR R4 resource type membership map\npublic const FhirR4ResourceTypeMap = {\n";
+        foreach string resource_type in (resources) {
+            out += sprintf("    %s: True,\n", make_json(resource_type));
+        }
+
+        out += "};\n\n#! Manifest for generated FHIR R4 resource catalog artifacts\npublic const "
+            "FhirR4ArtifactManifest = " + FhirR4ArtifactGenerator::renderQoreLiteral(manifest) + ";\n\n"
+            "#! Returns True if the argument is a known FHIR R4 resource type\n"
+            "public bool sub isFhirR4ResourceType(string resource_type) {\n"
+            "    return exists FhirR4ResourceTypeMap{resource_type};\n"
+            "}\n\n"
+            "#! Validates and returns a FHIR R4 resource type\n"
+            "public string sub assertFhirR4ResourceType(string resource_type) {\n"
+            "    if (!isFhirR4ResourceType(resource_type)) {\n"
+            "        throw \"FHIR-RESOURCE-TYPE-ERROR\", sprintf(\"unsupported FHIR R4 resource type: %y\", "
+            "resource_type);\n"
+            "    }\n"
+            "    return resource_type;\n"
+            "}\n\n"
+            "#! Validates and returns the resource type from a FHIR R4 resource body\n"
+            "public string sub assertFhirR4ResourceBodyType(hash<auto> resource) {\n"
+            "    if (!exists resource.resourceType) {\n"
+            "        throw \"FHIR-RESOURCE-TYPE-ERROR\", \"FHIR R4 resource body is missing resourceType\";\n"
+            "    }\n"
+            "    if (resource.resourceType.typeCode() != NT_STRING) {\n"
+            "        throw \"FHIR-RESOURCE-TYPE-ERROR\", \"FHIR R4 resource body resourceType must be a string\";\n"
+            "    }\n"
+            "    return assertFhirR4ResourceType(resource.resourceType);\n"
+            "}\n\n"
+            "#! Validates request and body resource types for FHIR R4 resource requests\n"
+            "public string sub assertFhirR4ResourceRequestType(string resource_type, *hash<auto> resource = NOTHING) {\n"
+            "    assertFhirR4ResourceType(resource_type);\n"
+            "    if (resource) {\n"
+            "        string body_resource_type = assertFhirR4ResourceBodyType(resource);\n"
+            "        if (body_resource_type != resource_type) {\n"
+            "            throw \"FHIR-RESOURCE-TYPE-ERROR\", sprintf(\"request resource_type %y does not match body "
+            "resourceType %y\", resource_type, body_resource_type);\n"
+            "        }\n"
+            "    }\n"
+            "    return resource_type;\n"
+            "}\n"
+            "}\n";
+
+        return out;
+    }
+
+    private static ensureDir(string path) {
+        if (is_dir(path)) {
+            return;
+        }
+
+        string parent = dirname(path);
+        if (parent != path && parent != "." && !is_dir(parent)) {
+            FhirR4ArtifactGenerator::ensureDir(parent);
+        }
+
+        int rc = mkdir(path);
+        if (rc && !is_dir(path)) {
+            throw "FHIR-R4-GENERATOR-ERROR", sprintf("failed to create directory %y", path);
+        }
+    }
+
+    private static writeTextFile(string path, string data) {
+        File f();
+        f.open(path, O_WRONLY | O_CREAT | O_TRUNC);
+        f.write(data);
+        f.close();
+    }
+
+    private static string renderQoreLiteral(auto value, int indent = 0) {
+        switch (value.typeCode()) {
+            case NT_STRING:
+                return make_json(value);
+            case NT_BOOLEAN:
+                return value ? "True" : "False";
+            case NT_INT:
+                return sprintf("%d", value);
+            case NT_LIST: {
+                list<auto> values = value;
+                if (values.empty()) {
+                    return "()";
+                }
+                string rv = "(\n";
+                foreach auto item in (values) {
+                    rv += FhirR4ArtifactGenerator::spaces(indent + 4)
+                        + FhirR4ArtifactGenerator::renderQoreLiteral(item, indent + 4) + ",\n";
+                }
+                return rv + FhirR4ArtifactGenerator::spaces(indent) + ")";
+            }
+            case NT_HASH: {
+                hash<auto> h = cast<hash<auto>>(value);
+                if (h.empty()) {
+                    return "{}";
+                }
+                string rv = "{\n";
+                foreach string key in (sort(keys h)) {
+                    rv += FhirR4ArtifactGenerator::spaces(indent + 4) + make_json(key) + ": "
+                        + FhirR4ArtifactGenerator::renderQoreLiteral(h{key}, indent + 4) + ",\n";
+                }
+                return rv + FhirR4ArtifactGenerator::spaces(indent) + "}";
+            }
+        }
+
+        throw "FHIR-R4-GENERATOR-ERROR",
+            sprintf("cannot render Qore literal for value with type code %d", value.typeCode());
+    }
+
+    private static string spaces(int count) {
+        string rv = "";
+        for (int i = 0; i < count; ++i) {
+            rv += " ";
+        }
+        return rv;
+    }
+}
+}
