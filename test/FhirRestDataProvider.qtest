@@ -195,6 +195,7 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         addTestCase("factory and action catalog test", \factoryAndActionCatalogTest());
         addTestCase("metadata actions test", \metadataActionsTest());
         addTestCase("resource actions test", \resourceActionsTest());
+        addTestCase("generated resource actions test", \generatedResourceActionsTest());
         addTestCase("resource type validation test", \resourceTypeValidationTest());
         addTestCase("generated resource data types test", \generatedResourceDataTypesTest());
         addTestCase("terminology actions test", \terminologyActionsTest());
@@ -242,6 +243,8 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertTrue(app.legal =~ /endorsement/, "legal notice disclaims endorsement");
         assertEq(146, FhirRestDataProvider::FhirR4ResourceTypeList.size());
         assertTrue(FhirRestDataProvider::isFhirR4ResourceType("Patient"));
+        assertEq("Patient", FhirRestDataProvider::getFhirR4GeneratedResourceTypeForPathName("patient"));
+        assertNothing(FhirRestDataProvider::getFhirR4GeneratedResourceTypeForPathName("account"));
         assertFalse(FhirRestDataProvider::isFhirR4ResourceType("DomainResource"));
         assertEq(("Bundle", "Observation", "Patient"), FhirRestDataProvider::FhirR4GeneratedResourceTypeList);
         assertEq("Patient", FhirRestDataProvider::FhirR4GeneratedResourceMetadata.Patient.resource_type);
@@ -258,6 +261,28 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertTrue(inlist("validate-resource", action_names));
         assertTrue(inlist("validate-code", action_names));
         assertTrue(inlist("expand-value-set", action_names));
+
+        foreach string resource_type in (FhirRestDataProvider::FhirR4GeneratedResourceTypeList) {
+            string path_name = resource_type.lwr();
+            foreach string operation in (("read", "search", "create", "update", "delete", "validate")) {
+                assertTrue(inlist(operation + "-" + path_name, action_names),
+                    sprintf("generated action registered: %s-%s", operation, path_name));
+            }
+        }
+
+        hash<auto> read_patient = DataProviderActionCatalog::getAppActionEx(
+            FhirRestDataProvider::AppName, "read-patient");
+        assertEq("/resources/patient/read", read_patient.path);
+        assertEq("Patient", read_patient.output_type.getName());
+        assertFalse(exists read_patient.options.resource_type);
+        assertTrue(exists read_patient.options.id);
+
+        hash<auto> create_patient = DataProviderActionCatalog::getAppActionEx(
+            FhirRestDataProvider::AppName, "create-patient");
+        assertEq("/resources/patient/create", create_patient.path);
+        assertFalse(exists create_patient.options.resource_type);
+        assertEq("Patient", create_patient.options.resource.type.getName());
+        assertTrue(create_patient.options.resource.required);
     }
 
     metadataActionsTest() {
@@ -337,6 +362,77 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         });
         assertEq("OperationOutcome", outcome.resourceType);
         assertEq("information", outcome.issue[0].severity);
+    }
+
+    generatedResourceActionsTest() {
+        FhirRestDataProvider::FhirRestDataProvider provider({"url": base_url});
+        AbstractDataProvider patient = provider.getChildProviderEx("resources").getChildProviderEx("patient");
+
+        hash<auto> read_patient = patient.getChildProviderEx("read").doRequest({
+            "id": "pat-1",
+        });
+        assertEq("Patient", read_patient.resourceType);
+        assertEq("pat-1", read_patient.id);
+
+        hash<auto> bundle = patient.getChildProviderEx("search").doRequest({
+            "params": {
+                "name": "Smith",
+            },
+        });
+        assertEq("Bundle", bundle.resourceType);
+        assertEq("Smith", bundle.query.name);
+
+        hash<auto> created = patient.getChildProviderEx("create").doRequest({
+            "resource": {
+                "resourceType": "Patient",
+                "name": ({"family": "Jones"},),
+            },
+        });
+        assertEq(201, created.status_code);
+        assertEq("Patient", created.body.requestBodyType);
+
+        hash<auto> updated = patient.getChildProviderEx("update").doRequest({
+            "id": "pat-1",
+            "resource": {
+                "resourceType": "Patient",
+                "id": "pat-1",
+                "active": True,
+            },
+            "etag": "W/\"1\"",
+        });
+        assertEq(200, updated.status_code);
+        assertEq("W/\"1\"", updated.body.ifMatch);
+
+        hash<auto> deleted = patient.getChildProviderEx("delete").doRequest({
+            "id": "pat-1",
+        });
+        assertEq(200, deleted.status_code);
+        assertEq("OperationOutcome", deleted.body.resourceType);
+
+        hash<auto> outcome = patient.getChildProviderEx("validate").doRequest({
+            "resource": {
+                "resourceType": "Patient",
+                "id": "pat-1",
+            },
+        });
+        assertEq("OperationOutcome", outcome.resourceType);
+
+        assertThrows("RUNTIME-TYPE-ERROR", sub () {
+            patient.getChildProviderEx("create").doRequest({
+                "resource": {
+                    "resourceType": "Observation",
+                },
+            });
+        });
+
+        assertThrows("RUNTIME-TYPE-ERROR", sub () {
+            patient.getChildProviderEx("create").doRequest({
+                "resource": {
+                    "resourceType": "Patient",
+                    "active": "yes",
+                },
+            });
+        });
     }
 
     resourceTypeValidationTest() {

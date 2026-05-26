@@ -23,6 +23,7 @@
 */
 
 %requires qore >= 2.0
+%requires json
 
 %requires(reexport) ConnectionProvider
 %requires(reexport) DataProvider
@@ -56,6 +57,7 @@ module FhirRestDataProvider {
     - a generated R4 resource-type catalog for local resource name validation
     - generated R4 \c HashDataType metadata for \c Patient, \c Observation, and \c Bundle
     - generic resource read, search, create, update, delete, and \c $validate actions
+    - generated R4 resource-specific actions for \c Patient, \c Observation, and \c Bundle
     - terminology delegation through \c $validate-code and \c $expand actions
     - action metadata and typed request/response descriptions suitable for UI integration
 
@@ -100,6 +102,26 @@ hash<auto> bundle = provider.getChildProvider("resources").getChildProvider("sea
 foreach hash<auto> entry in (bundle.entry) {
     printf("Patient entry: %y\n", entry.resource);
 }
+    @endcode
+
+    @subsection fhirrestdataproviderexamplegenerated Generated Resource Actions
+
+    Generated R4 resource actions use the same REST endpoints as the generic
+    actions, but the action metadata exposes a resource-specific schema.
+
+    @code{.py}
+hash<auto> patient = provider.getChildProvider("resources").getChildProvider("patient")
+    .getChildProvider("read").doRequest({
+        "id": "example",
+    });
+
+hash<auto> created = provider.getChildProvider("resources").getChildProvider("patient")
+    .getChildProvider("create").doRequest({
+        "resource": {
+            "resourceType": "Patient",
+            "name": ({"family": "Jones", "given": ("Ann",)},),
+        },
+    });
     @endcode
 
     @subsection fhirrestdataproviderexamplewrite Idempotent Writes
@@ -153,6 +175,7 @@ try {
     - metadata, resource CRUD/search, validation, and terminology actions
     - generated FHIR R4 resource type catalog and local resource type validation
     - generated FHIR R4 \c HashDataType metadata for \c Patient, \c Observation, and \c Bundle
+    - generated FHIR R4 resource-specific action metadata for typed resource actions
     - \c fhirrest data provider factory and \c FHIR app registration
 */
 
@@ -170,6 +193,142 @@ public namespace FhirRestDataProvider {
 
 # private namespace for the module
 namespace Priv {
+    const GeneratedResourceActionSpecs = (
+        {
+            "operation": "read",
+            "display_name": "Read",
+            "short_desc": "Read a FHIR %s resource by ID",
+            "desc": "Read one FHIR `%s` resource instance using its logical `id`.",
+        },
+        {
+            "operation": "search",
+            "display_name": "Search",
+            "short_desc": "Search FHIR %s resources",
+            "desc": "Search FHIR `%s` resources. Use `params` for server-supported FHIR search parameters.",
+        },
+        {
+            "operation": "create",
+            "display_name": "Create",
+            "short_desc": "Create a FHIR %s resource",
+            "desc": "Create a FHIR `%s` resource with resource-specific action metadata.",
+        },
+        {
+            "operation": "update",
+            "display_name": "Update",
+            "short_desc": "Update a FHIR %s resource",
+            "desc": "Update a FHIR `%s` resource by logical `id` with resource-specific action metadata.",
+        },
+        {
+            "operation": "delete",
+            "display_name": "Delete",
+            "short_desc": "Delete a FHIR %s resource",
+            "desc": "Delete a FHIR `%s` resource by logical `id`.",
+        },
+        {
+            "operation": "validate",
+            "display_name": "Validate",
+            "short_desc": "Validate a FHIR %s resource",
+            "desc": "Validate a FHIR `%s` resource by delegating to the server's `$validate` operation.",
+        },
+    );
+
+    hash<string, hash<ActionOptionInfo>> sub getGeneratedResourceActionOptions(string resource_type,
+            string operation) {
+        switch (operation) {
+            case "read":
+                return DataProviderActionCatalog::getActionOptionFromFields(
+                    FhirRestDataProvider::getFhirR4GeneratedReadResourceRequestFields(), {
+                        "preselected": True,
+                    });
+            case "search":
+                return DataProviderActionCatalog::getActionOptionFromFields(
+                    FhirRestDataProvider::getFhirR4GeneratedSearchResourcesRequestFields(), {
+                        "preselected": True,
+                    });
+            case "create": {
+                hash<auto> fields = FhirRestDataProvider::getFhirR4GeneratedCreateResourceRequestFields(
+                    resource_type);
+                return DataProviderActionCatalog::getActionOptionFromFields(fields{"resource",}, {
+                    "preselected": True,
+                    "required": True,
+                }) + DataProviderActionCatalog::getActionOptionFromFields(fields - "resource", {
+                    "preselected": True,
+                });
+            }
+            case "update": {
+                hash<auto> fields = FhirRestDataProvider::getFhirR4GeneratedUpdateResourceRequestFields(
+                    resource_type);
+                return DataProviderActionCatalog::getActionOptionFromFields(fields{"id", "resource"}, {
+                    "preselected": True,
+                    "required": True,
+                }) + DataProviderActionCatalog::getActionOptionFromFields(fields - ("id", "resource"), {
+                    "preselected": True,
+                });
+            }
+            case "delete":
+                return DataProviderActionCatalog::getActionOptionFromFields(
+                    FhirRestDataProvider::getFhirR4GeneratedDeleteResourceRequestFields(), {
+                        "preselected": True,
+                    });
+            case "validate": {
+                hash<auto> fields = FhirRestDataProvider::getFhirR4GeneratedValidateResourceRequestFields(
+                    resource_type);
+                return DataProviderActionCatalog::getActionOptionFromFields(fields{"resource",}, {
+                    "preselected": True,
+                    "required": True,
+                }) + DataProviderActionCatalog::getActionOptionFromFields(fields - "resource", {
+                    "preselected": True,
+                });
+            }
+        }
+        throw "FHIR-DATA-PROVIDER-ERROR", sprintf("unsupported generated resource operation: %y", operation);
+    }
+
+    DataProvider::AbstractDataProviderType sub getGeneratedResourceActionOutputType(string resource_type,
+            string operation) {
+        switch (operation) {
+            case "read": {
+                *FhirRestDataProvider::FhirR4GeneratedResourceDataType data_type =
+                    FhirRestDataProvider::getFhirR4GeneratedResourceDataType(resource_type);
+                if (!data_type) {
+                    throw "FHIR-RESOURCE-TYPE-ERROR",
+                        sprintf("resource type %y has no generated FHIR R4 data type", resource_type);
+                }
+                return data_type;
+            }
+            case "search":
+                return FhirRestDataProvider::FhirR4BundleDataType;
+            case "create":
+            case "update":
+            case "delete":
+                return FhirRestDataProvider::FhirRestResponseDataType;
+            case "validate":
+                return FhirRestDataProvider::FhirOperationOutcomeDataType;
+        }
+        throw "FHIR-DATA-PROVIDER-ERROR", sprintf("unsupported generated resource operation: %y", operation);
+    }
+
+    sub registerGeneratedResourceActions() {
+        foreach string resource_type in (FhirRestDataProvider::FhirR4GeneratedResourceTypeList) {
+            string path_name = resource_type.lwr();
+            foreach hash<auto> spec in (GeneratedResourceActionSpecs) {
+                string operation = spec.operation;
+                DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
+                    "app": FhirRestDataProvider::AppName,
+                    "path": sprintf("/resources/%s/%s", path_name, operation),
+                    "action": sprintf("%s-%s", operation, path_name),
+                    "display_name": sprintf("%s %s", spec.display_name, resource_type),
+                    "short_desc": sprintf(spec.short_desc, resource_type),
+                    "desc": sprintf(spec.desc, resource_type),
+                    "groups": ("R4 Generated Resources", resource_type,),
+                    "action_code": DPAT_API,
+                    "options": getGeneratedResourceActionOptions(resource_type, operation),
+                    "output_type": getGeneratedResourceActionOutputType(resource_type, operation),
+                });
+            }
+        }
+    }
+
     sub priv_init() {
         DataProvider::registerFactory(new FhirRestDataProviderFactory());
 
@@ -181,6 +340,7 @@ namespace Priv {
                 "Supported operations:\n"
                 "- **Metadata**: read `CapabilityStatement` and SMART configuration\n"
                 "- **Resources**: read, search, create, update, delete, and validate resources\n"
+                "- **Generated R4 resources**: use typed actions for `Patient`, `Observation`, and `Bundle`\n"
                 "- **Terminology**: delegate `$validate-code` and `$expand` operations to a FHIR server\n\n"
                 "**Note**: Generic actions accept every resource type in the generated R4 catalog. "
                 "Structured metadata is included for `Patient`, `Observation`, and `Bundle`.",
@@ -386,5 +546,7 @@ namespace Priv {
             ),
             "output_type": FhirRestDataProvider::FhirResourceDataType,
         });
+
+        registerGeneratedResourceActions();
     }
 }

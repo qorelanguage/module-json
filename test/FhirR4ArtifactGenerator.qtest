@@ -116,6 +116,8 @@ class FhirR4ArtifactGeneratorTest inherits QUnit::Test {
         assertTrue(data_types =~ /FhirR4PatientDataType/, "data types contain Patient type");
         assertTrue(data_types =~ /deceasedBoolean/, "data types contain choice field");
         assertTrue(data_types =~ /<AllowedValueInfo>\{/, "data types contain typed allowed values");
+        assertTrue(data_types =~ /FhirR4GeneratedResourcePathNameMap/, "data types contain path-name map");
+        assertTrue(data_types =~ /assertFhirR4TypedResourceBody/, "data types contain typed body validator");
 
         hash<auto> metadata = parse_json(File::readTextFile(metadata_path));
         assertEq(("Bundle", "Observation", "Patient"), sort(keys metadata));

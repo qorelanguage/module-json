@@ -1762,9 +1762,32 @@ public const FhirR4ResourceDataTypeMap = {
     "Patient": FhirR4PatientDataType,
 };
 
+#! Generated FHIR R4 resource path-name map
+public const FhirR4GeneratedResourcePathNameMap = {
+    "bundle": "Bundle",
+    "observation": "Observation",
+    "patient": "Patient",
+};
+
 #! Returns a generated FHIR R4 resource data type or NOTHING if the resource is not generated yet
 public *FhirR4GeneratedResourceDataType sub getFhirR4GeneratedResourceDataType(string resource_type) {
     assertFhirR4ResourceType(resource_type);
     return FhirR4ResourceDataTypeMap{resource_type};
+}
+
+#! Returns a generated FHIR R4 resource type from its action path name or NOTHING if unsupported
+public *string sub getFhirR4GeneratedResourceTypeForPathName(string path_name) {
+    return FhirR4GeneratedResourcePathNameMap{path_name};
+}
+
+#! Validates a generated FHIR R4 resource body and returns the typed value
+public hash<auto> sub assertFhirR4TypedResourceBody(string resource_type, hash<auto> resource) {
+    assertFhirR4ResourceRequestType(resource_type, resource);
+    *FhirR4GeneratedResourceDataType data_type = getFhirR4GeneratedResourceDataType(resource_type);
+    if (!data_type) {
+        throw "FHIR-RESOURCE-TYPE-ERROR",
+            sprintf("resource type %y has no generated FHIR R4 data type", resource_type);
+    }
+    return data_type.acceptsValue(resource);
 }
 }

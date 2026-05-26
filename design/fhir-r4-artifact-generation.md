@@ -62,7 +62,7 @@ Expected generated outputs:
 - Resource and datatype metadata derived from `StructureDefinition.snapshot.element`.
 - `HashDataType` definitions for data provider input/output typing and documentation.
 - Search parameter metadata by resource type.
-- Action catalog helpers that expose resource-specific actions without removing the existing generic/raw escape hatch.
+- Action catalog helpers that expose resource-specific actions without removing the existing generic advanced actions.
 
 The generator must fail rather than silently degrade when it finds unsupported constructs, duplicate generated names,
 checksum mismatches, invalid JSON source artifacts, or schema constructs that cannot be represented safely.
@@ -91,8 +91,9 @@ context.
 1. Add a deterministic generator script and tests for unsupported source constructs. **Implemented.**
 2. Generate a small first slice for core metadata plus `Patient`, `Observation`, and `Bundle`. **Implemented.**
 3. Add generated manifest verification tests. **Implemented for generator output.**
-4. Add data provider action catalog tests for generated resource-specific actions.
+4. Add data provider action catalog tests for generated resource-specific actions. **Implemented.**
 5. Add negative tests for invalid resource type, invalid field type, unsupported profile validation, and checksum
-   mismatch.
+   mismatch. **Implemented for local validation boundaries: invalid resource types, typed generated field values, and
+   checksum mismatch are covered. Profile validation remains delegated to server-side `$validate` by design.**
 6. Document examples for generic actions, generated resource-specific actions, raw advanced search parameters, and
-   server-side validation.
+   server-side validation. **Implemented.**

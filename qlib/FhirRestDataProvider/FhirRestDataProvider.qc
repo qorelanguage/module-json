@@ -149,11 +149,15 @@ public class FhirResourcesDataProvider inherits FhirRestDataProviderBase {
 
     #! Returns child data provider names
     private *list<string> getChildProviderNamesImpl() {
-        return ("read", "search", "create", "update", "delete", "validate");
+        return ("read", "search", "create", "update", "delete", "validate")
+            + (map $1.lwr(), FhirR4GeneratedResourceTypeList);
     }
 
     #! Returns the given child provider or \c NOTHING if the given child is unknown
     private *DataProvider::AbstractDataProvider getChildProviderImpl(string name) {
+        if (*string resource_type = getFhirR4GeneratedResourceTypeForPathName(name)) {
+            return new FhirR4ResourceDataProvider(fhir, resource_type);
+        }
         switch (name) {
             case "read":
                 return new FhirReadResourceDataProvider(fhir);

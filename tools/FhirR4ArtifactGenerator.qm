@@ -698,10 +698,33 @@ public class FhirR4ArtifactGenerator {
         }
 
         out += "};\n\n"
+            "#! Generated FHIR R4 resource path-name map\n"
+            "public const FhirR4GeneratedResourcePathNameMap = {\n";
+        foreach string resource_type in (resource_types) {
+            out += sprintf("    %s: %s,\n", make_json(resource_type.lwr()), make_json(resource_type));
+        }
+
+        out += "};\n\n"
             "#! Returns a generated FHIR R4 resource data type or NOTHING if the resource is not generated yet\n"
             "public *FhirR4GeneratedResourceDataType sub getFhirR4GeneratedResourceDataType(string resource_type) {\n"
             "    assertFhirR4ResourceType(resource_type);\n"
             "    return FhirR4ResourceDataTypeMap{resource_type};\n"
+            "}\n"
+            "\n"
+            "#! Returns a generated FHIR R4 resource type from its action path name or NOTHING if unsupported\n"
+            "public *string sub getFhirR4GeneratedResourceTypeForPathName(string path_name) {\n"
+            "    return FhirR4GeneratedResourcePathNameMap{path_name};\n"
+            "}\n"
+            "\n"
+            "#! Validates a generated FHIR R4 resource body and returns the typed value\n"
+            "public hash<auto> sub assertFhirR4TypedResourceBody(string resource_type, hash<auto> resource) {\n"
+            "    assertFhirR4ResourceRequestType(resource_type, resource);\n"
+            "    *FhirR4GeneratedResourceDataType data_type = getFhirR4GeneratedResourceDataType(resource_type);\n"
+            "    if (!data_type) {\n"
+            "        throw \"FHIR-RESOURCE-TYPE-ERROR\",\n"
+            "            sprintf(\"resource type %y has no generated FHIR R4 data type\", resource_type);\n"
+            "    }\n"
+            "    return data_type.acceptsValue(resource);\n"
             "}\n"
             "}\n";
 
