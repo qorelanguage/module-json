@@ -127,6 +127,7 @@ json module.
 - added FhirRestClient module for FHIR R4 JSON REST servers
 - added FhirRestDataProvider module for FHIR REST DataProvider actions
 - added generated FHIR R4 resource type catalog and local validation
+- added generated FHIR R4 HashDataType metadata for Patient, Observation, and Bundle
 
 * Sat Mar 14 2026 David Nichols <david@qore.org> - 1.11
 - updated to version 1.11

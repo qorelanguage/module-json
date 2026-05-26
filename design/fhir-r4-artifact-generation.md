@@ -67,6 +67,11 @@ Expected generated outputs:
 The generator must fail rather than silently degrade when it finds unsupported constructs, duplicate generated names,
 checksum mismatches, invalid JSON source artifacts, or schema constructs that cannot be represented safely.
 
+The first committed generated slice provides the complete R4 resource-type catalog and direct-field
+`HashDataType` metadata for `Patient`, `Observation`, and `Bundle`.  The generated metadata is intentionally
+permissive for unknown extension/profile fields by using a default `any` field type; full FHIR profile,
+terminology, and invariant validation remains delegated as described below.
+
 ## Validation Model
 
 Local validation will be layered and must be described accurately:
@@ -83,9 +88,9 @@ context.
 
 ## Implementation Checklist
 
-1. Add a deterministic generator script and tests for unsupported source constructs.
-2. Generate a small first slice for core metadata plus `Patient`, `Observation`, and `Bundle`.
-3. Add generated manifest verification tests.
+1. Add a deterministic generator script and tests for unsupported source constructs. **Implemented.**
+2. Generate a small first slice for core metadata plus `Patient`, `Observation`, and `Bundle`. **Implemented.**
+3. Add generated manifest verification tests. **Implemented for generator output.**
 4. Add data provider action catalog tests for generated resource-specific actions.
 5. Add negative tests for invalid resource type, invalid field type, unsupported profile validation, and checksum
    mismatch.

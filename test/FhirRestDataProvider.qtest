@@ -196,6 +196,7 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         addTestCase("metadata actions test", \metadataActionsTest());
         addTestCase("resource actions test", \resourceActionsTest());
         addTestCase("resource type validation test", \resourceTypeValidationTest());
+        addTestCase("generated resource data types test", \generatedResourceDataTypesTest());
         addTestCase("terminology actions test", \terminologyActionsTest());
         addTestCase("negative constructor test", \negativeConstructorTest());
 
@@ -242,6 +243,8 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertEq(146, FhirRestDataProvider::FhirR4ResourceTypeList.size());
         assertTrue(FhirRestDataProvider::isFhirR4ResourceType("Patient"));
         assertFalse(FhirRestDataProvider::isFhirR4ResourceType("DomainResource"));
+        assertEq(("Bundle", "Observation", "Patient"), FhirRestDataProvider::FhirR4GeneratedResourceTypeList);
+        assertEq("Patient", FhirRestDataProvider::FhirR4GeneratedResourceMetadata.Patient.resource_type);
 
         *list<hash<auto>> actions = DataProviderActionCatalog::getActions(FhirRestDataProvider::AppName);
         assertTrue(exists actions);
@@ -371,6 +374,50 @@ class FhirRestDataProviderTest inherits QUnit::Test {
                 "resource": {
                     "id": "missing-type",
                 },
+            });
+        });
+    }
+
+    generatedResourceDataTypesTest() {
+        FhirRestDataProvider::FhirR4GeneratedResourceDataType patient_type =
+            FhirRestDataProvider::getFhirR4GeneratedResourceDataType("Patient");
+        assertEq("Patient", patient_type.getName());
+        hash<auto> patient = patient_type.acceptsValue({
+            "resourceType": "Patient",
+            "id": "patient-1",
+            "active": True,
+            "name": ({"family": "Jones"},),
+        });
+        assertEq("Patient", patient.resourceType);
+        assertEq(True, patient.active);
+
+        FhirRestDataProvider::FhirR4GeneratedResourceDataType observation_type =
+            FhirRestDataProvider::getFhirR4GeneratedResourceDataType("Observation");
+        hash<auto> observation = observation_type.acceptsValue({
+            "resourceType": "Observation",
+            "status": "final",
+            "code": {"text": "Heart rate"},
+        });
+        assertEq("final", observation.status);
+
+        FhirRestDataProvider::FhirR4GeneratedResourceDataType bundle_type =
+            FhirRestDataProvider::getFhirR4GeneratedResourceDataType("Bundle");
+        hash<auto> bundle = bundle_type.acceptsValue({
+            "resourceType": "Bundle",
+            "type": "searchset",
+            "entry": ({
+                "resource": patient,
+            },),
+        });
+        assertEq("searchset", bundle.type);
+
+        assertNothing(FhirRestDataProvider::getFhirR4GeneratedResourceDataType("Account"));
+        assertThrows("FHIR-RESOURCE-TYPE-ERROR", sub () {
+            FhirRestDataProvider::getFhirR4GeneratedResourceDataType("NoSuchResource");
+        });
+        assertThrows("RUNTIME-TYPE-ERROR", sub () {
+            patient_type.acceptsValue({
+                "resourceType": "Observation",
             });
         });
     }

@@ -158,5 +158,17 @@
     "ValueSet",
     "VerificationResult",
     "VisionPrescription"
+  ],
+  "generated_resource_count": 3,
+  "generated_resources": [
+    "Bundle",
+    "Observation",
+    "Patient"
+  ],
+  "generated_files": [
+    "qlib/FhirRestDataProvider/FhirR4ResourceTypes.qc",
+    "qlib/FhirRestDataProvider/FhirR4ResourceDataTypes.qc",
+    "qlib/FhirRestDataProvider/fhir/r4/resource-metadata.json",
+    "qlib/FhirRestDataProvider/fhir/r4/manifest.json"
   ]
 }

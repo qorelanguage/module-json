@@ -93,11 +93,16 @@ class FhirR4ArtifactGeneratorTest inherits QUnit::Test {
         assertEq("4.0.1", result.fhir_version);
         assertEq(sha1, result.source_sha1);
         assertEq(("Bundle", "Observation", "Patient"), result.resources);
-        assertEq(2, result.generated_files.size());
+        assertEq(("Bundle", "Observation", "Patient"), result.generated_resources);
+        assertEq(4, result.generated_files.size());
 
         string catalog_path = out_dir + "/FhirR4ResourceTypes.qc";
+        string data_types_path = out_dir + "/FhirR4ResourceDataTypes.qc";
+        string metadata_path = out_dir + "/fhir/r4/resource-metadata.json";
         string manifest_path = out_dir + "/fhir/r4/manifest.json";
         assertTrue(is_file(catalog_path), "catalog file exists");
+        assertTrue(is_file(data_types_path), "data types file exists");
+        assertTrue(is_file(metadata_path), "metadata file exists");
         assertTrue(is_file(manifest_path), "manifest file exists");
 
         string catalog = File::readTextFile(catalog_path);
@@ -106,11 +111,24 @@ class FhirR4ArtifactGeneratorTest inherits QUnit::Test {
         assertTrue(catalog =~ /assertFhirR4ResourceBodyType/, "catalog contains body validator");
         assertTrue(catalog =~ /assertFhirR4ResourceRequestType/, "catalog contains request validator");
 
+        string data_types = File::readTextFile(data_types_path);
+        assertTrue(data_types =~ /FhirR4GeneratedResourceDataType/, "data types contain generated base type");
+        assertTrue(data_types =~ /FhirR4PatientDataType/, "data types contain Patient type");
+        assertTrue(data_types =~ /deceasedBoolean/, "data types contain choice field");
+
+        hash<auto> metadata = parse_json(File::readTextFile(metadata_path));
+        assertEq(("Bundle", "Observation", "Patient"), sort(keys metadata));
+        assertEq("Patient", metadata.Patient.resource_type);
+        assertTrue(exists metadata.Patient.fields[0].allowed_values, "resourceType field has allowed value metadata");
+
         hash<auto> manifest = parse_json(File::readTextFile(manifest_path));
         assertEq("fhir-r4-resource-catalog", manifest.artifact);
         assertEq("fixture://definitions.json.zip", manifest.source_url);
         assertEq(3, manifest.resource_count);
+        assertEq(3, manifest.generated_resource_count);
         assertEq(("Bundle", "Observation", "Patient"), manifest.resources);
+        assertEq(("Bundle", "Observation", "Patient"), manifest.generated_resources);
+        assertEq(result.generated_files, manifest.generated_files);
     }
 
     private checksumMismatchTest() {
@@ -223,9 +241,73 @@ class FhirR4ArtifactGeneratorTest inherits QUnit::Test {
                 "derivation": "specialization",
                 "type": resource_type,
                 "name": resource_type,
+                "url": "http://hl7.org/fhir/StructureDefinition/" + resource_type,
+                "version": "4.0.1",
+                "status": "active",
                 "abstract": is_abstract,
+                "snapshot": {
+                    "element": getStructureDefinitionElements(resource_type),
+                },
             },
         };
+    }
+
+    private list<hash<auto>> getStructureDefinitionElements(string resource_type) {
+        return ({
+            "id": resource_type,
+            "path": resource_type,
+            "short": resource_type,
+            "definition": resource_type + " resource",
+            "min": 0,
+            "max": "*",
+            "isModifier": False,
+            "isSummary": False,
+        }, {
+            "id": resource_type + ".id",
+            "path": resource_type + ".id",
+            "short": "Logical id",
+            "definition": "Logical id of the resource",
+            "min": 0,
+            "max": "1",
+            "type": ({"code": "http://hl7.org/fhirpath/System.String"},),
+            "isModifier": False,
+            "isSummary": True,
+        }, {
+            "id": resource_type + ".status",
+            "path": resource_type + ".status",
+            "short": "Resource status",
+            "definition": "Status code for the fixture resource",
+            "min": 1,
+            "max": "1",
+            "type": ({"code": "code"},),
+            "isModifier": True,
+            "isSummary": True,
+            "binding": {
+                "strength": "required",
+                "description": "Fixture status codes",
+                "valueSet": "fixture://status",
+            },
+        }, {
+            "id": resource_type + ".name",
+            "path": resource_type + ".name",
+            "short": "Resource name",
+            "definition": "Name for the fixture resource",
+            "min": 0,
+            "max": "*",
+            "type": ({"code": "HumanName"},),
+            "isModifier": False,
+            "isSummary": True,
+        }, {
+            "id": resource_type + ".deceased[x]",
+            "path": resource_type + ".deceased[x]",
+            "short": "Choice field",
+            "definition": "Choice field fixture",
+            "min": 0,
+            "max": "1",
+            "type": ({"code": "boolean"}, {"code": "dateTime"}),
+            "isModifier": True,
+            "isSummary": True,
+        });
     }
 }
 

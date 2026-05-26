@@ -624,6 +624,18 @@ public const FhirR4ResourceTypeMap = {
 public const FhirR4ArtifactManifest = {
     "artifact": "fhir-r4-resource-catalog",
     "fhir_version": "4.0.1",
+    "generated_files": (
+        "qlib/FhirRestDataProvider/FhirR4ResourceTypes.qc",
+        "qlib/FhirRestDataProvider/FhirR4ResourceDataTypes.qc",
+        "qlib/FhirRestDataProvider/fhir/r4/resource-metadata.json",
+        "qlib/FhirRestDataProvider/fhir/r4/manifest.json",
+    ),
+    "generated_resource_count": 3,
+    "generated_resources": (
+        "Bundle",
+        "Observation",
+        "Patient",
+    ),
     "generator": "tools/FhirR4ArtifactGenerator.qm",
     "generator_version": "0.1.0",
     "license": "HL7 FHIR specification materials are licensed under Creative Commons CC0",
