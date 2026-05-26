@@ -60,7 +60,7 @@ public class FhirRestConnection inherits RestClient::RestConnection {
                     "display_name": "No Charset in Content-Type?",
                     "short_desc": "Do not append a charset parameter to request Content-Type headers",
                     "type": "bool",
-                    "desc": "If True, no charset parameter is appended to request Content-Type headers",
+                    "desc": "If `True`, no charset parameter is appended to request Content-Type headers",
                     "default_value": True,
                 },
                 "ping_headers": RestConnection::ConnectionScheme.options."ping_headers" + <ConnectionOptionInfo>{

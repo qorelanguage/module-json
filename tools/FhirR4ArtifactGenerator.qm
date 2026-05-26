@@ -53,7 +53,7 @@ public hashdecl FhirR4GenerationOptions {
     #! Expected SHA1 checksum for \c source_path
     *string expected_sha1;
 
-    #! Resource types for the first generated HashDataType slice
+    #! Resource types for generated HashDataType metadata
     *list<string> generated_resource_types;
 }
 
@@ -612,7 +612,7 @@ public class FhirR4ArtifactGenerator {
             "*/\n\n"
             "#! contains all public definitions in the FhirRestDataProvider module\n"
             "public namespace FhirRestDataProvider {\n"
-            "#! Generated FHIR R4 resource metadata for the first typed resource slice\n"
+            "#! Generated FHIR R4 resource metadata for selected typed resources\n"
             "public const FhirR4GeneratedResourceMetadata = "
             + FhirR4ArtifactGenerator::renderQoreLiteral(resource_metadata) + ";\n\n"
             "#! Resource names covered by generated FHIR R4 HashDataType definitions\n"
@@ -758,8 +758,11 @@ public class FhirR4ArtifactGenerator {
                 }
                 string rv = "{\n";
                 foreach string key in (sort(keys h)) {
+                    string rendered = key == "allowed_values"
+                        ? FhirR4ArtifactGenerator::renderAllowedValuesLiteral(h{key}, indent + 4)
+                        : FhirR4ArtifactGenerator::renderQoreLiteral(h{key}, indent + 4);
                     rv += FhirR4ArtifactGenerator::spaces(indent + 4) + make_json(key) + ": "
-                        + FhirR4ArtifactGenerator::renderQoreLiteral(h{key}, indent + 4) + ",\n";
+                        + rendered + ",\n";
                 }
                 return rv + FhirR4ArtifactGenerator::spaces(indent) + "}";
             }
@@ -767,6 +770,28 @@ public class FhirR4ArtifactGenerator {
 
         throw "FHIR-R4-GENERATOR-ERROR",
             sprintf("cannot render Qore literal for value with type code %d", value.typeCode());
+    }
+
+    private static string renderAllowedValuesLiteral(auto value, int indent) {
+        if (value.typeCode() != NT_LIST) {
+            return FhirR4ArtifactGenerator::renderQoreLiteral(value, indent);
+        }
+
+        list<auto> values = value;
+        if (values.empty()) {
+            return "()";
+        }
+
+        string rv = "(\n";
+        foreach auto item in (values) {
+            if (item.typeCode() != NT_HASH) {
+                throw "FHIR-R4-GENERATOR-ERROR", sprintf("allowed_values entry has type code %d",
+                    item.typeCode());
+            }
+            rv += FhirR4ArtifactGenerator::spaces(indent + 4) + "<AllowedValueInfo>"
+                + FhirR4ArtifactGenerator::renderQoreLiteral(item, indent + 4) + ",\n";
+        }
+        return rv + FhirR4ArtifactGenerator::spaces(indent) + ")";
     }
 
     private static string spaces(int count) {

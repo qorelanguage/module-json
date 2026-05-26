@@ -66,8 +66,9 @@ public class FhirSearchResourcesRequestDataType inherits HashDataType {
                 "type": AutoHashOrNothingType,
                 "display_name": "Search Parameters",
                 "short_desc": "FHIR search parameters",
-                "desc": "FHIR search parameters. List values are sent as repeated query parameters, which "
-                    "supports `_include`, `_revinclude`, and other repeated FHIR search parameters.",
+                "desc": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, "
+                    "`_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n"
+                    "**Example**: `{\"family\": \"Smith\"}`",
                 "example_value": {"family": "Smith"},
             },
         };
@@ -94,7 +95,8 @@ public class FhirCreateResourceRequestDataType inherits HashDataType {
                 "type": AutoHashType,
                 "display_name": "Resource",
                 "short_desc": "FHIR resource body",
-                "desc": "FHIR resource body as a JSON-compatible hash",
+                "desc": "FHIR resource body as a JSON-compatible hash. The hash must include `resourceType`.\n\n"
+                    "**Example**: `{\"resourceType\": \"Patient\", \"name\": [{\"family\": \"Jones\"}]}`",
                 "example_value": {"resourceType": "Patient", "name": ({"family": "Jones"},)},
             },
             "if_none_exist": {
@@ -135,7 +137,9 @@ public class FhirUpdateResourceRequestDataType inherits HashDataType {
                 "type": AutoHashType,
                 "display_name": "Resource",
                 "short_desc": "FHIR resource body",
-                "desc": "FHIR resource body as a JSON-compatible hash",
+                "desc": "FHIR resource body as a JSON-compatible hash. The hash must include `resourceType` "
+                    "and should include the logical `id` being updated.\n\n"
+                    "**Example**: `{\"resourceType\": \"Patient\", \"id\": \"example\", \"active\": True}`",
                 "example_value": {"resourceType": "Patient", "id": "example", "active": True},
             },
             "etag": {
@@ -196,7 +200,8 @@ public class FhirValidateResourceRequestDataType inherits HashDataType {
                 "type": AutoHashType,
                 "display_name": "Resource",
                 "short_desc": "FHIR resource body",
-                "desc": "FHIR resource body to validate",
+                "desc": "FHIR resource body to validate. The hash must include `resourceType`.\n\n"
+                    "**Example**: `{\"resourceType\": \"Patient\", \"id\": \"example\"}`",
                 "example_value": {"resourceType": "Patient", "id": "example"},
             },
             "resource_type": {
@@ -237,7 +242,9 @@ public class FhirValidateCodeRequestDataType inherits HashDataType {
                 "type": AutoHashType,
                 "display_name": "Parameters",
                 "short_desc": "Operation parameters",
-                "desc": "FHIR `$validate-code` operation parameters",
+                "desc": "FHIR `$validate-code` operation parameters as query parameters. Keys are operation "
+                    "parameter names accepted by the server.\n\n"
+                    "**Example**: `{\"code\": \"abc\"}`",
                 "example_value": {"code": "abc"},
             },
         };
@@ -264,7 +271,9 @@ public class FhirExpandValueSetRequestDataType inherits HashDataType {
                 "type": AutoHashOrNothingType,
                 "display_name": "Parameters",
                 "short_desc": "Operation parameters",
-                "desc": "Optional FHIR `$expand` operation parameters",
+                "desc": "Optional FHIR `$expand` operation parameters as query parameters. Keys are "
+                    "operation parameter names accepted by the server.\n\n"
+                    "**Example**: `{\"filter\": \"smi\"}`",
                 "example_value": {"filter": "smi"},
             },
         };

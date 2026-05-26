@@ -45,7 +45,7 @@ module FhirRestDataProvider {
 
     @tableofcontents
 
-    @section fhirrestdataproviderintro Introduction to the FhirRestDataProvider Module
+    @section fhirrestdataproviderintro FhirRestDataProvider Module Introduction
 
     The %FhirRestDataProvider module exposes HL7 FHIR JSON servers through the
     Qore DataProvider API. It builds on the @ref FhirRestClient::FhirRestClient
@@ -59,9 +59,9 @@ module FhirRestDataProvider {
     - terminology delegation through \c $validate-code and \c $expand actions
     - action metadata and typed request/response descriptions suitable for UI integration
 
-    Generated R4 resource-specific action providers are not part of this slice.
-    The committed generated artifacts provide the shared resource catalog and the
-    first typed metadata layer that those action providers will use.
+    The generated artifacts provide the shared R4 resource catalog and structured
+    @ref DataProvider::HashDataType "HashDataType" metadata for commonly used
+    resources such as \c Patient, \c Observation, and \c Bundle.
 
     @section fhirrestdataproviderexamples Examples
 
@@ -182,8 +182,8 @@ namespace Priv {
                 "- **Metadata**: read `CapabilityStatement` and SMART configuration\n"
                 "- **Resources**: read, search, create, update, delete, and validate resources\n"
                 "- **Terminology**: delegate `$validate-code` and `$expand` operations to a FHIR server\n\n"
-                "**Note**: Resource-specific generated types are delivered separately after official FHIR "
-                "artifact licensing and generation decisions are finalized.",
+                "**Note**: Generic actions accept every resource type in the generated R4 catalog. "
+                "Structured metadata is included for `Patient`, `Observation`, and `Bundle`.",
             "legal": "HL7, FHIR, and the FHIR flame design are registered trademarks of Health Level Seven "
                 "International; their use does not constitute endorsement by HL7. FHIR specification materials "
                 "are licensed under Creative Commons CC0. Third-party artifacts and terminologies referenced by "
@@ -243,8 +243,8 @@ namespace Priv {
             "action": "search-resources",
             "display_name": "Search Resources",
             "short_desc": "Search FHIR resources with query parameters",
-            "desc": "Search a FHIR resource type. The `params` hash is an escape hatch for FHIR search "
-                "features such as modifiers, chained parameters, `_include`, and `_revinclude`.",
+            "desc": "Search a FHIR resource type. The `params` hash accepts FHIR search parameter "
+                "names, including modifiers, chained parameters, `_include`, and `_revinclude`.",
             "action_code": DPAT_API,
             "options": DataProviderActionCatalog::getActionOptionFromFields(
                 FhirSearchResourcesRequestDataType::Fields{"resource_type",}, {

@@ -24,7 +24,7 @@
 
 #! contains all public definitions in the FhirRestDataProvider module
 public namespace FhirRestDataProvider {
-#! Generated FHIR R4 resource metadata for the first typed resource slice
+#! Generated FHIR R4 resource metadata for selected typed resources
 public const FhirR4GeneratedResourceMetadata = {
     "Bundle": {
         "base_definition": "http://hl7.org/fhir/StructureDefinition/Resource",
@@ -32,7 +32,7 @@ public const FhirR4GeneratedResourceMetadata = {
         "fields": (
             {
                 "allowed_values": (
-                    {
+                    <AllowedValueInfo>{
                         "display_name": "Bundle",
                         "value": "Bundle",
                     },
@@ -276,7 +276,7 @@ public const FhirR4GeneratedResourceMetadata = {
         "fields": (
             {
                 "allowed_values": (
-                    {
+                    <AllowedValueInfo>{
                         "display_name": "Observation",
                         "value": "Observation",
                     },
@@ -1162,7 +1162,7 @@ public const FhirR4GeneratedResourceMetadata = {
         "fields": (
             {
                 "allowed_values": (
-                    {
+                    <AllowedValueInfo>{
                         "display_name": "Patient",
                         "value": "Patient",
                     },

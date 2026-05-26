@@ -50,12 +50,11 @@ module FhirRestClient {
 
     @tableofcontents
 
-    @section fhirrestclientintro FhirRestClient Introduction
+    @section fhirrestclientintro FhirRestClient Module Introduction
 
     The %FhirRestClient module provides a JSON REST client for HL7 FHIR servers.
-    The initial implementation targets FHIR R4-compatible servers and is structured
-    so later R4B/R5 support and DataProvider integration can build on the same
-    connection and request helpers.
+    The implementation targets FHIR R4-compatible servers and provides the
+    connection and request helpers used by the companion DataProvider module.
 
     The module uses @ref RestClient::RestClient "RestClient" for HTTP behavior,
     OAuth2 options, request serialization, and connection-provider integration.

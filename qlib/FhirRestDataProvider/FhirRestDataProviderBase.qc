@@ -61,13 +61,15 @@ public class FhirRestDataProviderBase inherits DataProvider::AbstractDataProvide
                 "display_name": "Headers",
                 "short_desc": "Additional request headers",
                 "type": AbstractDataProviderType::get(AutoHashOrNothingType),
-                "desc": "Additional HTTP request headers to apply when creating a client from `url`",
+                "desc": "Additional HTTP request headers to apply when creating a client from `url`.\n\n"
+                    "**Example**: `{\"X-Request-ID\": \"qore-fhir-test\"}`",
             },
             "client_options": <DataProviderOptionInfo>{
                 "display_name": "Client Options",
                 "short_desc": "Additional REST client options",
                 "type": AbstractDataProviderType::get(AutoHashOrNothingType),
-                "desc": "Additional `FhirRestClient` constructor options when creating a client from `url`",
+                "desc": "Additional `FhirRestClient` constructor options when creating a client from `url`.\n\n"
+                    "**Example**: `{\"no_charset\": True}`",
             },
         };
     }
