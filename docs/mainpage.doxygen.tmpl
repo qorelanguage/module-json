@@ -35,6 +35,8 @@
       - <a href="../../A2aClient/html/index.html">A2aClient</a>
       - <a href="../../A2aServerHandler/html/index.html">A2aServerHandler</a>
       - <a href="../../A2aClientDataProvider/html/index.html">A2aClientDataProvider</a>
+      - <a href="../../FhirRestClient/html/index.html">FhirRestClient</a>
+      - <a href="../../FhirRestDataProvider/html/index.html">FhirRestDataProvider</a>
       - <a href="../../NdjsonDataProvider/html/index.html">NdjsonDataProvider</a>
       - <a href="../../JsonFileDataProvider/html/index.html">JsonFileDataProvider</a>
       - <a href="../../JsonLd/html/index.html">JsonLd</a>
@@ -61,6 +63,8 @@
     - <a href="../../A2aClient/html/index.html">A2aClient</a> user module
     - <a href="../../A2aServerHandler/html/index.html">A2aServerHandler</a> user module
     - <a href="../../A2aClientDataProvider/html/index.html">A2aClientDataProvider</a> user module
+    - <a href="../../FhirRestClient/html/index.html">FhirRestClient</a> user module
+    - <a href="../../FhirRestDataProvider/html/index.html">FhirRestDataProvider</a> user module
     - <a href="../../NdjsonDataProvider/html/index.html">NdjsonDataProvider</a> user module
     - <a href="../../JsonFileDataProvider/html/index.html">JsonFileDataProvider</a> user module
     - <a href="../../JsonLd/html/index.html">JsonLd</a> user module
@@ -311,6 +315,17 @@ hash<auto> parsed = parse_toon(toon);
       - JSON-RPC 2.0 notification support
       - debug info variants for all call methods
       - ConnectionProvider integration with \c jsonrpcio:// and \c jsonrpcios:// URL schemes
+    - added the <a href="../../FhirRestClient/html/index.html">FhirRestClient</a> module for HL7 FHIR JSON REST
+      servers:
+      - FHIR R4-compatible JSON request/response handling with \c application/fhir+json
+      - \c fhir:// and \c fhirs:// ConnectionProvider schemes
+      - CapabilityStatement and SMART discovery helpers
+      - resource read/search/create/update/delete helpers with conditional create and ETag support
+      - \c OperationOutcome exception mapping and validation/terminology delegation helpers
+    - added the <a href="../../FhirRestDataProvider/html/index.html">FhirRestDataProvider</a> module:
+      - \c fhirrest DataProvider factory for FHIR REST server connections
+      - metadata, resource CRUD/search, validation, and terminology actions
+      - typed generic request/response metadata for action catalogs
     - added the <a href="../../JsonLd/html/index.html">JsonLd</a> module with full W3C JSON-LD 1.1 compliance:
       - expansion, compaction, flattening, framing algorithms
       - toRdf/fromRdf with N-Quads serialization

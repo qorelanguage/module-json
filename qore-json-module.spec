@@ -102,6 +102,8 @@ qore -l ./json-api-%{module_api}.qmod test/McpClientDataProvider.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/A2aClient.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/A2aServerHandler.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/A2aClientDataProvider.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/FhirRestClient.qtest -v
+qore -l ./json-api-%{module_api}.qmod test/FhirRestDataProvider.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/json.qtest -v
 qore -l ./json-api-%{module_api}.qmod test/Jwt.qtest -v
 
@@ -115,12 +117,14 @@ json module.
 
 %files doc
 %defattr(-,root,root,-)
-%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler docs/McpClient docs/McpClientDataProvider docs/A2aClient docs/A2aServerHandler docs/A2aClientDataProvider test examples
+%doc docs/json docs/JsonRpcConnection docs/JsonRpcHandler docs/McpServerHandler docs/McpClient docs/McpClientDataProvider docs/A2aClient docs/A2aServerHandler docs/A2aClientDataProvider docs/FhirRestClient docs/FhirRestDataProvider test examples
 
 %changelog
 * Fri May 16 2026 David Nichols <david@qore.org> - 1.12
 - updated to version 1.12
 - added TOON serialization support (make_toon/parse_toon)
+- added FhirRestClient module for FHIR R4 JSON REST servers
+- added FhirRestDataProvider module for FHIR REST DataProvider actions
 
 * Sat Mar 14 2026 David Nichols <david@qore.org> - 1.11
 - updated to version 1.11
