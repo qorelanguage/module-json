@@ -71,6 +71,105 @@ public class FhirSearchResourcesRequestDataType inherits HashDataType {
                     "**Example**: `{\"family\": \"Smith\"}`",
                 "example_value": {"family": "Smith"},
             },
+            "id": {
+                "type": StringOrNothingType,
+                "display_name": "ID Search",
+                "short_desc": "FHIR `_id` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_id` search parameter",
+                "example_value": "example",
+            },
+            "last_updated": {
+                "type": StringOrNothingType,
+                "display_name": "Last Updated",
+                "short_desc": "FHIR `_lastUpdated` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
+                "example_value": "ge2026-05-01",
+            },
+            "tag": {
+                "type": AutoType,
+                "display_name": "Tag",
+                "short_desc": "FHIR `_tag` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_tag` search parameter",
+                "example_value": "http://example.org/tags|reviewed",
+            },
+            "profile": {
+                "type": AutoType,
+                "display_name": "Profile",
+                "short_desc": "FHIR `_profile` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_profile` search parameter",
+                "example_value": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
+            },
+            "security": {
+                "type": AutoType,
+                "display_name": "Security",
+                "short_desc": "FHIR `_security` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_security` search parameter",
+                "example_value": "http://terminology.hl7.org/CodeSystem/v3-ActCode|N",
+            },
+            "text": {
+                "type": StringOrNothingType,
+                "display_name": "Text",
+                "short_desc": "FHIR `_text` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_text` full-text search parameter",
+                "example_value": "Smith",
+            },
+            "content": {
+                "type": StringOrNothingType,
+                "display_name": "Content",
+                "short_desc": "FHIR `_content` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_content` full-content search parameter",
+                "example_value": "diabetes",
+            },
+            "count": {
+                "type": IntOrNothingType,
+                "display_name": "Count",
+                "short_desc": "FHIR `_count` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_count` page-size search parameter",
+                "example_value": 50,
+            },
+            "sort": {
+                "type": AutoType,
+                "display_name": "Sort",
+                "short_desc": "FHIR `_sort` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_sort` search parameter",
+                "example_value": "-_lastUpdated",
+            },
+            "include": {
+                "type": AutoType,
+                "display_name": "Include",
+                "short_desc": "FHIR `_include` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_include` search parameter; use a list for "
+                    "repeated include values",
+                "example_value": ("Patient:general-practitioner",),
+            },
+            "revinclude": {
+                "type": AutoType,
+                "display_name": "RevInclude",
+                "short_desc": "FHIR `_revinclude` search parameter",
+                "desc": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for "
+                    "repeated reverse include values",
+                "example_value": ("Observation:subject",),
+            },
+        };
+    }
+
+    #! Creates the object
+    constructor() {
+        addQoreFields(Fields);
+    }
+}
+
+#! Search all resources request data type
+public class FhirSearchAllResourcesRequestDataType inherits HashDataType {
+    public {
+        const Fields = FhirSearchResourcesRequestDataType::Fields + {
+            "max_pages": {
+                "type": IntOrNothingType,
+                "display_name": "Maximum Pages",
+                "short_desc": "Maximum Bundle pages to fetch",
+                "desc": "Maximum number of Bundle pages to fetch by following `next` pagination links",
+                "example_value": 100,
+            },
         };
     }
 
@@ -141,6 +240,90 @@ public class FhirUpdateResourceRequestDataType inherits HashDataType {
                     "and should include the logical `id` being updated.\n\n"
                     "**Example**: `{\"resourceType\": \"Patient\", \"id\": \"example\", \"active\": True}`",
                 "example_value": {"resourceType": "Patient", "id": "example", "active": True},
+            },
+            "etag": {
+                "type": StringOrNothingType,
+                "display_name": "ETag",
+                "short_desc": "FHIR version ETag",
+                "desc": "ETag value sent in the `If-Match` header for optimistic concurrency",
+                "example_value": "W/\"1\"",
+            },
+        };
+    }
+
+    #! Creates the object
+    constructor() {
+        addQoreFields(Fields);
+    }
+}
+
+#! Conditional update resource request data type
+public class FhirConditionalUpdateResourceRequestDataType inherits HashDataType {
+    public {
+        const Fields = {
+            "resource_type": {
+                "type": StringType,
+                "display_name": "Resource Type",
+                "short_desc": "FHIR resource type",
+                "desc": "FHIR resource type to update conditionally",
+                "example_value": "Patient",
+            },
+            "search_params": {
+                "type": AutoHashType,
+                "display_name": "Search Parameters",
+                "short_desc": "Conditional update search parameters",
+                "desc": "FHIR search parameters used in the conditional update request URL",
+                "example_value": {"identifier": "http://hospital.example/mrn|12345"},
+            },
+            "resource": {
+                "type": AutoHashType,
+                "display_name": "Resource",
+                "short_desc": "FHIR resource body",
+                "desc": "FHIR resource body as a JSON-compatible hash. The hash must include `resourceType` "
+                    "matching `resource_type`.",
+                "example_value": {"resourceType": "Patient", "active": True},
+            },
+        };
+    }
+
+    #! Creates the object
+    constructor() {
+        addQoreFields(Fields);
+    }
+}
+
+#! Patch resource request data type
+public class FhirPatchResourceRequestDataType inherits HashDataType {
+    public {
+        const Fields = {
+            "resource_type": {
+                "type": StringType,
+                "display_name": "Resource Type",
+                "short_desc": "FHIR resource type",
+                "desc": "FHIR resource type to patch",
+                "example_value": "Patient",
+            },
+            "id": {
+                "type": StringType,
+                "display_name": "ID",
+                "short_desc": "FHIR logical ID",
+                "desc": "FHIR logical ID of the resource instance",
+                "example_value": "example",
+            },
+            "patch": {
+                "type": AutoType,
+                "display_name": "Patch",
+                "short_desc": "Patch document body",
+                "desc": "FHIR patch document body. Use `content_type` to choose JSON Patch, XML Patch, or "
+                    "FHIRPath Patch encoding.",
+                "example_value": ({"op": "replace", "path": "/active", "value": False},),
+            },
+            "content_type": {
+                "type": StringOrNothingType,
+                "display_name": "Content Type",
+                "short_desc": "Patch document content type",
+                "desc": "Patch document content type; defaults to `application/json-patch+json`",
+                "example_value": "application/json-patch+json",
             },
             "etag": {
                 "type": StringOrNothingType,
@@ -287,8 +470,11 @@ public class FhirExpandValueSetRequestDataType inherits HashDataType {
 
 public const FhirReadResourceRequestDataType = new FhirReadResourceRequestDataType();
 public const FhirSearchResourcesRequestDataType = new FhirSearchResourcesRequestDataType();
+public const FhirSearchAllResourcesRequestDataType = new FhirSearchAllResourcesRequestDataType();
 public const FhirCreateResourceRequestDataType = new FhirCreateResourceRequestDataType();
 public const FhirUpdateResourceRequestDataType = new FhirUpdateResourceRequestDataType();
+public const FhirConditionalUpdateResourceRequestDataType = new FhirConditionalUpdateResourceRequestDataType();
+public const FhirPatchResourceRequestDataType = new FhirPatchResourceRequestDataType();
 public const FhirDeleteResourceRequestDataType = new FhirDeleteResourceRequestDataType();
 public const FhirValidateResourceRequestDataType = new FhirValidateResourceRequestDataType();
 public const FhirValidateCodeRequestDataType = new FhirValidateCodeRequestDataType();

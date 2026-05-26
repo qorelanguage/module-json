@@ -62,7 +62,8 @@ module FhirRestClient {
 
     The main classes are:
     - @ref FhirRestClient::FhirRestClient "FhirRestClient": REST client helpers
-      for FHIR metadata, SMART discovery, CRUD, search, validation, and
+      for FHIR metadata, SMART discovery, CapabilityStatement resource discovery,
+      SMART-to-OAuth2 option mapping, CRUD, conditional update, patch, paginated search, validation, and
       OperationOutcome error mapping
     - @ref FhirRestClient::FhirRestConnection "FhirRestConnection": connection
       object for \c fhir:// and \c fhirs:// URLs
@@ -81,6 +82,13 @@ FhirRestClient::FhirRestClient client({
 
 hash<auto> capability = client.getCapabilityStatement();
 printf("FHIR version: %s\n", capability.fhirVersion);
+
+hash<auto> oauth2_options = client.getSmartOAuth2ClientOptions({
+    "oauth2_grant_type": "client_credentials",
+    "oauth2_client_id": ENV.FHIR_CLIENT_ID,
+    "oauth2_client_secret": ENV.FHIR_CLIENT_SECRET,
+    "oauth2_scope": "system/Patient.read",
+});
 
 hash<auto> patient = client.readResource("Patient", "example");
 printf("Patient: %y\n", patient);
@@ -105,6 +113,11 @@ string next = FhirRestClient::FhirRestClientBase::getBundleLinkUrl(bundle, "next
 if (next) {
     printf("Next page: %s\n", next);
 }
+
+hash<auto> all_pages = client.searchAllResources("Patient", {
+    "family": "Smith",
+}, 25);
+printf("Fetched %d patient entries\n", all_pages.entry.size());
     @endcode
 
     @subsection fhirrestclientexamplewrite Create and Update Resources
@@ -127,6 +140,16 @@ hash<RestClient::RestResponseInfo> updated = client.updateResource("Patient", cr
 }, created.headers.etag);
 
 printf("Update status: %d\n", updated.status_code);
+
+hash<RestClient::RestResponseInfo> conditional = client.conditionalUpdateResource("Patient", {
+    "identifier": "http://hospital.example/mrn|12345",
+}, created.body + {"active": True});
+
+hash<RestClient::RestResponseInfo> patched = client.patchResource("Patient", created.body.id, ({
+    "op": "replace",
+    "path": "/active",
+    "value": False,
+},), "application/json-patch+json", updated.headers.etag);
     @endcode
 
     @subsection fhirrestclientexampleconnection Connection Provider Use
@@ -170,7 +193,10 @@ try {
     @subsection fhirrestclientv1_0 FhirRestClient v1.0
     - initial FHIR JSON REST client and \c fhir / \c fhirs connection schemes
     - \c CapabilityStatement and SMART configuration discovery helpers
-    - basic read, create, update, patch, delete, search, and validation helpers
+    - SMART OAuth2 endpoint mapping to \c RestClient OAuth2 options
+    - CapabilityStatement resource type discovery and content-type FHIR version helpers
+    - basic read, create, update, conditional update, patch, delete, search, paginated search,
+      and validation helpers
     - OperationOutcome summary and exception mapping for helper methods
 */
 

@@ -28,6 +28,7 @@
 %requires QUnit
 %requires HttpServer
 %requires Logger
+%requires ../qlib/FhirRestClient
 %requires ../qlib/FhirRestDataProvider
 
 %exec-class FhirRestDataProviderTest
@@ -82,12 +83,28 @@ class TestFhirProviderHandler inherits AbstractHttpRequestHandler {
             }, {"ETag": "W/\"1\""});
         }
 
+        if (hdr.method == "GET" && path == "Patient" && parsed.params.page == "2") {
+            return fhirResponse(200, {
+                "resourceType": "Bundle",
+                "type": "searchset",
+                "total": 2,
+                "query": parsed.params,
+                "entry": ({
+                    "resource": {
+                        "resourceType": "Patient",
+                        "id": "pat-2",
+                    },
+                },),
+            });
+        }
+
         if (hdr.method == "GET" && path == "Patient") {
             return fhirResponse(200, {
                 "resourceType": "Bundle",
                 "type": "searchset",
                 "total": 1,
                 "query": parsed.params,
+                "link": ({"relation": "next", "url": "Patient?page=2"},),
                 "entry": ({
                     "resource": {
                         "resourceType": "Patient",
@@ -113,6 +130,25 @@ class TestFhirProviderHandler inherits AbstractHttpRequestHandler {
                 "requestBodyType": request.body.resourceType,
                 "ifMatch": request.if_match,
             }, {"ETag": "W/\"3\""});
+        }
+
+        if (hdr.method == "PUT" && path == "Patient") {
+            return fhirResponse(200, {
+                "resourceType": "Patient",
+                "id": "conditional",
+                "queryIdentifier": parsed.params.identifier,
+                "requestBodyType": request.body.resourceType,
+            }, {"ETag": "W/\"4\""});
+        }
+
+        if (hdr.method == "PATCH" && path == "Patient/pat-1") {
+            return fhirResponse(200, {
+                "resourceType": "Patient",
+                "id": "pat-1",
+                "requestContentType": request.content_type,
+                "patchOperation": request.body[0].op,
+                "ifMatch": request.if_match,
+            }, {"ETag": "W/\"5\""});
         }
 
         if (hdr.method == "DELETE" && path == "Patient/pat-1") {
@@ -255,8 +291,11 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertTrue(inlist("get-capability-statement", action_names));
         assertTrue(inlist("read-resource", action_names));
         assertTrue(inlist("search-resources", action_names));
+        assertTrue(inlist("search-all-resources", action_names));
         assertTrue(inlist("create-resource", action_names));
         assertTrue(inlist("update-resource", action_names));
+        assertTrue(inlist("conditional-update-resource", action_names));
+        assertTrue(inlist("patch-resource", action_names));
         assertTrue(inlist("delete-resource", action_names));
         assertTrue(inlist("validate-resource", action_names));
         assertTrue(inlist("validate-code", action_names));
@@ -264,7 +303,8 @@ class FhirRestDataProviderTest inherits QUnit::Test {
 
         foreach string resource_type in (FhirRestDataProvider::FhirR4GeneratedResourceTypeList) {
             string path_name = resource_type.lwr();
-            foreach string operation in (("read", "search", "create", "update", "delete", "validate")) {
+            foreach string operation in (("read", "search", "search-all", "create", "update",
+                    "conditional-update", "patch", "delete", "validate")) {
                 assertTrue(inlist(operation + "-" + path_name, action_names),
                     sprintf("generated action registered: %s-%s", operation, path_name));
             }
@@ -301,6 +341,10 @@ class FhirRestDataProviderTest inherits QUnit::Test {
     resourceActionsTest() {
         FhirRestDataProvider::FhirRestDataProvider provider({"url": base_url});
         AbstractDataProvider resources = provider.getChildProviderEx("resources");
+        list<string> child_names = sort(resources.getChildProviderNames());
+        assertTrue(child_names.contains("patient"));
+        assertTrue(child_names.contains("observation"));
+        assertFalse(child_names.contains("bundle"));
 
         hash<auto> patient = resources.getChildProviderEx("read").doRequest({
             "resource_type": "Patient",
@@ -311,13 +355,25 @@ class FhirRestDataProviderTest inherits QUnit::Test {
 
         hash<auto> bundle = resources.getChildProviderEx("search").doRequest({
             "resource_type": "Patient",
+            "id": "pat-1",
+            "include": ("Patient:general-practitioner", "Patient:organization"),
             "params": {
                 "name": "Smith",
-                "_include": ("Patient:general-practitioner", "Patient:organization"),
             },
         });
         assertEq("Bundle", bundle.resourceType);
         assertEq(2, bundle.query."_include".size());
+        assertEq("pat-1", bundle.query."_id");
+
+        hash<auto> all = resources.getChildProviderEx("search-all").doRequest({
+            "resource_type": "Patient",
+            "params": {
+                "name": "Smith",
+            },
+        });
+        assertEq("Bundle", all.resourceType);
+        assertEq(2, all.entry.size());
+        assertEq("pat-2", all.entry[1].resource.id);
 
         hash<auto> created = resources.getChildProviderEx("create").doRequest({
             "resource_type": "Patient",
@@ -343,6 +399,34 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         });
         assertEq(200, updated.status_code);
         assertEq("W/\"1\"", updated.body.ifMatch);
+
+        hash<auto> conditional = resources.getChildProviderEx("conditional-update").doRequest({
+            "resource_type": "Patient",
+            "search_params": {
+                "identifier": "http://example.org/mrn|123",
+            },
+            "resource": {
+                "resourceType": "Patient",
+                "id": "conditional",
+            },
+        });
+        assertEq(200, conditional.status_code);
+        assertEq("Patient", conditional.body.requestBodyType);
+        assertEq("http%3A%2F%2Fexample.org%2Fmrn%7C123", conditional.body.queryIdentifier);
+
+        hash<auto> patched = resources.getChildProviderEx("patch").doRequest({
+            "resource_type": "Patient",
+            "id": "pat-1",
+            "patch": ({
+                "op": "replace",
+                "path": "/active",
+                "value": False,
+            },),
+            "etag": "W/\"3\"",
+        });
+        assertEq(200, patched.status_code);
+        assertEq("replace", patched.body.patchOperation);
+        assertEq("W/\"3\"", patched.body.ifMatch);
 
         hash<auto> deleted = resources.getChildProviderEx("delete").doRequest({
             "resource_type": "Patient",
@@ -382,6 +466,13 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertEq("Bundle", bundle.resourceType);
         assertEq("Smith", bundle.query.name);
 
+        hash<auto> all = patient.getChildProviderEx("search-all").doRequest({
+            "params": {
+                "name": "Smith",
+            },
+        });
+        assertEq(2, all.entry.size());
+
         hash<auto> created = patient.getChildProviderEx("create").doRequest({
             "resource": {
                 "resourceType": "Patient",
@@ -402,6 +493,30 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         });
         assertEq(200, updated.status_code);
         assertEq("W/\"1\"", updated.body.ifMatch);
+
+        hash<auto> conditional = patient.getChildProviderEx("conditional-update").doRequest({
+            "search_params": {
+                "identifier": "http://example.org/mrn|123",
+            },
+            "resource": {
+                "resourceType": "Patient",
+                "id": "conditional",
+            },
+        });
+        assertEq(200, conditional.status_code);
+        assertEq("Patient", conditional.body.requestBodyType);
+
+        hash<auto> patched = patient.getChildProviderEx("patch").doRequest({
+            "id": "pat-1",
+            "patch": ({
+                "op": "replace",
+                "path": "/active",
+                "value": False,
+            },),
+            "etag": "W/\"3\"",
+        });
+        assertEq(200, patched.status_code);
+        assertEq("replace", patched.body.patchOperation);
 
         hash<auto> deleted = patient.getChildProviderEx("delete").doRequest({
             "id": "pat-1",
@@ -470,6 +585,13 @@ class FhirRestDataProviderTest inherits QUnit::Test {
                 "resource": {
                     "id": "missing-type",
                 },
+            });
+        });
+
+        assertThrows("FHIR-CAPABILITY-RESOURCE-ERROR", sub () {
+            resources.getChildProviderEx("read").doRequest({
+                "resource_type": "Bundle",
+                "id": "bundle-1",
             });
         });
     }

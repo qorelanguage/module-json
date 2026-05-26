@@ -43,6 +43,11 @@ public hash<auto> sub getFhirR4GeneratedSearchResourcesRequestFields() {
     return FhirSearchResourcesRequestDataType::Fields - "resource_type";
 }
 
+#! Returns request fields for a generated resource paginated search action
+public hash<auto> sub getFhirR4GeneratedSearchAllResourcesRequestFields() {
+    return FhirSearchAllResourcesRequestDataType::Fields - "resource_type";
+}
+
 #! Returns request fields for a generated resource create action
 public hash<auto> sub getFhirR4GeneratedCreateResourceRequestFields(string resource_type) {
     hash<auto> fields = FhirCreateResourceRequestDataType::Fields - "resource_type";
@@ -57,6 +62,19 @@ public hash<auto> sub getFhirR4GeneratedUpdateResourceRequestFields(string resou
     fields.resource = FhirRestDataProvider::getFhirR4GeneratedTypedResourceField(resource_type,
         "Resource", "FHIR resource body", "FHIR `%s` resource body to update");
     return fields;
+}
+
+#! Returns request fields for a generated resource conditional update action
+public hash<auto> sub getFhirR4GeneratedConditionalUpdateResourceRequestFields(string resource_type) {
+    hash<auto> fields = FhirConditionalUpdateResourceRequestDataType::Fields - "resource_type";
+    fields.resource = FhirRestDataProvider::getFhirR4GeneratedTypedResourceField(resource_type,
+        "Resource", "FHIR resource body", "FHIR `%s` resource body to update conditionally");
+    return fields;
+}
+
+#! Returns request fields for a generated resource patch action
+public hash<auto> sub getFhirR4GeneratedPatchResourceRequestFields() {
+    return FhirPatchResourceRequestDataType::Fields - "resource_type";
 }
 
 #! Returns request fields for a generated resource delete action

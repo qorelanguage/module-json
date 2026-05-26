@@ -149,24 +149,32 @@ public class FhirResourcesDataProvider inherits FhirRestDataProviderBase {
 
     #! Returns child data provider names
     private *list<string> getChildProviderNamesImpl() {
-        return ("read", "search", "create", "update", "delete", "validate")
-            + (map $1.lwr(), FhirR4GeneratedResourceTypeList);
+        return ("read", "search", "search-all", "create", "update", "conditional-update", "patch", "delete",
+                "validate")
+            + getSupportedGeneratedResourcePathNames();
     }
 
     #! Returns the given child provider or \c NOTHING if the given child is unknown
     private *DataProvider::AbstractDataProvider getChildProviderImpl(string name) {
         if (*string resource_type = getFhirR4GeneratedResourceTypeForPathName(name)) {
-            return new FhirR4ResourceDataProvider(fhir, resource_type);
+            return fhir.isCapabilityStatementResourceType(resource_type)
+                ? new FhirR4ResourceDataProvider(fhir, resource_type) : NOTHING;
         }
         switch (name) {
             case "read":
                 return new FhirReadResourceDataProvider(fhir);
             case "search":
                 return new FhirSearchResourcesDataProvider(fhir);
+            case "search-all":
+                return new FhirSearchAllResourcesDataProvider(fhir);
             case "create":
                 return new FhirCreateResourceDataProvider(fhir);
             case "update":
                 return new FhirUpdateResourceDataProvider(fhir);
+            case "conditional-update":
+                return new FhirConditionalUpdateResourceDataProvider(fhir);
+            case "patch":
+                return new FhirPatchResourceDataProvider(fhir);
             case "delete":
                 return new FhirDeleteResourceDataProvider(fhir);
             case "validate":

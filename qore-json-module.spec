@@ -129,6 +129,8 @@ json module.
 - added generated FHIR R4 resource type catalog and local validation
 - added generated FHIR R4 HashDataType metadata for Patient, Observation, and Bundle
 - added generated FHIR R4 resource-specific action metadata for typed resource actions
+- added FHIR CapabilityStatement-driven resource validation, paginated search, conditional update,
+  patch, and common search parameter mapping
 
 * Sat Mar 14 2026 David Nichols <david@qore.org> - 1.11
 - updated to version 1.11

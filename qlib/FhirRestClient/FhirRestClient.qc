@@ -197,6 +197,11 @@ public class FhirRestClientBase {
 
 #! FHIR JSON REST client
 public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase {
+    private {
+        *hash<string, bool> capability_resource_type_map;
+        Mutex capability_resource_type_mutex();
+    }
+
     #! Creates the FHIR REST client
     /** @param opts valid options are all options supported by @ref RestClient::RestClient
         @param do_not_connect if False, then a connection will be established immediately
@@ -232,6 +237,82 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
         return cs.fhirVersion;
     }
 
+    #! Returns the FHIR version parameter from a Content-Type header, if present
+    /** @param content_type response Content-Type header value
+        @return FHIR version parameter value or no value if the parameter is not present
+    */
+    static *string getFhirVersionFromContentType(string content_type) {
+        *list<*string> match = regex_extract(content_type, "(?:^|;)\\s*fhirVersion\\s*=\\s*\"?([^\";\\s]+)\"?",
+            RE_Caseless);
+        return match ? match[0] : NOTHING;
+    }
+
+    #! Returns resource types advertised by the server CapabilityStatement
+    /** @param reload if True, reloads the CapabilityStatement instead of using cached resource metadata
+        @return sorted list of resource types advertised for server REST interactions
+
+        @throw FHIR-CAPABILITY-STATEMENT-ERROR if no server resource metadata is available
+        @throw FHIR-OPERATION-OUTCOME if fetching metadata returns a FHIR OperationOutcome error
+        @throw FHIR-REST-ERROR if fetching metadata returns another non-successful HTTP response
+    */
+    list<string> getCapabilityStatementResourceTypes(bool reload = False) {
+        return sort(keys getCapabilityStatementResourceTypeMap(reload));
+    }
+
+    #! Returns True if the server CapabilityStatement advertises \a resource_type
+    /** @param resource_type FHIR resource type
+        @param reload if True, reloads the CapabilityStatement instead of using cached resource metadata
+    */
+    bool isCapabilityStatementResourceType(string resource_type, bool reload = False) {
+        validateResourceType(resource_type);
+        return exists getCapabilityStatementResourceTypeMap(reload){resource_type};
+    }
+
+    #! Validates that the server CapabilityStatement advertises \a resource_type
+    /** @param resource_type FHIR resource type
+        @param reload if True, reloads the CapabilityStatement instead of using cached resource metadata
+
+        @throw FHIR-CAPABILITY-RESOURCE-ERROR if \a resource_type is not advertised by the server
+    */
+    string assertCapabilityStatementResourceType(string resource_type, bool reload = False) {
+        validateResourceType(resource_type);
+        if (!exists getCapabilityStatementResourceTypeMap(reload){resource_type}) {
+            throw "FHIR-CAPABILITY-RESOURCE-ERROR",
+                sprintf("FHIR server CapabilityStatement does not advertise resource type %y", resource_type);
+        }
+        return resource_type;
+    }
+
+    #! Extracts server resource types from a CapabilityStatement resource
+    /** @param capability_statement FHIR CapabilityStatement resource
+        @return sorted resource type list from server-mode REST metadata
+    */
+    static list<string> extractCapabilityStatementResourceTypes(hash<auto> capability_statement) {
+        if (capability_statement.resourceType != "CapabilityStatement") {
+            throw "FHIR-CAPABILITY-STATEMENT-ERROR", "resource is not a FHIR CapabilityStatement";
+        }
+
+        hash<string, bool> resource_types = {};
+        foreach hash<auto> rest in (capability_statement.rest) {
+            if (rest.mode && rest.mode != "server") {
+                continue;
+            }
+            foreach hash<auto> resource in (rest.resource) {
+                if (resource.type.typeCode() != NT_STRING) {
+                    continue;
+                }
+                validateResourceType(resource.type);
+                resource_types{resource.type} = True;
+            }
+        }
+
+        if (resource_types.empty()) {
+            throw "FHIR-CAPABILITY-STATEMENT-ERROR",
+                "CapabilityStatement does not advertise any server resource types";
+        }
+        return sort(keys resource_types);
+    }
+
     #! Returns SMART on FHIR configuration from the server
     /** @return SMART on FHIR discovery document
         @throw FHIR-OPERATION-OUTCOME if the server returns a FHIR OperationOutcome error
@@ -239,6 +320,36 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
     */
     hash<auto> getSmartConfiguration() {
         return doFhirRequest("GET", ".well-known/smart-configuration").body;
+    }
+
+    #! Returns RestClient OAuth2 options from SMART on FHIR discovery metadata
+    /** @param opts caller-supplied OAuth2 options to merge with SMART discovery URLs
+        @return options hash using @ref RestClient::RestClient OAuth2 option names
+
+        @throw FHIR-SMART-CONFIGURATION-ERROR if SMART discovery metadata is missing required endpoint fields
+    */
+    hash<auto> getSmartOAuth2ClientOptions(*hash<auto> opts = NOTHING) {
+        return makeSmartOAuth2ClientOptions(getSmartConfiguration(), opts);
+    }
+
+    #! Builds RestClient OAuth2 options from SMART on FHIR discovery metadata
+    /** @param smart_configuration SMART on FHIR discovery metadata
+        @param opts caller-supplied OAuth2 options to merge with SMART discovery URLs
+        @return options hash using @ref RestClient::RestClient OAuth2 option names
+
+        @throw FHIR-SMART-CONFIGURATION-ERROR if SMART discovery metadata is missing required endpoint fields
+    */
+    static hash<auto> makeSmartOAuth2ClientOptions(hash<auto> smart_configuration, *hash<auto> opts = NOTHING) {
+        if (smart_configuration.token_endpoint.typeCode() != NT_STRING) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR", "SMART configuration token_endpoint is missing or invalid";
+        }
+
+        hash<auto> rv = opts ?? {};
+        rv.oauth2_token_url = smart_configuration.token_endpoint;
+        if (smart_configuration.authorization_endpoint.typeCode() == NT_STRING) {
+            rv.oauth2_auth_url = smart_configuration.authorization_endpoint;
+        }
+        return rv;
     }
 
     #! Reads a resource instance
@@ -264,6 +375,44 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
     */
     hash<auto> searchResources(string resource_type, *hash<auto> params) {
         return doFhirRequest("GET", getSearchPath(resource_type, params)).body;
+    }
+
+    #! Searches a resource type and follows Bundle pagination links
+    /** @param resource_type FHIR resource type name
+        @param params optional FHIR search parameters; list values are emitted as repeated query parameters
+        @param max_pages maximum Bundle pages to fetch
+        @return FHIR Bundle search result with entries from all fetched pages
+
+        @throw FHIR-PAGINATION-ERROR if pagination links are invalid or \a max_pages is exhausted
+        @throw FHIR-RESOURCE-TYPE-ERROR if the resource type is invalid
+        @throw FHIR-OPERATION-OUTCOME if the server returns a FHIR OperationOutcome error
+        @throw FHIR-REST-ERROR if the server returns another non-successful HTTP response
+    */
+    hash<auto> searchAllResources(string resource_type, *hash<auto> params, int max_pages = 100) {
+        if (max_pages < 1) {
+            throw "FHIR-PAGINATION-ERROR", sprintf("max_pages must be positive; got %d", max_pages);
+        }
+
+        hash<auto> bundle = searchResources(resource_type, params);
+        assertBundleSearchResult(bundle);
+
+        list<auto> entries = bundle.entry ?? ();
+        int pages = 1;
+        *string next_url = getBundleLinkUrl(bundle, "next");
+        while (next_url) {
+            if (pages >= max_pages) {
+                throw "FHIR-PAGINATION-ERROR",
+                    sprintf("FHIR search pagination exceeded max_pages=%d", max_pages);
+            }
+            hash<auto> next_bundle = doFhirRequest("GET", getBundleLinkPath(next_url)).body;
+            assertBundleSearchResult(next_bundle);
+            entries += next_bundle.entry ?? ();
+            bundle.link = next_bundle.link;
+            next_url = getBundleLinkUrl(next_bundle, "next");
+            ++pages;
+        }
+        bundle.entry = entries;
+        return bundle;
     }
 
     #! Creates a resource and returns the full REST response
@@ -479,6 +628,69 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
         if (ct =~ /^application\/fhir\+json/i) {
             resp."content-type" = MimeTypeJson;
         }
+    }
+
+    private hash<string, bool> getCapabilityStatementResourceTypeMap(bool reload) {
+        if (!reload) {
+            AutoLock al(capability_resource_type_mutex);
+            if (capability_resource_type_map) {
+                return capability_resource_type_map;
+            }
+        }
+
+        list<string> resource_types = extractCapabilityStatementResourceTypes(getCapabilityStatement());
+        hash<string, bool> resource_type_map = {};
+        foreach string resource_type in (resource_types) {
+            resource_type_map{resource_type} = True;
+        }
+
+        AutoLock al(capability_resource_type_mutex);
+        capability_resource_type_map = resource_type_map;
+        return resource_type_map;
+    }
+
+    private static assertBundleSearchResult(hash<auto> bundle) {
+        if (bundle.resourceType != "Bundle") {
+            throw "FHIR-PAGINATION-ERROR",
+                sprintf("FHIR search pagination expected a Bundle resource, got %y", bundle.resourceType);
+        }
+    }
+
+    private string getBundleLinkPath(string url) {
+        string path = url;
+        if (url =~ /^[A-Za-z][A-Za-z0-9+.-]*:/) {
+            hash<UrlInfo> link = parse_url(url);
+            hash<UrlInfo> base = parse_url(getUrl());
+            if (link.protocol.lwr() != base.protocol.lwr() || link.host.lwr() != base.host.lwr()
+                    || getUrlPort(link) != getUrlPort(base)) {
+                throw "FHIR-PAGINATION-ERROR",
+                    sprintf("FHIR Bundle pagination link targets a different endpoint: %y", url);
+            }
+
+            path = link.path;
+            string base_path = base.path ?? "";
+            if (base_path && path.substr(0, base_path.size()) == base_path) {
+                path = path.substr(base_path.size());
+            }
+        }
+        if (path =~ /^\//) {
+            path = path.substr(1);
+        }
+        validateRelativePath(path);
+        return path;
+    }
+
+    private static int getUrlPort(hash<UrlInfo> url_info) {
+        if (url_info.port) {
+            return url_info.port;
+        }
+        switch (url_info.protocol.lwr()) {
+            case "http":
+                return 80;
+            case "https":
+                return 443;
+        }
+        return 0;
     }
 
     #! Extracts an OperationOutcome from an exception, if possible

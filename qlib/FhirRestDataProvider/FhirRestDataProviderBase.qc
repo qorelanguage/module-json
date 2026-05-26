@@ -141,5 +141,55 @@ public class FhirRestDataProviderBase inherits DataProvider::AbstractDataProvide
             "body": response.body,
         };
     }
+
+    #! Returns a locally and server-supported FHIR R4 resource type
+    string assertServerResourceType(string resource_type) {
+        return fhir.assertCapabilityStatementResourceType(assertFhirR4ResourceType(resource_type));
+    }
+
+    #! Returns a locally and server-supported FHIR R4 request resource type
+    string assertServerResourceRequestType(string resource_type, *hash<auto> resource = NOTHING) {
+        assertFhirR4ResourceRequestType(resource_type, resource);
+        return assertServerResourceType(resource_type);
+    }
+
+    #! Returns generated R4 resource path names supported by the connected server
+    list<string> getSupportedGeneratedResourcePathNames() {
+        list<string> rv = ();
+        foreach string resource_type in (FhirR4GeneratedResourceTypeList) {
+            if (fhir.isCapabilityStatementResourceType(resource_type)) {
+                push rv, resource_type.lwr();
+            }
+        }
+        return rv;
+    }
+
+    #! Builds a FHIR search parameter hash from typed common fields and raw advanced params
+    hash<auto> getSearchParams(auto req) {
+        hash params = cast<hash>(req.params ?? {});
+        addSearchParam(\params, "_id", req.id);
+        addSearchParam(\params, "_lastUpdated", req.last_updated);
+        addSearchParam(\params, "_tag", req.tag);
+        addSearchParam(\params, "_profile", req.profile);
+        addSearchParam(\params, "_security", req.security);
+        addSearchParam(\params, "_text", req.text);
+        addSearchParam(\params, "_content", req.content);
+        addSearchParam(\params, "_count", req.count);
+        addSearchParam(\params, "_sort", req.sort);
+        addSearchParam(\params, "_include", req.include);
+        addSearchParam(\params, "_revinclude", req.revinclude);
+        return params;
+    }
+
+    private static addSearchParam(reference<hash> params, string key, auto value) {
+        if (!exists value) {
+            return;
+        }
+        if (exists params{key}) {
+            throw "FHIR-SEARCH-PARAM-ERROR",
+                sprintf("FHIR search parameter %y was provided both directly and in `params`", key);
+        }
+        params{key} = value;
+    }
 }
 }

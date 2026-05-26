@@ -84,13 +84,28 @@ class TestFhirHandler inherits AbstractHttpRequestHandler {
             }, {"ETag": "W/\"1\""});
         }
 
+        if (hdr.method == "GET" && path == "Patient" && parsed.params.page == "2") {
+            return fhirResponse(200, {
+                "resourceType": "Bundle",
+                "type": "searchset",
+                "total": 2,
+                "query": parsed.params,
+                "entry": ({
+                    "resource": {
+                        "resourceType": "Patient",
+                        "id": "pat-2",
+                    },
+                },),
+            });
+        }
+
         if (hdr.method == "GET" && path == "Patient") {
             return fhirResponse(200, {
                 "resourceType": "Bundle",
                 "type": "searchset",
                 "total": 1,
                 "query": parsed.params,
-                "link": ({"relation": "next", "url": "https://example.org/fhir/Patient?page=2"},),
+                "link": ({"relation": "next", "url": "Patient?page=2"},),
                 "entry": ({
                     "resource": {
                         "resourceType": "Patient",
@@ -118,6 +133,17 @@ class TestFhirHandler inherits AbstractHttpRequestHandler {
                 "requestBodyType": request.body.resourceType,
                 "ifMatch": request.if_match,
             }, {"ETag": "W/\"3\""});
+        }
+
+        if (hdr.method == "PUT" && path == "Patient/pat-conflict") {
+            return fhirResponse(412, {
+                "resourceType": "OperationOutcome",
+                "issue": ({
+                    "severity": "error",
+                    "code": "conflict",
+                    "diagnostics": "ETag precondition failed",
+                },),
+            });
         }
 
         if (hdr.method == "PUT" && path == "Patient") {
@@ -258,10 +284,33 @@ class FhirRestClientTest inherits QUnit::Test {
         assertThrows("FHIR-CAPABILITY-STATEMENT-ERROR", sub () {
             client.getFhirVersion({"resourceType": "CapabilityStatement"});
         });
+        assertEq("4.0.1", FhirRestClient::FhirRestClient::getFhirVersionFromContentType(
+            "application/fhir+json; fhirVersion=4.0.1"));
+        assertNothing(FhirRestClient::FhirRestClient::getFhirVersionFromContentType("application/fhir+json"));
+        assertEq(("Observation", "Patient"), client.getCapabilityStatementResourceTypes());
+        assertTrue(client.isCapabilityStatementResourceType("Patient"));
+        assertFalse(client.isCapabilityStatementResourceType("Bundle"));
+        assertEq("Patient", client.assertCapabilityStatementResourceType("Patient"));
+        assertThrows("FHIR-CAPABILITY-RESOURCE-ERROR", sub () {
+            client.assertCapabilityStatementResourceType("Bundle");
+        });
 
         hash<auto> smart = client.getSmartConfiguration();
         assertEq("https://auth.example.org/authorize", smart.authorization_endpoint);
         assertEq("https://auth.example.org/token", smart.token_endpoint);
+
+        hash<auto> oauth2_options = client.getSmartOAuth2ClientOptions({
+            "oauth2_grant_type": "client_credentials",
+            "oauth2_client_id": "qore-test",
+            "oauth2_scope": "system/Patient.read",
+        });
+        assertEq("https://auth.example.org/authorize", oauth2_options.oauth2_auth_url);
+        assertEq("https://auth.example.org/token", oauth2_options.oauth2_token_url);
+        assertEq("client_credentials", oauth2_options.oauth2_grant_type);
+        assertEq("qore-test", oauth2_options.oauth2_client_id);
+        assertThrows("FHIR-SMART-CONFIGURATION-ERROR", sub () {
+            FhirRestClient::FhirRestClient::makeSmartOAuth2ClientOptions({});
+        });
     }
 
     resourceOperationsTest() {
@@ -280,12 +329,21 @@ class FhirRestClientTest inherits QUnit::Test {
         assertEq("searchset", bundle.type);
         assertEq("Smith", bundle.query.name);
         assertEq(2, bundle.query."_include".size());
-        assertEq("https://example.org/fhir/Patient?page=2",
+        assertEq("Patient?page=2",
             FhirRestClient::FhirRestClientBase::getBundleLinkUrl(bundle, "next"));
         assertNothing(FhirRestClient::FhirRestClientBase::getBundleLinkUrl(bundle, "previous"));
         assertNothing(FhirRestClient::FhirRestClientBase::getBundleLinkUrl({"resourceType": "Bundle"}, "next"));
         assertEq("Patient?active=true&name=Smith", FhirRestClient::FhirRestClientBase::getPathWithParams(
             "Patient?active=true", {"name": "Smith"}));
+
+        hash<auto> all = client.searchAllResources("Patient", {"name": "Smith"});
+        assertEq("Bundle", all.resourceType);
+        assertEq(2, all.entry.size());
+        assertEq("pat-1", all.entry[0].resource.id);
+        assertEq("pat-2", all.entry[1].resource.id);
+        assertThrows("FHIR-PAGINATION-ERROR", sub () {
+            client.searchAllResources("Patient", {"name": "Smith"}, 1);
+        });
 
         hash<RestClient::RestResponseInfo> created = client.createResource("Patient", {
             "resourceType": "Patient",
@@ -339,6 +397,19 @@ class FhirRestClientTest inherits QUnit::Test {
         assertThrows("FHIR-OPERATION-OUTCOME", sub () {
             client.readResource("Patient", "missing");
         });
+
+        try {
+            client.updateResource("Patient", "pat-conflict", {
+                "resourceType": "Patient",
+                "id": "pat-conflict",
+            }, "W/\"old\"");
+            assertTrue(False, "expected FHIR-OPERATION-OUTCOME");
+        } catch (hash<ExceptionInfo> ex) {
+            assertEq("FHIR-OPERATION-OUTCOME", ex.err);
+            assertEq(412, ex.arg.status_code);
+            assertEq("OperationOutcome", ex.arg.outcome.resourceType);
+            assertEq("conflict", ex.arg.outcome.issue[0].code);
+        }
 
         string summary = FhirRestClient::FhirRestClientBase::getOperationOutcomeSummary({
             "resourceType": "OperationOutcome",

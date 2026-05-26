@@ -56,8 +56,10 @@ module FhirRestDataProvider {
     - metadata discovery with \c CapabilityStatement and SMART configuration
     - a generated R4 resource-type catalog for local resource name validation
     - generated R4 \c HashDataType metadata for \c Patient, \c Observation, and \c Bundle
-    - generic resource read, search, create, update, delete, and \c $validate actions
-    - generated R4 resource-specific actions for \c Patient, \c Observation, and \c Bundle
+    - generic resource read, search, paginated search, create, update, conditional update,
+      patch, delete, and \c $validate actions for resources advertised by the server
+    - generated R4 resource-specific actions for server-supported \c Patient, \c Observation,
+      and \c Bundle resources
     - terminology delegation through \c $validate-code and \c $expand actions
     - action metadata and typed request/response descriptions suitable for UI integration
 
@@ -93,15 +95,25 @@ printf("Patient: %y\n", patient);
     @code{.py}
 hash<auto> bundle = provider.getChildProvider("resources").getChildProvider("search").doRequest({
     "resource_type": "Patient",
+    "last_updated": "ge2026-05-01",
+    "include": ("Patient:general-practitioner", "Patient:organization"),
     "params": {
         "family": "Smith",
-        "_include": ("Patient:general-practitioner", "Patient:organization"),
     },
 });
 
 foreach hash<auto> entry in (bundle.entry) {
     printf("Patient entry: %y\n", entry.resource);
 }
+
+hash<auto> all_pages = provider.getChildProvider("resources").getChildProvider("search-all").doRequest({
+    "resource_type": "Patient",
+    "params": {
+        "family": "Smith",
+    },
+    "max_pages": 25,
+});
+printf("Fetched %d patient entries\n", all_pages.entry.size());
     @endcode
 
     @subsection fhirrestdataproviderexamplegenerated Generated Resource Actions
@@ -143,6 +155,26 @@ hash<auto> updated = provider.getChildProvider("resources").getChildProvider("up
     "etag": created.headers.etag,
 });
 printf("Updated with status %d\n", updated.status_code);
+
+hash<auto> conditional = provider.getChildProvider("resources")
+    .getChildProvider("conditional-update").doRequest({
+        "resource_type": "Patient",
+        "search_params": {
+            "identifier": "http://hospital.example/mrn|12345",
+        },
+        "resource": created.body + {"active": True},
+    });
+
+hash<auto> patched = provider.getChildProvider("resources").getChildProvider("patch").doRequest({
+    "resource_type": "Patient",
+    "id": created.body.id,
+    "patch": ({
+        "op": "replace",
+        "path": "/active",
+        "value": False,
+    },),
+    "etag": updated.headers.etag,
+});
     @endcode
 
     @subsection fhirrestdataproviderexampleerrors OperationOutcome Errors
@@ -172,7 +204,10 @@ try {
 
     @subsection fhirrestdataprovider_v1_0 FhirRestDataProvider v1.0
     - initial generic FHIR REST data provider foundation
-    - metadata, resource CRUD/search, validation, and terminology actions
+    - metadata, resource CRUD/search/pagination, conditional update, patch, validation,
+      and terminology actions
+    - CapabilityStatement-driven server resource validation for generic and generated resource actions
+    - common FHIR search parameter fields plus raw advanced search parameters
     - generated FHIR R4 resource type catalog and local resource type validation
     - generated FHIR R4 \c HashDataType metadata for \c Patient, \c Observation, and \c Bundle
     - generated FHIR R4 resource-specific action metadata for typed resource actions
@@ -207,6 +242,12 @@ namespace Priv {
             "desc": "Search FHIR `%s` resources. Use `params` for server-supported FHIR search parameters.",
         },
         {
+            "operation": "search-all",
+            "display_name": "Search All",
+            "short_desc": "Search all FHIR %s resource pages",
+            "desc": "Search FHIR `%s` resources and follow Bundle `next` pagination links.",
+        },
+        {
             "operation": "create",
             "display_name": "Create",
             "short_desc": "Create a FHIR %s resource",
@@ -217,6 +258,18 @@ namespace Priv {
             "display_name": "Update",
             "short_desc": "Update a FHIR %s resource",
             "desc": "Update a FHIR `%s` resource by logical `id` with resource-specific action metadata.",
+        },
+        {
+            "operation": "conditional-update",
+            "display_name": "Conditional Update",
+            "short_desc": "Conditionally update a FHIR %s resource",
+            "desc": "Conditionally update a FHIR `%s` resource by search criteria.",
+        },
+        {
+            "operation": "patch",
+            "display_name": "Patch",
+            "short_desc": "Patch a FHIR %s resource",
+            "desc": "Patch a FHIR `%s` resource by logical `id`.",
         },
         {
             "operation": "delete",
@@ -245,6 +298,11 @@ namespace Priv {
                     FhirRestDataProvider::getFhirR4GeneratedSearchResourcesRequestFields(), {
                         "preselected": True,
                     });
+            case "search-all":
+                return DataProviderActionCatalog::getActionOptionFromFields(
+                    FhirRestDataProvider::getFhirR4GeneratedSearchAllResourcesRequestFields(), {
+                        "preselected": True,
+                    });
             case "create": {
                 hash<auto> fields = FhirRestDataProvider::getFhirR4GeneratedCreateResourceRequestFields(
                     resource_type);
@@ -262,6 +320,23 @@ namespace Priv {
                     "preselected": True,
                     "required": True,
                 }) + DataProviderActionCatalog::getActionOptionFromFields(fields - ("id", "resource"), {
+                    "preselected": True,
+                });
+            }
+            case "conditional-update": {
+                hash<auto> fields = FhirRestDataProvider::getFhirR4GeneratedConditionalUpdateResourceRequestFields(
+                    resource_type);
+                return DataProviderActionCatalog::getActionOptionFromFields(fields{"search_params", "resource"}, {
+                    "preselected": True,
+                    "required": True,
+                });
+            }
+            case "patch": {
+                hash<auto> fields = FhirRestDataProvider::getFhirR4GeneratedPatchResourceRequestFields();
+                return DataProviderActionCatalog::getActionOptionFromFields(fields{"id", "patch"}, {
+                    "preselected": True,
+                    "required": True,
+                }) + DataProviderActionCatalog::getActionOptionFromFields(fields - ("id", "patch"), {
                     "preselected": True,
                 });
             }
@@ -297,9 +372,12 @@ namespace Priv {
                 return data_type;
             }
             case "search":
+            case "search-all":
                 return FhirRestDataProvider::FhirR4BundleDataType;
             case "create":
             case "update":
+            case "conditional-update":
+            case "patch":
             case "delete":
                 return FhirRestDataProvider::FhirRestResponseDataType;
             case "validate":
@@ -339,11 +417,14 @@ namespace Priv {
             "desc": "Connect to HL7 FHIR R4 JSON servers for healthcare interoperability.\n\n"
                 "Supported operations:\n"
                 "- **Metadata**: read `CapabilityStatement` and SMART configuration\n"
-                "- **Resources**: read, search, create, update, delete, and validate resources\n"
-                "- **Generated R4 resources**: use typed actions for `Patient`, `Observation`, and `Bundle`\n"
+                "- **Resources**: read, search, paginated search, create, update, conditional update, patch, "
+                "delete, and validate resources advertised by the server `CapabilityStatement`\n"
+                "- **Generated R4 resources**: use typed actions for supported `Patient`, `Observation`, and "
+                "`Bundle` resources\n"
                 "- **Terminology**: delegate `$validate-code` and `$expand` operations to a FHIR server\n\n"
-                "**Note**: Generic actions accept every resource type in the generated R4 catalog. "
-                "Structured metadata is included for `Patient`, `Observation`, and `Bundle`.",
+                "**Note**: Generic actions validate resource names against the generated R4 catalog and the "
+                "server `CapabilityStatement`. Structured metadata is included for `Patient`, `Observation`, "
+                "and `Bundle`.",
             "legal": "HL7, FHIR, and the FHIR flame design are registered trademarks of Health Level Seven "
                 "International; their use does not constitute endorsement by HL7. FHIR specification materials "
                 "are licensed under Creative Commons CC0. Third-party artifacts and terminologies referenced by "
@@ -421,6 +502,28 @@ namespace Priv {
 
         DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
             "app": FhirRestDataProvider::AppName,
+            "path": "/resources/search-all",
+            "action": "search-all-resources",
+            "display_name": "Search All Resources",
+            "short_desc": "Search FHIR resources and follow pagination",
+            "desc": "Search a FHIR resource type and follow Bundle `next` pagination links. The `params` hash "
+                "remains available for advanced search parameters.",
+            "action_code": DPAT_API,
+            "options": DataProviderActionCatalog::getActionOptionFromFields(
+                FhirSearchAllResourcesRequestDataType::Fields{"resource_type",}, {
+                    "preselected": True,
+                    "required": True,
+                },
+            ) + DataProviderActionCatalog::getActionOptionFromFields(
+                FhirSearchAllResourcesRequestDataType::Fields - "resource_type", {
+                    "preselected": True,
+                },
+            ),
+            "output_type": FhirRestDataProvider::FhirBundleDataType,
+        });
+
+        DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
+            "app": FhirRestDataProvider::AppName,
             "path": "/resources/create",
             "action": "create-resource",
             "display_name": "Create Resource",
@@ -457,6 +560,45 @@ namespace Priv {
                 },
             ) + DataProviderActionCatalog::getActionOptionFromFields(
                 FhirUpdateResourceRequestDataType::Fields - ("resource_type", "id", "resource"), {
+                    "preselected": True,
+                },
+            ),
+            "output_type": FhirRestDataProvider::FhirRestResponseDataType,
+        });
+
+        DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
+            "app": FhirRestDataProvider::AppName,
+            "path": "/resources/conditional-update",
+            "action": "conditional-update-resource",
+            "display_name": "Conditional Update Resource",
+            "short_desc": "Conditionally update a FHIR resource",
+            "desc": "Conditionally update a FHIR resource by type and search parameters.",
+            "action_code": DPAT_API,
+            "options": DataProviderActionCatalog::getActionOptionFromFields(
+                FhirConditionalUpdateResourceRequestDataType::Fields{"resource_type", "search_params", "resource"}, {
+                    "preselected": True,
+                    "required": True,
+                },
+            ),
+            "output_type": FhirRestDataProvider::FhirRestResponseDataType,
+        });
+
+        DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
+            "app": FhirRestDataProvider::AppName,
+            "path": "/resources/patch",
+            "action": "patch-resource",
+            "display_name": "Patch Resource",
+            "short_desc": "Patch a FHIR resource",
+            "desc": "Patch a FHIR resource by type and ID. Provide `etag` to send an `If-Match` header "
+                "for optimistic concurrency.",
+            "action_code": DPAT_API,
+            "options": DataProviderActionCatalog::getActionOptionFromFields(
+                FhirPatchResourceRequestDataType::Fields{"resource_type", "id", "patch"}, {
+                    "preselected": True,
+                    "required": True,
+                },
+            ) + DataProviderActionCatalog::getActionOptionFromFields(
+                FhirPatchResourceRequestDataType::Fields - ("resource_type", "id", "patch"), {
                     "preselected": True,
                 },
             ),

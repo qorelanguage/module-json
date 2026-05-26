@@ -51,7 +51,7 @@ public class FhirReadResourceDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return fhir.readResource(assertFhirR4ResourceType(req.resource_type), req.id);
+        return fhir.readResource(assertServerResourceType(req.resource_type), req.id);
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -86,7 +86,43 @@ public class FhirSearchResourcesDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return fhir.searchResources(assertFhirR4ResourceType(req.resource_type), req.params);
+        return fhir.searchResources(assertServerResourceType(req.resource_type), getSearchParams(req));
+    }
+
+    private hash<DataProviderInfo> getStaticInfoImpl() {
+        return ProviderInfo;
+    }
+}
+
+#! Search all FHIR resource pages data provider
+public class FhirSearchAllResourcesDataProvider inherits FhirRestDataProviderBase {
+    public {
+        const ProviderInfo = <DataProviderInfo>{
+            "name": "search-all",
+            "desc": "Searches FHIR resources and follows Bundle pagination links",
+            "type": "FhirSearchAllResourcesDataProvider",
+            "supports_request": True,
+        };
+    }
+
+    constructor(FhirRestClient::FhirRestClient fhir) : FhirRestDataProviderBase(fhir) {
+    }
+
+    string getName() {
+        return "search-all";
+    }
+
+    private *DataProvider::AbstractDataProviderType getRequestTypeImpl() {
+        return FhirSearchAllResourcesRequestDataType;
+    }
+
+    private *DataProvider::AbstractDataProviderType getResponseTypeImpl() {
+        return FhirBundleDataType;
+    }
+
+    private auto doRequestImpl(auto req, *hash<auto> request_options) {
+        return fhir.searchAllResources(assertServerResourceType(req.resource_type), getSearchParams(req),
+            req.max_pages ?? 100);
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -121,7 +157,7 @@ public class FhirCreateResourceDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return getResponseData(fhir.createResource(assertFhirR4ResourceRequestType(req.resource_type, req.resource),
+        return getResponseData(fhir.createResource(assertServerResourceRequestType(req.resource_type, req.resource),
             req.resource, req.if_none_exist));
     }
 
@@ -157,8 +193,80 @@ public class FhirUpdateResourceDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return getResponseData(fhir.updateResource(assertFhirR4ResourceRequestType(req.resource_type, req.resource),
+        return getResponseData(fhir.updateResource(assertServerResourceRequestType(req.resource_type, req.resource),
             req.id, req.resource, req.etag));
+    }
+
+    private hash<DataProviderInfo> getStaticInfoImpl() {
+        return ProviderInfo;
+    }
+}
+
+#! Conditional update FHIR resource data provider
+public class FhirConditionalUpdateResourceDataProvider inherits FhirRestDataProviderBase {
+    public {
+        const ProviderInfo = <DataProviderInfo>{
+            "name": "conditional-update",
+            "desc": "Conditionally updates a FHIR resource",
+            "type": "FhirConditionalUpdateResourceDataProvider",
+            "supports_request": True,
+        };
+    }
+
+    constructor(FhirRestClient::FhirRestClient fhir) : FhirRestDataProviderBase(fhir) {
+    }
+
+    string getName() {
+        return "conditional-update";
+    }
+
+    private *DataProvider::AbstractDataProviderType getRequestTypeImpl() {
+        return FhirConditionalUpdateResourceRequestDataType;
+    }
+
+    private *DataProvider::AbstractDataProviderType getResponseTypeImpl() {
+        return FhirRestResponseDataType;
+    }
+
+    private auto doRequestImpl(auto req, *hash<auto> request_options) {
+        return getResponseData(fhir.conditionalUpdateResource(
+            assertServerResourceRequestType(req.resource_type, req.resource), req.search_params, req.resource));
+    }
+
+    private hash<DataProviderInfo> getStaticInfoImpl() {
+        return ProviderInfo;
+    }
+}
+
+#! Patch FHIR resource data provider
+public class FhirPatchResourceDataProvider inherits FhirRestDataProviderBase {
+    public {
+        const ProviderInfo = <DataProviderInfo>{
+            "name": "patch",
+            "desc": "Patches a FHIR resource",
+            "type": "FhirPatchResourceDataProvider",
+            "supports_request": True,
+        };
+    }
+
+    constructor(FhirRestClient::FhirRestClient fhir) : FhirRestDataProviderBase(fhir) {
+    }
+
+    string getName() {
+        return "patch";
+    }
+
+    private *DataProvider::AbstractDataProviderType getRequestTypeImpl() {
+        return FhirPatchResourceRequestDataType;
+    }
+
+    private *DataProvider::AbstractDataProviderType getResponseTypeImpl() {
+        return FhirRestResponseDataType;
+    }
+
+    private auto doRequestImpl(auto req, *hash<auto> request_options) {
+        return getResponseData(fhir.patchResource(assertServerResourceType(req.resource_type), req.id, req.patch,
+            req.content_type ?? "application/json-patch+json", req.etag));
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -193,7 +301,7 @@ public class FhirDeleteResourceDataProvider inherits FhirRestDataProviderBase {
     }
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
-        return getResponseData(fhir.deleteResource(assertFhirR4ResourceType(req.resource_type), req.id, req.etag));
+        return getResponseData(fhir.deleteResource(assertServerResourceType(req.resource_type), req.id, req.etag));
     }
 
     private hash<DataProviderInfo> getStaticInfoImpl() {
@@ -229,9 +337,9 @@ public class FhirValidateResourceDataProvider inherits FhirRestDataProviderBase 
 
     private auto doRequestImpl(auto req, *hash<auto> request_options) {
         if (req.resource_type != NOTHING) {
-            assertFhirR4ResourceRequestType(req.resource_type, req.resource);
+            assertServerResourceRequestType(req.resource_type, req.resource);
         } else {
-            assertFhirR4ResourceBodyType(req.resource);
+            assertServerResourceType(assertFhirR4ResourceBodyType(req.resource));
         }
         return fhir.validateResource(req.resource, req.resource_type, req.id);
     }
