@@ -180,6 +180,10 @@ namespace Priv {
                 "- **Terminology**: delegate `$validate-code` and `$expand` operations to a FHIR server\n\n"
                 "**Note**: Resource-specific generated types are delivered separately after official FHIR "
                 "artifact licensing and generation decisions are finalized.",
+            "legal": "HL7, FHIR, and the FHIR flame design are registered trademarks of Health Level Seven "
+                "International; their use does not constitute endorsement by HL7. FHIR specification materials "
+                "are licensed under Creative Commons CC0. Third-party artifacts and terminologies referenced by "
+                "FHIR may require separate licenses.",
             "groups": (DataProvider::AppGroup::ApiIntegration, DataProvider::AppGroup::DataTransformation,),
             "scheme": "fhir",
             "logo": FhirRestDataProvider::FhirLogo,

@@ -236,6 +236,8 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertTrue(exists app);
         assertEq("FHIR R4", app.display_name);
         assertEq("fhir", app.scheme);
+        assertTrue(app.legal =~ /HL7/, "legal notice names HL7");
+        assertTrue(app.legal =~ /endorsement/, "legal notice disclaims endorsement");
 
         *list<hash<auto>> actions = DataProviderActionCatalog::getActions(FhirRestDataProvider::AppName);
         assertTrue(exists actions);
