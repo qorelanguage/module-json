@@ -59,6 +59,8 @@ set(QMOD
     qlib/A2aClient
     qlib/A2aServerHandler
     qlib/A2aClientDataProvider
+    qlib/FhirRestClient
+    qlib/FhirRestDataProvider
     qlib/NdjsonDataProvider
     qlib/JsonFileDataProvider
     qlib/JsonLd
@@ -106,6 +108,8 @@ qore_external_user_module("qlib/McpClientDataProvider" "McpClient")
 qore_external_user_module("qlib/A2aClient" "")
 qore_external_user_module("qlib/A2aServerHandler" "JsonRpcHandler;A2aClient")
 qore_external_user_module("qlib/A2aClientDataProvider" "A2aClient")
+qore_external_user_module("qlib/FhirRestClient" "")
+qore_external_user_module("qlib/FhirRestDataProvider" "FhirRestClient")
 qore_external_user_module("qlib/NdjsonDataProvider" "")
 qore_external_user_module("qlib/JsonFileDataProvider" "")
 qore_external_user_module("qlib/JsonLd" "")
