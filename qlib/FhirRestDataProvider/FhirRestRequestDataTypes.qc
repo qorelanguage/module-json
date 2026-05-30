@@ -214,6 +214,32 @@ public class FhirCreateResourceRequestDataType inherits HashDataType {
     }
 }
 
+#! Submit Bundle request data type
+public class FhirSubmitBundleRequestDataType inherits HashDataType {
+    public {
+        const Fields = {
+            "bundle": {
+                "type": AutoHashType,
+                "display_name": "Bundle",
+                "short_desc": "FHIR transaction or batch Bundle",
+                "desc": "FHIR `Bundle` resource with `type` set to `transaction` or `batch`. The Bundle is "
+                    "POSTed to the FHIR service base for atomic transaction writes or batch execution.\n\n"
+                    "**Example**: `{\"resourceType\": \"Bundle\", \"type\": \"transaction\", \"entry\": [...]}`",
+                "example_value": {
+                    "resourceType": "Bundle",
+                    "type": "transaction",
+                    "entry": (),
+                },
+            },
+        };
+    }
+
+    #! Creates the object
+    constructor() {
+        addQoreFields(Fields);
+    }
+}
+
 #! Update resource request data type
 public class FhirUpdateResourceRequestDataType inherits HashDataType {
     public {
@@ -439,6 +465,64 @@ public class FhirValidateCodeRequestDataType inherits HashDataType {
     }
 }
 
+#! Lookup code request data type
+public class FhirLookupCodeRequestDataType inherits HashDataType {
+    public {
+        const Fields = {
+            "path": {
+                "type": StringType,
+                "display_name": "Path",
+                "short_desc": "CodeSystem path",
+                "desc": "Relative FHIR path to a CodeSystem endpoint",
+                "example_value": "CodeSystem/example",
+            },
+            "params": {
+                "type": AutoHashType,
+                "display_name": "Parameters",
+                "short_desc": "Operation parameters",
+                "desc": "FHIR `$lookup` operation parameters as query parameters. Keys are operation "
+                    "parameter names accepted by the server.\n\n"
+                    "**Example**: `{\"system\": \"http://loinc.org\", \"code\": \"8867-4\"}`",
+                "example_value": {"system": "http://loinc.org", "code": "8867-4"},
+            },
+        };
+    }
+
+    #! Creates the object
+    constructor() {
+        addQoreFields(Fields);
+    }
+}
+
+#! Translate code request data type
+public class FhirTranslateCodeRequestDataType inherits HashDataType {
+    public {
+        const Fields = {
+            "path": {
+                "type": StringType,
+                "display_name": "Path",
+                "short_desc": "ConceptMap path",
+                "desc": "Relative FHIR path to a ConceptMap endpoint",
+                "example_value": "ConceptMap/example",
+            },
+            "params": {
+                "type": AutoHashType,
+                "display_name": "Parameters",
+                "short_desc": "Operation parameters",
+                "desc": "FHIR `$translate` operation parameters as query parameters. Keys are operation "
+                    "parameter names accepted by the server.\n\n"
+                    "**Example**: `{\"system\": \"http://example.org/local\", \"code\": \"abc\"}`",
+                "example_value": {"system": "http://example.org/local", "code": "abc"},
+            },
+        };
+    }
+
+    #! Creates the object
+    constructor() {
+        addQoreFields(Fields);
+    }
+}
+
 #! Expand ValueSet request data type
 public class FhirExpandValueSetRequestDataType inherits HashDataType {
     public {
@@ -472,11 +556,14 @@ public const FhirReadResourceRequestDataType = new FhirReadResourceRequestDataTy
 public const FhirSearchResourcesRequestDataType = new FhirSearchResourcesRequestDataType();
 public const FhirSearchAllResourcesRequestDataType = new FhirSearchAllResourcesRequestDataType();
 public const FhirCreateResourceRequestDataType = new FhirCreateResourceRequestDataType();
+public const FhirSubmitBundleRequestDataType = new FhirSubmitBundleRequestDataType();
 public const FhirUpdateResourceRequestDataType = new FhirUpdateResourceRequestDataType();
 public const FhirConditionalUpdateResourceRequestDataType = new FhirConditionalUpdateResourceRequestDataType();
 public const FhirPatchResourceRequestDataType = new FhirPatchResourceRequestDataType();
 public const FhirDeleteResourceRequestDataType = new FhirDeleteResourceRequestDataType();
 public const FhirValidateResourceRequestDataType = new FhirValidateResourceRequestDataType();
 public const FhirValidateCodeRequestDataType = new FhirValidateCodeRequestDataType();
+public const FhirLookupCodeRequestDataType = new FhirLookupCodeRequestDataType();
+public const FhirTranslateCodeRequestDataType = new FhirTranslateCodeRequestDataType();
 public const FhirExpandValueSetRequestDataType = new FhirExpandValueSetRequestDataType();
 }

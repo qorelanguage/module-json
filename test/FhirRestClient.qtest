@@ -125,6 +125,28 @@ class TestFhirHandler inherits AbstractHttpRequestHandler {
             }, {"ETag": "W/\"2\""});
         }
 
+        if (hdr.method == "POST" && (path == "" || path == "fhir")) {
+            if (request.body.id == "fail") {
+                return fhirResponse(400, {
+                    "resourceType": "OperationOutcome",
+                    "issue": ({
+                        "severity": "error",
+                        "code": "invalid",
+                        "diagnostics": "Bundle rejected",
+                    },),
+                });
+            }
+            return fhirResponse(200, {
+                "resourceType": "Bundle",
+                "type": request.body.type + "-response",
+                "requestContentType": request.content_type,
+                "entryCount": request.body.entry.size(),
+                "firstMethod": request.body.entry[0].request.method,
+                "firstUrl": request.body.entry[0].request.url,
+                "firstIfNoneExist": request.body.entry[0].request.ifNoneExist,
+            });
+        }
+
         if (hdr.method == "PUT" && path == "Patient/pat-1") {
             return fhirResponse(200, {
                 "resourceType": "Patient",
@@ -201,6 +223,35 @@ class TestFhirHandler inherits AbstractHttpRequestHandler {
             });
         }
 
+        if (hdr.method == "GET" && path == "CodeSystem/example/$lookup") {
+            return fhirResponse(200, {
+                "resourceType": "Parameters",
+                "parameter": ({
+                    "name": "name",
+                    "valueString": "Example CodeSystem",
+                }, {
+                    "name": "display",
+                    "valueString": parsed.params.code + " display",
+                },),
+            });
+        }
+
+        if (hdr.method == "GET" && path == "ConceptMap/example/$translate") {
+            return fhirResponse(200, {
+                "resourceType": "Parameters",
+                "parameter": ({
+                    "name": "result",
+                    "valueBoolean": True,
+                }, {
+                    "name": "match",
+                    "part": ({
+                        "name": "code",
+                        "valueCode": parsed.params.code + "-target",
+                    },),
+                },),
+            });
+        }
+
         if (hdr.method == "GET" && path == "ValueSet/example/$expand") {
             return fhirResponse(200, {
                 "resourceType": "ValueSet",
@@ -239,11 +290,55 @@ class FhirRestClientTest inherits QUnit::Test {
         HttpServer http;
         int port;
         string base_url;
+        string rsa_private_key;
+        string rsa_public_key;
     }
 
     constructor() : QUnit::Test("FhirRestClient test", "1.0") {
+        rsa_private_key = "-----BEGIN PRIVATE KEY-----\n" +
+            "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCghY6vbY9TSJQJ\n" +
+            "ub71l64DQ6qs8am74HOzQQMOtUjPe3uHO4NQugxlnpsawbuAM7gGEIsMSZT7SW7t\n" +
+            "HYfIz9F0d1ui/Imj0GmIjRvNIMQULJnB40uODm/oBhGBajFFGpdSy0yT+mN5+bt6\n" +
+            "8PW47PIPo+X8gAFllFtiROdguZB+rr2gjvbqaHYyjiD2HOVc/p+H1I+7XZ8BLxSu\n" +
+            "XBTDLTOhminR7Gb4svEX9eo2b7LhSv4WRVz6M2LwjhIfsWqt/jiTjwM62cKG91K7\n" +
+            "IpFwQ/ApLM21f+YrJJhHkQEbVsv5TEI2I772DYZbF/nUkElPpFvNvUQNpvivKVvA\n" +
+            "ZVmIauQFAgMBAAECggEAI8dRE+HwKciKEpbfrN73jsu0zaJ5yiIPt9scQtl+Vpy3\n" +
+            "3l8R+FrXq4jMGo0m7T7Z3CQw0fbOqanm+xvzaXuEvJhkCPKP/T7VXvXQxgpxGewN\n" +
+            "A23Vp96o68b6fOV+AOCZ7P7aXTtYk9Xph1AQ/Px3Qawu9XZUmV8VdVRVXDZQMiQH\n" +
+            "Sw0ak7Xfl1EU03x+V4QUZDovtL96Jja22gWkYvOcpoIC8DCjDAm37KLztSiHTeju\n" +
+            "pvfajMsa+oXGOxKakAgDhbQ2eS0hODqVOzy9KheaR8896n2VcP3Ci1wY+9d03BCn\n" +
+            "cXhAvamGBqVpAYfBmequmvJgX8JBKfYiv6M4MjTsmwKBgQDLGQ5UYyLeRwkpcpL2\n" +
+            "u+jryaIodInw2KbyokIeniXtkWTdnVSZsHivi0Kek3jQ3RQKGyJBGAc3tUmWZEOm\n" +
+            "kjd7LLtbZ8s5FC4+wUgT7qFl5qYEITUgr0hURDnhdWfdDk+h64wLN6w5BjPyDc2w\n" +
+            "4qj/nouxEwssgjoaMdve8oQIzwKBgQDKVXGEYSWEV0mxqDItcIYRHLEPPWCnuSTK\n" +
+            "Pd1MqkXaw035YukvWa/TJuGA5NQxO00WGrnuTDlMnWeJw4dBD6XD4ddS8V+ngbPx\n" +
+            "ew8RVbQGE8cMbNw7bWqEeAMcP9USPVrwJtiumfv6AT5ugquDKiB6acNp4T9PN30B\n" +
+            "XaRkS3PS6wKBgCjz+Xa8ssg9bLSF3OqRw4rgEqmzrij5lthwLYL9AsrfuYYSdn+z\n" +
+            "HPLQ0vMk64S6P5M2G3ciwDnUfW0s9JM/Ap78yx7IVCtDTXvr/3u9b6AbnThR9eOM\n" +
+            "VLphM4ap5PKnMxmEZK3SYRDylkDl1acoXUmGD8b5/xPPgqXLjflrz4HzAoGBAKWf\n" +
+            "V3KzStCP2wUP1zMW3sd3IwCEj2/7v7/E8DdnUhMGt/ciHhriYWiIdSLbLU63ahxj\n" +
+            "+Dq2Llkmp7A/W6HIOzqizW1Zo6EsLK3Iu8bGzrwCyHbFTWlf4UdaLcGcBsANdTkL\n" +
+            "s2cJKRe2mPJBCEAv5bIOjSVIelhP5YWOr5hhowfNAoGAUtlgdXG6P2wzLwc0wZHD\n" +
+            "Ulv2eeTEqi/IUI6GCKFt3yQyYwsxxa5veJUQ1RlCzA2fyWq5ppmyRpuQAx+T/5mT\n" +
+            "R/exfFdkrCUX3FKc+0mZktlgWQGm26/r6OM94OTw3S2NavcixI9X2QdWlxKnqZ1G\n" +
+            "mY6BajUXBgMP7AhhxO/gZGw=\n" +
+            "-----END PRIVATE KEY-----\n";
+
+        rsa_public_key = "-----BEGIN PUBLIC KEY-----\n" +
+            "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoIWOr22PU0iUCbm+9Zeu\n" +
+            "A0OqrPGpu+Bzs0EDDrVIz3t7hzuDULoMZZ6bGsG7gDO4BhCLDEmU+0lu7R2HyM/R\n" +
+            "dHdbovyJo9BpiI0bzSDEFCyZweNLjg5v6AYRgWoxRRqXUstMk/pjefm7evD1uOzy\n" +
+            "D6Pl/IABZZRbYkTnYLmQfq69oI726mh2Mo4g9hzlXP6fh9SPu12fAS8UrlwUwy0z\n" +
+            "oZop0exm+LLxF/XqNm+y4Ur+FkVc+jNi8I4SH7Fqrf44k48DOtnChvdSuyKRcEPw\n" +
+            "KSzNtX/mKySYR5EBG1bL+UxCNiO+9g2GWxf51JBJT6Rbzb1EDab4rylbwGVZiGrk\n" +
+            "BQIDAQAB\n" +
+            "-----END PUBLIC KEY-----\n";
+
         addTestCase("discovery test", \discoveryTest());
+        addTestCase("SMART backend services test", \smartBackendServicesTest());
         addTestCase("resource operations test", \resourceOperationsTest());
+        addTestCase("bundle operation test", \bundleOperationTest());
+        addTestCase("resource builder test", \resourceBuilderTest());
         addTestCase("operation outcome test", \operationOutcomeTest());
         addTestCase("connection scheme test", \connectionSchemeTest());
         addTestCase("validation test", \validationTest());
@@ -310,6 +405,113 @@ class FhirRestClientTest inherits QUnit::Test {
         assertEq("qore-test", oauth2_options.oauth2_client_id);
         assertThrows("FHIR-SMART-CONFIGURATION-ERROR", sub () {
             FhirRestClient::FhirRestClient::makeSmartOAuth2ClientOptions({});
+        });
+    }
+
+    smartBackendServicesTest() {
+        FhirRestClient::FhirRestClient client({"url": base_url}, True);
+
+        string token = FhirRestClient::FhirRestClient::makeSmartBackendClientAssertion({
+            "client_id": "system-client",
+            "private_key": rsa_private_key,
+            "token_endpoint": "https://auth.example.org/token",
+            "key_id": "key-1",
+            "issued_at": 1700000000,
+            "lifetime_seconds": 300,
+            "jti": "jwt-1",
+        });
+        hash<JwtDecodeResult> result = cast<hash<JwtDecodeResult>>(jwt_decode(token, rsa_public_key));
+        assertTrue(result.signature_valid);
+        assertEq("RS256", result.header.alg);
+        assertEq("key-1", result.header.kid);
+        assertEq("system-client", result.claims.iss);
+        assertEq("system-client", result.claims.sub);
+        assertEq("https://auth.example.org/token", result.claims.aud);
+        assertEq(1700000000, result.claims.iat);
+        assertEq(1700000300, result.claims.exp);
+        assertEq("jwt-1", result.claims.jti);
+
+        hash<auto> backend_options = client.getSmartBackendOAuth2ClientOptions({
+            "client_id": "system-client",
+            "private_key": rsa_private_key,
+            "key_id": "key-1",
+            "issued_at": 1700000000,
+            "lifetime_seconds": 300,
+            "jti": "jwt-1",
+            "scopes": ("system/Patient.read", "system/Observation.write"),
+            "oauth2_auto_refresh": False,
+        });
+        assertEq("client_credentials", backend_options.oauth2_grant_type);
+        assertEq("system-client", backend_options.oauth2_client_id);
+        assertEq("https://auth.example.org/token", backend_options.oauth2_token_url);
+        assertEq(FhirRestClient::FhirRestClientBase::JwtBearerClientAssertionType,
+            backend_options.oauth2_client_assertion_type);
+        assertEq(("system/Patient.read", "system/Observation.write"), backend_options.oauth2_scopes);
+        assertFalse(backend_options.oauth2_auto_refresh);
+        assertFalse(exists backend_options.private_key);
+        assertFalse(exists backend_options.key_id);
+        assertFalse(exists backend_options.jti);
+
+        code<string()> provider = backend_options.oauth2_client_assertion_provider;
+        hash<JwtDecodeResult> generated = cast<hash<JwtDecodeResult>>(jwt_decode(provider(), rsa_public_key));
+        assertTrue(generated.signature_valid);
+        assertEq("system-client", generated.claims.iss);
+        assertEq("https://auth.example.org/token", generated.claims.aud);
+        assertEq("jwt-1", generated.claims.jti);
+
+        hash<auto> single_scope_options = FhirRestClient::FhirRestClient::makeSmartBackendOAuth2ClientOptions({
+            "token_endpoint": "https://auth.example.org/token",
+        }, {
+            "client_id": "system-client",
+            "private_key": rsa_private_key,
+            "scope": "system/Patient.read system/Observation.read",
+        });
+        assertEq(("system/Patient.read", "system/Observation.read"), single_scope_options.oauth2_scopes);
+
+        assertThrows("FHIR-SMART-CONFIGURATION-ERROR", sub () {
+            FhirRestClient::FhirRestClient::makeSmartBackendClientAssertion({
+                "client_id": "system-client",
+                "token_endpoint": "https://auth.example.org/token",
+            });
+        });
+        assertThrows("FHIR-SMART-CONFIGURATION-ERROR", sub () {
+            FhirRestClient::FhirRestClient::makeSmartBackendClientAssertion({
+                "client_id": "system-client",
+                "private_key": rsa_private_key,
+                "token_endpoint": "https://auth.example.org/token",
+                "jwt_alg": "ES256",
+            });
+        });
+        assertThrows("FHIR-SMART-CONFIGURATION-ERROR", sub () {
+            FhirRestClient::FhirRestClient::makeSmartBackendClientAssertion({
+                "client_id": "system-client",
+                "private_key": rsa_private_key,
+                "token_endpoint": "https://auth.example.org/token",
+                "lifetime_seconds": 301,
+            });
+        });
+        assertThrows("FHIR-SMART-CONFIGURATION-ERROR", sub () {
+            FhirRestClient::FhirRestClient::makeSmartBackendClientAssertion({
+                "client_id": "system-client",
+                "private_key": rsa_private_key,
+                "token_endpoint": "https://auth.example.org/token",
+                "jti": "",
+            });
+        });
+        assertThrows("FHIR-SMART-CONFIGURATION-ERROR", sub () {
+            FhirRestClient::FhirRestClient::makeSmartBackendOAuth2ClientOptions({}, {
+                "client_id": "system-client",
+                "private_key": rsa_private_key,
+            });
+        });
+        assertThrows("FHIR-SMART-CONFIGURATION-ERROR", sub () {
+            FhirRestClient::FhirRestClient::makeSmartBackendOAuth2ClientOptions({
+                "token_endpoint": "https://auth.example.org/token",
+            }, {
+                "client_id": "system-client",
+                "private_key": rsa_private_key,
+                "scopes": ("system/Patient.read", 1),
+            });
         });
     }
 
@@ -389,6 +591,153 @@ class FhirRestClientTest inherits QUnit::Test {
         assertEq(200, deleted.status_code);
         assertEq("OperationOutcome", deleted.body.resourceType);
         assertEq("W/\"5\"", deleted.body.ifMatch);
+    }
+
+    bundleOperationTest() {
+        FhirRestClient::FhirRestClient client({"url": base_url}, True);
+
+        hash<auto> create_entry = FhirRestClient::FhirRestClientBase::makeConditionalCreateBundleEntry("Patient", {
+            "resourceType": "Patient",
+            "name": ({"family": "Jones"},),
+        }, "identifier=http://example.org/mrn|123", "urn:uuid:patient-1");
+        assertEq("POST", create_entry.request.method);
+        assertEq("Patient", create_entry.request.url);
+        assertEq("identifier=http://example.org/mrn|123", create_entry.request.ifNoneExist);
+        assertEq("urn:uuid:patient-1", create_entry.fullUrl);
+
+        hash<auto> update_entry = FhirRestClient::FhirRestClientBase::makeUpdateBundleEntry("Patient", "pat-1", {
+            "resourceType": "Patient",
+            "id": "pat-1",
+            "active": True,
+        }, "W/\"1\"");
+        assertEq("PUT", update_entry.request.method);
+        assertEq("Patient/pat-1", update_entry.request.url);
+        assertEq("W/\"1\"", update_entry.request.ifMatch);
+
+        hash<auto> transaction = FhirRestClient::FhirRestClientBase::makeBundle((create_entry, update_entry),
+            "transaction");
+        hash<RestClient::RestResponseInfo> response = client.submitBundle(transaction);
+        assertEq(200, response.status_code);
+        assertEq("Bundle", response.body.resourceType);
+        assertEq("transaction-response", response.body.type);
+        assertEq(TestFhirMimeTypeJson, response.body.requestContentType);
+        assertEq(2, response.body.entryCount);
+        assertEq("POST", response.body.firstMethod);
+        assertEq("Patient", response.body.firstUrl);
+        assertEq("identifier=http://example.org/mrn|123", response.body.firstIfNoneExist);
+
+        hash<auto> batch = FhirRestClient::FhirRestClientBase::makeBundle((
+            FhirRestClient::FhirRestClientBase::makeDeleteBundleEntry("Patient", "pat-1"),
+        ), "batch");
+        assertEq("batch", batch.type);
+        assertEq("DELETE", batch.entry[0].request.method);
+
+        assertThrows("FHIR-BUNDLE-ERROR", sub () {
+            FhirRestClient::FhirRestClientBase::makeBundle((), "collection");
+        });
+        assertThrows("FHIR-BUNDLE-ERROR", sub () {
+            client.submitBundle({"resourceType": "Bundle", "type": "collection", "entry": ()});
+        });
+        assertThrows("FHIR-BUNDLE-ERROR", sub () {
+            client.submitBundle({
+                "resourceType": "Bundle",
+                "type": "transaction",
+                "entry": ({"request": {"url": "Patient"}},),
+            });
+        });
+        assertThrows("FHIR-PATH-ERROR", sub () {
+            FhirRestClient::FhirRestClientBase::makeBundleEntry("GET", "https://evil.example/Patient");
+        });
+        assertThrows("FHIR-OPERATION-OUTCOME", sub () {
+            client.submitBundle({"resourceType": "Bundle", "id": "fail", "type": "transaction", "entry": ()});
+        });
+    }
+
+    resourceBuilderTest() {
+        hash<auto> coding = FhirRestClient::fhir_make_coding(FhirRestClient::FhirSystemLoinc, "8867-4",
+            "Heart rate");
+        assertEq("http://loinc.org", coding.system);
+        assertEq("8867-4", coding.code);
+        assertEq("Heart rate", coding.display);
+
+        hash<auto> concept = FhirRestClient::fhir_make_codeable_concept((coding,), "Heart rate");
+        assertEq("8867-4", concept.coding[0].code);
+        assertEq("Heart rate", concept.text);
+
+        hash<auto> unit = FhirRestClient::fhir_normalize_ucum_unit("mmHg");
+        assertEq("http://unitsofmeasure.org", unit.system);
+        assertEq("mm[Hg]", unit.code);
+        assertEq("mmHg", unit.unit);
+
+        hash<auto> quantity = FhirRestClient::fhir_make_ucum_quantity(72, "bpm");
+        assertEq(72, quantity.value);
+        assertEq("/min", quantity.code);
+        assertEq("/min", quantity.unit);
+
+        hash<auto> observation = FhirRestClient::fhir_make_observation({
+            "id": "obs-1",
+            "identifier": {"system": "http://example.org/observations", "value": "obs-1"},
+            "code_system": FhirRestClient::FhirSystemLoinc,
+            "code_code": "8867-4",
+            "code_display": "Heart rate",
+            "subject": "Patient/pat-1",
+            "device": {"reference": "Device/dev-1"},
+            "effectiveDateTime": "2026-05-30T10:15:00Z",
+            "value": 72,
+            "unit_code": "bpm",
+        });
+        assertEq("Observation", observation.resourceType);
+        assertEq("final", observation.status);
+        assertEq("obs-1", observation.id);
+        assertEq("Patient/pat-1", observation.subject.reference);
+        assertEq("Device/dev-1", observation.device.reference);
+        assertEq("8867-4", observation.code.coding[0].code);
+        assertEq("/min", observation.valueQuantity.code);
+        assertEq("obs-1", observation.identifier[0].value);
+
+        hash<auto> audit = FhirRestClient::fhir_make_audit_event({
+            "type": FhirRestClient::fhir_make_codeable_concept((
+                FhirRestClient::fhir_make_coding("http://terminology.hl7.org/CodeSystem/audit-event-type",
+                    "rest", "RESTful operation"),
+            )),
+            "action": "C",
+            "recorded": "2026-05-30T10:15:01Z",
+            "agent": ({"who": FhirRestClient::fhir_make_reference("Device/gateway")},),
+            "source": {"observer": FhirRestClient::fhir_make_reference("Device/gateway")},
+            "entity": ({"what": FhirRestClient::fhir_make_reference("Observation/obs-1")},),
+        });
+        assertEq("AuditEvent", audit.resourceType);
+        assertEq("C", audit.action);
+        assertEq("Device/gateway", audit.agent[0].who.reference);
+        assertEq("Observation/obs-1", audit.entity[0].what.reference);
+
+        hash<auto> provenance = FhirRestClient::fhir_make_provenance({
+            "target": "Observation/obs-1",
+            "recorded": "2026-05-30T10:15:01Z",
+            "agent": ({"who": FhirRestClient::fhir_make_reference("Device/gateway")},),
+        });
+        assertEq("Provenance", provenance.resourceType);
+        assertEq("Observation/obs-1", provenance.target[0].reference);
+
+        assertThrows("FHIR-UCUM-ERROR", sub () {
+            FhirRestClient::fhir_normalize_ucum_unit("../bad");
+        });
+        assertThrows("FHIR-RESOURCE-BUILDER-ERROR", sub () {
+            FhirRestClient::fhir_make_ucum_quantity("72", "bpm");
+        });
+        assertThrows("FHIR-RESOURCE-BUILDER-ERROR", sub () {
+            FhirRestClient::fhir_make_observation({
+                "code_system": FhirRestClient::FhirSystemLoinc,
+                "code_code": "8867-4",
+                "value": 72,
+            });
+        });
+        assertThrows("FHIR-RESOURCE-BUILDER-ERROR", sub () {
+            FhirRestClient::fhir_make_provenance({
+                "target": "Observation/obs-1",
+                "recorded": "2026-05-30T10:15:01Z",
+            });
+        });
     }
 
     operationOutcomeTest() {
@@ -473,6 +822,22 @@ class FhirRestClientTest inherits QUnit::Test {
         assertEq("Parameters", result.resourceType);
         assertTrue(result.parameter[0].valueBoolean);
         assertEq("abc", result.parameter[1].valueCode);
+
+        hash<auto> lookup = client.lookupCode("CodeSystem/example", {
+            "system": "http://example.org/system",
+            "code": "abc",
+        });
+        assertEq("Parameters", lookup.resourceType);
+        assertEq("Example CodeSystem", lookup.parameter[0].valueString);
+        assertEq("abc display", lookup.parameter[1].valueString);
+
+        hash<auto> translation = client.translateCode("ConceptMap/example", {
+            "system": "http://example.org/local",
+            "code": "abc",
+        });
+        assertEq("Parameters", translation.resourceType);
+        assertTrue(translation.parameter[0].valueBoolean);
+        assertEq("abc-target", translation.parameter[1].part[0].valueCode);
 
         hash<auto> expansion = client.expandValueSet("ValueSet/example", {
             "filter": "smi",

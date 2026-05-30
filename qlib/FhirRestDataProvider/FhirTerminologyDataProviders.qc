@@ -59,6 +59,76 @@ public class FhirValidateCodeDataProvider inherits FhirRestDataProviderBase {
     }
 }
 
+#! FHIR lookup-code data provider
+public class FhirLookupCodeDataProvider inherits FhirRestDataProviderBase {
+    public {
+        const ProviderInfo = <DataProviderInfo>{
+            "name": "lookup-code",
+            "desc": "Looks up code metadata through a FHIR $lookup operation",
+            "type": "FhirLookupCodeDataProvider",
+            "supports_request": True,
+        };
+    }
+
+    constructor(FhirRestClient::FhirRestClient fhir) : FhirRestDataProviderBase(fhir) {
+    }
+
+    string getName() {
+        return "lookup-code";
+    }
+
+    private *DataProvider::AbstractDataProviderType getRequestTypeImpl() {
+        return FhirLookupCodeRequestDataType;
+    }
+
+    private *DataProvider::AbstractDataProviderType getResponseTypeImpl() {
+        return FhirParametersDataType;
+    }
+
+    private auto doRequestImpl(auto req, *hash<auto> request_options) {
+        return fhir.lookupCode(req.path, req.params);
+    }
+
+    private hash<DataProviderInfo> getStaticInfoImpl() {
+        return ProviderInfo;
+    }
+}
+
+#! FHIR translate-code data provider
+public class FhirTranslateCodeDataProvider inherits FhirRestDataProviderBase {
+    public {
+        const ProviderInfo = <DataProviderInfo>{
+            "name": "translate-code",
+            "desc": "Translates a code through a FHIR $translate operation",
+            "type": "FhirTranslateCodeDataProvider",
+            "supports_request": True,
+        };
+    }
+
+    constructor(FhirRestClient::FhirRestClient fhir) : FhirRestDataProviderBase(fhir) {
+    }
+
+    string getName() {
+        return "translate-code";
+    }
+
+    private *DataProvider::AbstractDataProviderType getRequestTypeImpl() {
+        return FhirTranslateCodeRequestDataType;
+    }
+
+    private *DataProvider::AbstractDataProviderType getResponseTypeImpl() {
+        return FhirParametersDataType;
+    }
+
+    private auto doRequestImpl(auto req, *hash<auto> request_options) {
+        return fhir.translateCode(req.path, req.params);
+    }
+
+    private hash<DataProviderInfo> getStaticInfoImpl() {
+        return ProviderInfo;
+    }
+}
+
 #! FHIR ValueSet expand data provider
 public class FhirExpandValueSetDataProvider inherits FhirRestDataProviderBase {
     public {

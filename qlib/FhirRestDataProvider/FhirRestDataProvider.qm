@@ -56,11 +56,11 @@ module FhirRestDataProvider {
     - metadata discovery with \c CapabilityStatement and SMART configuration
     - a generated R4 resource-type catalog for local resource name validation
     - generated R4 \c HashDataType metadata for \c Patient, \c Observation, and \c Bundle
-    - generic resource read, search, paginated search, create, update, conditional update,
-      patch, delete, and \c $validate actions for resources advertised by the server
+    - generic resource read, search, paginated search, create, transaction/batch Bundle submit,
+      update, conditional update, patch, delete, and \c $validate actions for resources advertised by the server
     - generated R4 resource-specific actions for server-supported \c Patient, \c Observation,
       and \c Bundle resources
-    - terminology delegation through \c $validate-code and \c $expand actions
+    - terminology delegation through \c $validate-code, \c $lookup, \c $translate, and \c $expand actions
     - action metadata and typed request/response descriptions suitable for UI integration
 
     The generated artifacts provide the shared R4 resource catalog and structured
@@ -204,8 +204,8 @@ try {
 
     @subsection fhirrestdataprovider_v1_0 FhirRestDataProvider v1.0
     - initial generic FHIR REST data provider foundation
-    - metadata, resource CRUD/search/pagination, conditional update, patch, validation,
-      and terminology actions
+    - metadata, resource CRUD/search/pagination, transaction/batch Bundle submit, conditional update, patch,
+      validation, and terminology actions
     - CapabilityStatement-driven server resource validation for generic and generated resource actions
     - common FHIR search parameter fields plus raw advanced search parameters
     - generated FHIR R4 resource type catalog and local resource type validation
@@ -417,11 +417,13 @@ namespace Priv {
             "desc": "Connect to HL7 FHIR R4 JSON servers for healthcare interoperability.\n\n"
                 "Supported operations:\n"
                 "- **Metadata**: read `CapabilityStatement` and SMART configuration\n"
-                "- **Resources**: read, search, paginated search, create, update, conditional update, patch, "
-                "delete, and validate resources advertised by the server `CapabilityStatement`\n"
+                "- **Resources**: read, search, paginated search, create, submit transaction/batch Bundles, "
+                "update, conditional update, patch, delete, and validate resources advertised by the server "
+                "`CapabilityStatement`\n"
                 "- **Generated R4 resources**: use typed actions for supported `Patient`, `Observation`, and "
                 "`Bundle` resources\n"
-                "- **Terminology**: delegate `$validate-code` and `$expand` operations to a FHIR server\n\n"
+                "- **Terminology**: delegate `$validate-code`, `$lookup`, `$translate`, and `$expand` "
+                "operations to a FHIR server\n\n"
                 "**Note**: Generic actions validate resource names against the generated R4 catalog and the "
                 "server `CapabilityStatement`. Structured metadata is included for `Patient`, `Observation`, "
                 "and `Bundle`.",
@@ -546,6 +548,25 @@ namespace Priv {
 
         DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
             "app": FhirRestDataProvider::AppName,
+            "path": "/resources/submit-bundle",
+            "action": "submit-bundle",
+            "display_name": "Submit Bundle",
+            "short_desc": "Submit a FHIR transaction or batch Bundle",
+            "desc": "Submit a FHIR `Bundle` with `type` set to `transaction` or `batch` to the FHIR "
+                "service base. Use this action when related resource writes must be processed together by "
+                "the server.",
+            "action_code": DPAT_API,
+            "options": DataProviderActionCatalog::getActionOptionFromFields(
+                FhirSubmitBundleRequestDataType::Fields{"bundle",}, {
+                    "preselected": True,
+                    "required": True,
+                },
+            ),
+            "output_type": FhirRestDataProvider::FhirRestResponseDataType,
+        });
+
+        DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
+            "app": FhirRestDataProvider::AppName,
             "path": "/resources/update",
             "action": "update-resource",
             "display_name": "Update Resource",
@@ -660,6 +681,43 @@ namespace Priv {
             "action_code": DPAT_API,
             "options": DataProviderActionCatalog::getActionOptionFromFields(
                 FhirValidateCodeRequestDataType::Fields, {
+                    "preselected": True,
+                    "required": True,
+                },
+            ),
+            "output_type": FhirRestDataProvider::FhirParametersDataType,
+        });
+
+        DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
+            "app": FhirRestDataProvider::AppName,
+            "path": "/terminology/lookup-code",
+            "action": "lookup-code",
+            "display_name": "Lookup Code",
+            "short_desc": "Call a terminology $lookup operation",
+            "desc": "Look up code display, designation, and property metadata by delegating to a FHIR "
+                "terminology endpoint. The `path` value is a relative CodeSystem path such as "
+                "`CodeSystem/example`.",
+            "action_code": DPAT_API,
+            "options": DataProviderActionCatalog::getActionOptionFromFields(
+                FhirLookupCodeRequestDataType::Fields, {
+                    "preselected": True,
+                    "required": True,
+                },
+            ),
+            "output_type": FhirRestDataProvider::FhirParametersDataType,
+        });
+
+        DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
+            "app": FhirRestDataProvider::AppName,
+            "path": "/terminology/translate-code",
+            "action": "translate-code",
+            "display_name": "Translate Code",
+            "short_desc": "Call a terminology $translate operation",
+            "desc": "Translate a code through a FHIR ConceptMap by delegating to a terminology endpoint. "
+                "The `path` value is a relative ConceptMap path such as `ConceptMap/example`.",
+            "action_code": DPAT_API,
+            "options": DataProviderActionCatalog::getActionOptionFromFields(
+                FhirTranslateCodeRequestDataType::Fields, {
                     "preselected": True,
                     "required": True,
                 },

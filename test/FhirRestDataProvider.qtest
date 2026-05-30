@@ -123,6 +123,17 @@ class TestFhirProviderHandler inherits AbstractHttpRequestHandler {
             }, {"ETag": "W/\"2\""});
         }
 
+        if (hdr.method == "POST" && (path == "" || path == "fhir")) {
+            return fhirResponse(200, {
+                "resourceType": "Bundle",
+                "type": request.body.type + "-response",
+                "requestBodyType": request.body.resourceType,
+                "requestContentType": request.content_type,
+                "entryCount": request.body.entry.size(),
+                "firstMethod": request.body.entry[0].request.method,
+            });
+        }
+
         if (hdr.method == "PUT" && path == "Patient/pat-1") {
             return fhirResponse(200, {
                 "resourceType": "Patient",
@@ -183,6 +194,35 @@ class TestFhirProviderHandler inherits AbstractHttpRequestHandler {
                 }, {
                     "name": "code",
                     "valueCode": parsed.params.code,
+                },),
+            });
+        }
+
+        if (hdr.method == "GET" && path == "CodeSystem/example/$lookup") {
+            return fhirResponse(200, {
+                "resourceType": "Parameters",
+                "parameter": ({
+                    "name": "name",
+                    "valueString": "Example CodeSystem",
+                }, {
+                    "name": "display",
+                    "valueString": parsed.params.code + " display",
+                },),
+            });
+        }
+
+        if (hdr.method == "GET" && path == "ConceptMap/example/$translate") {
+            return fhirResponse(200, {
+                "resourceType": "Parameters",
+                "parameter": ({
+                    "name": "result",
+                    "valueBoolean": True,
+                }, {
+                    "name": "match",
+                    "part": ({
+                        "name": "code",
+                        "valueCode": parsed.params.code + "-target",
+                    },),
                 },),
             });
         }
@@ -293,12 +333,15 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertTrue(inlist("search-resources", action_names));
         assertTrue(inlist("search-all-resources", action_names));
         assertTrue(inlist("create-resource", action_names));
+        assertTrue(inlist("submit-bundle", action_names));
         assertTrue(inlist("update-resource", action_names));
         assertTrue(inlist("conditional-update-resource", action_names));
         assertTrue(inlist("patch-resource", action_names));
         assertTrue(inlist("delete-resource", action_names));
         assertTrue(inlist("validate-resource", action_names));
         assertTrue(inlist("validate-code", action_names));
+        assertTrue(inlist("lookup-code", action_names));
+        assertTrue(inlist("translate-code", action_names));
         assertTrue(inlist("expand-value-set", action_names));
 
         foreach string resource_type in (FhirRestDataProvider::FhirR4GeneratedResourceTypeList) {
@@ -387,6 +430,21 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertEq("Patient", created.body.requestBodyType);
         assertEq("identifier=http://example.org/mrn|123", created.body.ifNoneExist);
         assertEq("W/\"2\"", created.headers.etag);
+
+        hash<auto> submitted = resources.getChildProviderEx("submit-bundle").doRequest({
+            "bundle": FhirRestClient::FhirRestClientBase::makeBundle((
+                FhirRestClient::FhirRestClientBase::makeConditionalCreateBundleEntry("Patient", {
+                    "resourceType": "Patient",
+                    "name": ({"family": "Jones"},),
+                }, "identifier=http://example.org/mrn|123"),
+            ), "transaction"),
+        });
+        assertEq(200, submitted.status_code);
+        assertEq("Bundle", submitted.body.resourceType);
+        assertEq("transaction-response", submitted.body.type);
+        assertEq(TestFhirMimeTypeJson, submitted.body.requestContentType);
+        assertEq(1, submitted.body.entryCount);
+        assertEq("POST", submitted.body.firstMethod);
 
         hash<auto> updated = resources.getChildProviderEx("update").doRequest({
             "resource_type": "Patient",
@@ -651,6 +709,22 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertEq("Parameters", result.resourceType);
         assertTrue(result.parameter[0].valueBoolean);
         assertEq("abc", result.parameter[1].valueCode);
+
+        hash<auto> lookup = terminology.getChildProviderEx("lookup-code").doRequest({
+            "path": "CodeSystem/example",
+            "params": {"system": "http://example.org/system", "code": "abc"},
+        });
+        assertEq("Parameters", lookup.resourceType);
+        assertEq("Example CodeSystem", lookup.parameter[0].valueString);
+        assertEq("abc display", lookup.parameter[1].valueString);
+
+        hash<auto> translation = terminology.getChildProviderEx("translate-code").doRequest({
+            "path": "ConceptMap/example",
+            "params": {"system": "http://example.org/local", "code": "abc"},
+        });
+        assertEq("Parameters", translation.resourceType);
+        assertTrue(translation.parameter[0].valueBoolean);
+        assertEq("abc-target", translation.parameter[1].part[0].valueCode);
 
         hash<auto> expansion = terminology.getChildProviderEx("expand-value-set").doRequest({
             "path": "ValueSet/example",
