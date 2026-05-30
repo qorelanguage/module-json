@@ -149,8 +149,8 @@ public class FhirResourcesDataProvider inherits FhirRestDataProviderBase {
 
     #! Returns child data provider names
     private *list<string> getChildProviderNamesImpl() {
-        return ("read", "search", "search-all", "create", "update", "conditional-update", "patch", "delete",
-                "validate")
+        return ("read", "search", "search-all", "create", "submit-bundle", "update", "conditional-update", "patch",
+                "delete", "validate")
             + getSupportedGeneratedResourcePathNames();
     }
 
@@ -169,6 +169,8 @@ public class FhirResourcesDataProvider inherits FhirRestDataProviderBase {
                 return new FhirSearchAllResourcesDataProvider(fhir);
             case "create":
                 return new FhirCreateResourceDataProvider(fhir);
+            case "submit-bundle":
+                return new FhirSubmitBundleDataProvider(fhir);
             case "update":
                 return new FhirUpdateResourceDataProvider(fhir);
             case "conditional-update":

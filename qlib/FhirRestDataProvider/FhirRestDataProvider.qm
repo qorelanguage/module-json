@@ -56,8 +56,8 @@ module FhirRestDataProvider {
     - metadata discovery with \c CapabilityStatement and SMART configuration
     - a generated R4 resource-type catalog for local resource name validation
     - generated R4 \c HashDataType metadata for \c Patient, \c Observation, and \c Bundle
-    - generic resource read, search, paginated search, create, update, conditional update,
-      patch, delete, and \c $validate actions for resources advertised by the server
+    - generic resource read, search, paginated search, create, transaction/batch Bundle submit,
+      update, conditional update, patch, delete, and \c $validate actions for resources advertised by the server
     - generated R4 resource-specific actions for server-supported \c Patient, \c Observation,
       and \c Bundle resources
     - terminology delegation through \c $validate-code and \c $expand actions
@@ -204,7 +204,7 @@ try {
 
     @subsection fhirrestdataprovider_v1_0 FhirRestDataProvider v1.0
     - initial generic FHIR REST data provider foundation
-    - metadata, resource CRUD/search/pagination, conditional update, patch, validation,
+    - metadata, resource CRUD/search/pagination, transaction/batch Bundle submit, conditional update, patch, validation,
       and terminology actions
     - CapabilityStatement-driven server resource validation for generic and generated resource actions
     - common FHIR search parameter fields plus raw advanced search parameters
@@ -417,8 +417,9 @@ namespace Priv {
             "desc": "Connect to HL7 FHIR R4 JSON servers for healthcare interoperability.\n\n"
                 "Supported operations:\n"
                 "- **Metadata**: read `CapabilityStatement` and SMART configuration\n"
-                "- **Resources**: read, search, paginated search, create, update, conditional update, patch, "
-                "delete, and validate resources advertised by the server `CapabilityStatement`\n"
+                "- **Resources**: read, search, paginated search, create, submit transaction/batch Bundles, "
+                "update, conditional update, patch, delete, and validate resources advertised by the server "
+                "`CapabilityStatement`\n"
                 "- **Generated R4 resources**: use typed actions for supported `Patient`, `Observation`, and "
                 "`Bundle` resources\n"
                 "- **Terminology**: delegate `$validate-code` and `$expand` operations to a FHIR server\n\n"
@@ -539,6 +540,25 @@ namespace Priv {
             ) + DataProviderActionCatalog::getActionOptionFromFields(
                 FhirCreateResourceRequestDataType::Fields - ("resource_type", "resource"), {
                     "preselected": True,
+                },
+            ),
+            "output_type": FhirRestDataProvider::FhirRestResponseDataType,
+        });
+
+        DataProviderActionCatalog::registerAction(<DataProviderActionInfo>{
+            "app": FhirRestDataProvider::AppName,
+            "path": "/resources/submit-bundle",
+            "action": "submit-bundle",
+            "display_name": "Submit Bundle",
+            "short_desc": "Submit a FHIR transaction or batch Bundle",
+            "desc": "Submit a FHIR `Bundle` with `type` set to `transaction` or `batch` to the FHIR "
+                "service base. Use this action when related resource writes must be processed together by "
+                "the server.",
+            "action_code": DPAT_API,
+            "options": DataProviderActionCatalog::getActionOptionFromFields(
+                FhirSubmitBundleRequestDataType::Fields{"bundle",}, {
+                    "preselected": True,
+                    "required": True,
                 },
             ),
             "output_type": FhirRestDataProvider::FhirRestResponseDataType,

@@ -123,6 +123,17 @@ class TestFhirProviderHandler inherits AbstractHttpRequestHandler {
             }, {"ETag": "W/\"2\""});
         }
 
+        if (hdr.method == "POST" && (path == "" || path == "fhir")) {
+            return fhirResponse(200, {
+                "resourceType": "Bundle",
+                "type": request.body.type + "-response",
+                "requestBodyType": request.body.resourceType,
+                "requestContentType": request.content_type,
+                "entryCount": request.body.entry.size(),
+                "firstMethod": request.body.entry[0].request.method,
+            });
+        }
+
         if (hdr.method == "PUT" && path == "Patient/pat-1") {
             return fhirResponse(200, {
                 "resourceType": "Patient",
@@ -293,6 +304,7 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertTrue(inlist("search-resources", action_names));
         assertTrue(inlist("search-all-resources", action_names));
         assertTrue(inlist("create-resource", action_names));
+        assertTrue(inlist("submit-bundle", action_names));
         assertTrue(inlist("update-resource", action_names));
         assertTrue(inlist("conditional-update-resource", action_names));
         assertTrue(inlist("patch-resource", action_names));
@@ -387,6 +399,21 @@ class FhirRestDataProviderTest inherits QUnit::Test {
         assertEq("Patient", created.body.requestBodyType);
         assertEq("identifier=http://example.org/mrn|123", created.body.ifNoneExist);
         assertEq("W/\"2\"", created.headers.etag);
+
+        hash<auto> submitted = resources.getChildProviderEx("submit-bundle").doRequest({
+            "bundle": FhirRestClient::FhirRestClientBase::makeBundle((
+                FhirRestClient::FhirRestClientBase::makeConditionalCreateBundleEntry("Patient", {
+                    "resourceType": "Patient",
+                    "name": ({"family": "Jones"},),
+                }, "identifier=http://example.org/mrn|123"),
+            ), "transaction"),
+        });
+        assertEq(200, submitted.status_code);
+        assertEq("Bundle", submitted.body.resourceType);
+        assertEq("transaction-response", submitted.body.type);
+        assertEq(TestFhirMimeTypeJson, submitted.body.requestContentType);
+        assertEq(1, submitted.body.entryCount);
+        assertEq("POST", submitted.body.firstMethod);
 
         hash<auto> updated = resources.getChildProviderEx("update").doRequest({
             "resource_type": "Patient",

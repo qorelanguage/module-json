@@ -166,6 +166,41 @@ public class FhirCreateResourceDataProvider inherits FhirRestDataProviderBase {
     }
 }
 
+#! Submit FHIR transaction or batch Bundle data provider
+public class FhirSubmitBundleDataProvider inherits FhirRestDataProviderBase {
+    public {
+        const ProviderInfo = <DataProviderInfo>{
+            "name": "submit-bundle",
+            "desc": "Submits a FHIR transaction or batch Bundle",
+            "type": "FhirSubmitBundleDataProvider",
+            "supports_request": True,
+        };
+    }
+
+    constructor(FhirRestClient::FhirRestClient fhir) : FhirRestDataProviderBase(fhir) {
+    }
+
+    string getName() {
+        return "submit-bundle";
+    }
+
+    private *DataProvider::AbstractDataProviderType getRequestTypeImpl() {
+        return FhirSubmitBundleRequestDataType;
+    }
+
+    private *DataProvider::AbstractDataProviderType getResponseTypeImpl() {
+        return FhirRestResponseDataType;
+    }
+
+    private auto doRequestImpl(auto req, *hash<auto> request_options) {
+        return getResponseData(fhir.submitBundle(req.bundle));
+    }
+
+    private hash<DataProviderInfo> getStaticInfoImpl() {
+        return ProviderInfo;
+    }
+}
+
 #! Update FHIR resource data provider
 public class FhirUpdateResourceDataProvider inherits FhirRestDataProviderBase {
     public {

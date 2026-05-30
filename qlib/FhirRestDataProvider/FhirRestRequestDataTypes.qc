@@ -214,6 +214,32 @@ public class FhirCreateResourceRequestDataType inherits HashDataType {
     }
 }
 
+#! Submit Bundle request data type
+public class FhirSubmitBundleRequestDataType inherits HashDataType {
+    public {
+        const Fields = {
+            "bundle": {
+                "type": AutoHashType,
+                "display_name": "Bundle",
+                "short_desc": "FHIR transaction or batch Bundle",
+                "desc": "FHIR `Bundle` resource with `type` set to `transaction` or `batch`. The Bundle is "
+                    "POSTed to the FHIR service base for atomic transaction writes or batch execution.\n\n"
+                    "**Example**: `{\"resourceType\": \"Bundle\", \"type\": \"transaction\", \"entry\": [...]}`",
+                "example_value": {
+                    "resourceType": "Bundle",
+                    "type": "transaction",
+                    "entry": (),
+                },
+            },
+        };
+    }
+
+    #! Creates the object
+    constructor() {
+        addQoreFields(Fields);
+    }
+}
+
 #! Update resource request data type
 public class FhirUpdateResourceRequestDataType inherits HashDataType {
     public {
@@ -472,6 +498,7 @@ public const FhirReadResourceRequestDataType = new FhirReadResourceRequestDataTy
 public const FhirSearchResourcesRequestDataType = new FhirSearchResourcesRequestDataType();
 public const FhirSearchAllResourcesRequestDataType = new FhirSearchAllResourcesRequestDataType();
 public const FhirCreateResourceRequestDataType = new FhirCreateResourceRequestDataType();
+public const FhirSubmitBundleRequestDataType = new FhirSubmitBundleRequestDataType();
 public const FhirUpdateResourceRequestDataType = new FhirUpdateResourceRequestDataType();
 public const FhirConditionalUpdateResourceRequestDataType = new FhirConditionalUpdateResourceRequestDataType();
 public const FhirPatchResourceRequestDataType = new FhirPatchResourceRequestDataType();

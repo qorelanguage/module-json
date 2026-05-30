@@ -60,6 +60,21 @@ public class FhirRestClientBase {
             "ping_method": DefaultPingMethod,
             "ping_path": DefaultPingPath,
         };
+
+        #! Bundle types that can be submitted to the FHIR service base
+        const WritableBundleTypes = {
+            "batch": True,
+            "transaction": True,
+        };
+
+        #! HTTP verbs allowed in FHIR Bundle.entry.request.method
+        const BundleRequestMethods = {
+            "DELETE": True,
+            "GET": True,
+            "PATCH": True,
+            "POST": True,
+            "PUT": True,
+        };
     }
 
     #! Returns normalized constructor options for FHIR REST clients
@@ -161,6 +176,109 @@ public class FhirRestClientBase {
         return parts ? path + sep + parts.join("&") : path;
     }
 
+    #! Builds a FHIR \c transaction or \c batch Bundle resource
+    /** @param entries Bundle entries
+        @param type Bundle type; must be \c "transaction" or \c "batch"
+        @return FHIR Bundle resource
+        @throw FHIR-BUNDLE-ERROR if \a type is not writable
+    */
+    static hash<auto> makeBundle(list<hash<auto>> entries, string type = "transaction") {
+        validateWritableBundleType(type);
+        return cast<hash<auto>>({
+            "resourceType": "Bundle",
+            "type": type,
+            "entry": entries,
+        });
+    }
+
+    #! Builds a generic FHIR transaction/batch Bundle entry
+    /** @param method HTTP method for \c Bundle.entry.request.method
+        @param url relative FHIR request URL for \c Bundle.entry.request.url
+        @param resource optional resource body
+        @param request_options optional extra request fields such as \c ifNoneExist or \c ifMatch
+        @param full_url optional Bundle \c fullUrl
+        @return FHIR Bundle entry
+        @throw FHIR-BUNDLE-ERROR if the method is not supported
+        @throw FHIR-PATH-ERROR if \a url is not a safe relative FHIR path
+    */
+    static hash<auto> makeBundleEntry(string method, string url, *hash<auto> resource = NOTHING,
+            *hash<auto> request_options = NOTHING, *string full_url = NOTHING) {
+        validateRelativePath(url);
+        hash<auto> request = request_options ?? {};
+        request.method = normalizeBundleRequestMethod(method);
+        request.url = url;
+
+        hash<auto> rv = cast<hash<auto>>({"request": request});
+        if (resource.val()) {
+            rv.resource = resource;
+        }
+        if (full_url.val()) {
+            rv.fullUrl = full_url;
+        }
+        return rv;
+    }
+
+    #! Builds a conditional-create Bundle entry
+    /** @param resource_type FHIR resource type to create
+        @param resource FHIR resource body
+        @param search_expression FHIR conditional create search expression for \c ifNoneExist
+        @param full_url optional Bundle \c fullUrl
+        @return FHIR Bundle entry
+    */
+    static hash<auto> makeConditionalCreateBundleEntry(string resource_type, hash<auto> resource,
+            string search_expression, *string full_url = NOTHING) {
+        validateResourceType(resource_type);
+        if (!search_expression) {
+            throw "FHIR-BUNDLE-ERROR", "conditional create search expression must not be empty";
+        }
+        return makeBundleEntry("POST", resource_type, resource, {"ifNoneExist": search_expression}, full_url);
+    }
+
+    #! Builds an update Bundle entry
+    /** @param resource_type FHIR resource type to update
+        @param id FHIR logical id to update
+        @param resource FHIR resource body
+        @param etag optional ETag for \c ifMatch
+        @param full_url optional Bundle \c fullUrl
+        @return FHIR Bundle entry
+    */
+    static hash<auto> makeUpdateBundleEntry(string resource_type, string id, hash<auto> resource,
+            *string etag = NOTHING, *string full_url = NOTHING) {
+        hash<auto> request_options = cast<hash<auto>>({});
+        if (etag.val()) {
+            request_options.ifMatch = etag;
+        }
+        return makeBundleEntry("PUT", getResourcePath(resource_type, id), resource, request_options, full_url);
+    }
+
+    #! Builds a conditional-update Bundle entry
+    /** @param resource_type FHIR resource type to update
+        @param search_params FHIR conditional update search parameters
+        @param resource FHIR resource body
+        @param full_url optional Bundle \c fullUrl
+        @return FHIR Bundle entry
+    */
+    static hash<auto> makeConditionalUpdateBundleEntry(string resource_type, hash<auto> search_params,
+            hash<auto> resource, *string full_url = NOTHING) {
+        return makeBundleEntry("PUT", getSearchPath(resource_type, search_params), resource, NOTHING, full_url);
+    }
+
+    #! Builds a delete Bundle entry
+    /** @param resource_type FHIR resource type to delete
+        @param id FHIR logical id to delete
+        @param etag optional ETag for \c ifMatch
+        @param full_url optional Bundle \c fullUrl
+        @return FHIR Bundle entry
+    */
+    static hash<auto> makeDeleteBundleEntry(string resource_type, string id, *string etag = NOTHING,
+            *string full_url = NOTHING) {
+        hash<auto> request_options = cast<hash<auto>>({});
+        if (etag.val()) {
+            request_options.ifMatch = etag;
+        }
+        return makeBundleEntry("DELETE", getResourcePath(resource_type, id), NOTHING, request_options, full_url);
+    }
+
     #! Returns the URL for a Bundle link relation, if present
     /** @param bundle FHIR Bundle resource
         @param relation link relation to find, such as \c "next"
@@ -192,6 +310,31 @@ public class FhirRestClientBase {
         }
 
         return parts ? parts.join("; ") : "FHIR OperationOutcome";
+    }
+
+    #! Validates a Bundle type that can be POSTed to the FHIR service base
+    /** @param type Bundle type
+        @throw FHIR-BUNDLE-ERROR if the type is not \c "transaction" or \c "batch"
+    */
+    static validateWritableBundleType(string type) {
+        if (!exists WritableBundleTypes{type}) {
+            throw "FHIR-BUNDLE-ERROR", sprintf("FHIR Bundle type must be \"transaction\" or \"batch\"; got %y",
+                type);
+        }
+    }
+
+    #! Normalizes and validates a Bundle request method
+    /** @param method HTTP method
+        @return uppercase method
+        @throw FHIR-BUNDLE-ERROR if the method is not supported in Bundle.entry.request.method
+    */
+    static string normalizeBundleRequestMethod(string method) {
+        string normalized = method.upr();
+        if (!exists BundleRequestMethods{normalized}) {
+            throw "FHIR-BUNDLE-ERROR",
+                sprintf("unsupported FHIR Bundle request method: %y", method);
+        }
+        return normalized;
     }
 }
 
@@ -435,6 +578,18 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
         return doFhirRequest("POST", resource_type, resource, hdr);
     }
 
+    #! Submits a FHIR transaction or batch Bundle to the service base
+    /** @param bundle FHIR Bundle resource with \c type \c "transaction" or \c "batch"
+        @return full REST response including status, headers, and parsed body
+        @throw FHIR-BUNDLE-ERROR if the Bundle cannot be submitted safely
+        @throw FHIR-OPERATION-OUTCOME if the server returns a FHIR OperationOutcome error
+        @throw FHIR-REST-ERROR if the server returns another non-successful HTTP response
+    */
+    hash<RestClient::RestResponseInfo> submitBundle(hash<auto> bundle) {
+        assertSubmittableBundle(bundle);
+        return doCheckedFhirRequest("POST", "", bundle, FhirJsonBodyHeaders);
+    }
+
     #! Updates a resource and returns the full REST response
     /** @param resource_type FHIR resource type name
         @param id FHIR logical id
@@ -570,6 +725,11 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
     hash<RestClient::RestResponseInfo> doFhirRequest(string method, string path, auto body = NOTHING,
             *hash<auto> hdr) {
         validateRelativePath(path);
+        return doCheckedFhirRequest(method, path, body, hdr);
+    }
+
+    private hash<RestClient::RestResponseInfo> doCheckedFhirRequest(string method, string path, auto body,
+            *hash<auto> hdr) {
         try {
             hash<RestClient::RestResponseInfo> resp = restDoRequest(method, path, body, hdr);
             if (resp.status_code < 200 || resp.status_code >= 300) {
@@ -691,6 +851,49 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
                 return 443;
         }
         return 0;
+    }
+
+    private static assertSubmittableBundle(hash<auto> bundle) {
+        if (bundle.resourceType != "Bundle") {
+            throw "FHIR-BUNDLE-ERROR", sprintf("expected FHIR Bundle resource, got %y", bundle.resourceType);
+        }
+        if (bundle.type.typeCode() != NT_STRING) {
+            throw "FHIR-BUNDLE-ERROR", "FHIR Bundle.type is missing or invalid";
+        }
+        validateWritableBundleType(bundle.type);
+        if (bundle.entry.typeCode() != NT_LIST) {
+            throw "FHIR-BUNDLE-ERROR", "FHIR Bundle.entry must be a list for transaction or batch submission";
+        }
+
+        int index = 0;
+        foreach hash<auto> entry in (bundle.entry) {
+            ++index;
+            if (entry.request.typeCode() != NT_HASH) {
+                throw "FHIR-BUNDLE-ERROR",
+                    sprintf("FHIR Bundle.entry[%d].request is missing or invalid", index);
+            }
+            if (entry.request.method.typeCode() != NT_STRING || !entry.request.method) {
+                throw "FHIR-BUNDLE-ERROR",
+                    sprintf("FHIR Bundle.entry[%d].request.method is missing or invalid", index);
+            }
+            entry.request.method = normalizeBundleRequestMethod(entry.request.method);
+            if (entry.request.url.typeCode() != NT_STRING || !entry.request.url) {
+                throw "FHIR-BUNDLE-ERROR",
+                    sprintf("FHIR Bundle.entry[%d].request.url is missing or invalid", index);
+            }
+            validateRelativePath(entry.request.url);
+            switch (entry.request.method) {
+                case "POST":
+                case "PUT":
+                case "PATCH":
+                    if (entry.resource.typeCode() != NT_HASH) {
+                        throw "FHIR-BUNDLE-ERROR",
+                            sprintf("FHIR Bundle.entry[%d].resource is required for %s requests", index,
+                                entry.request.method);
+                    }
+                    break;
+            }
+        }
     }
 
     #! Extracts an OperationOutcome from an exception, if possible

@@ -125,6 +125,28 @@ class TestFhirHandler inherits AbstractHttpRequestHandler {
             }, {"ETag": "W/\"2\""});
         }
 
+        if (hdr.method == "POST" && (path == "" || path == "fhir")) {
+            if (request.body.id == "fail") {
+                return fhirResponse(400, {
+                    "resourceType": "OperationOutcome",
+                    "issue": ({
+                        "severity": "error",
+                        "code": "invalid",
+                        "diagnostics": "Bundle rejected",
+                    },),
+                });
+            }
+            return fhirResponse(200, {
+                "resourceType": "Bundle",
+                "type": request.body.type + "-response",
+                "requestContentType": request.content_type,
+                "entryCount": request.body.entry.size(),
+                "firstMethod": request.body.entry[0].request.method,
+                "firstUrl": request.body.entry[0].request.url,
+                "firstIfNoneExist": request.body.entry[0].request.ifNoneExist,
+            });
+        }
+
         if (hdr.method == "PUT" && path == "Patient/pat-1") {
             return fhirResponse(200, {
                 "resourceType": "Patient",
@@ -244,6 +266,7 @@ class FhirRestClientTest inherits QUnit::Test {
     constructor() : QUnit::Test("FhirRestClient test", "1.0") {
         addTestCase("discovery test", \discoveryTest());
         addTestCase("resource operations test", \resourceOperationsTest());
+        addTestCase("bundle operation test", \bundleOperationTest());
         addTestCase("operation outcome test", \operationOutcomeTest());
         addTestCase("connection scheme test", \connectionSchemeTest());
         addTestCase("validation test", \validationTest());
@@ -389,6 +412,66 @@ class FhirRestClientTest inherits QUnit::Test {
         assertEq(200, deleted.status_code);
         assertEq("OperationOutcome", deleted.body.resourceType);
         assertEq("W/\"5\"", deleted.body.ifMatch);
+    }
+
+    bundleOperationTest() {
+        FhirRestClient::FhirRestClient client({"url": base_url}, True);
+
+        hash<auto> create_entry = FhirRestClient::FhirRestClientBase::makeConditionalCreateBundleEntry("Patient", {
+            "resourceType": "Patient",
+            "name": ({"family": "Jones"},),
+        }, "identifier=http://example.org/mrn|123", "urn:uuid:patient-1");
+        assertEq("POST", create_entry.request.method);
+        assertEq("Patient", create_entry.request.url);
+        assertEq("identifier=http://example.org/mrn|123", create_entry.request.ifNoneExist);
+        assertEq("urn:uuid:patient-1", create_entry.fullUrl);
+
+        hash<auto> update_entry = FhirRestClient::FhirRestClientBase::makeUpdateBundleEntry("Patient", "pat-1", {
+            "resourceType": "Patient",
+            "id": "pat-1",
+            "active": True,
+        }, "W/\"1\"");
+        assertEq("PUT", update_entry.request.method);
+        assertEq("Patient/pat-1", update_entry.request.url);
+        assertEq("W/\"1\"", update_entry.request.ifMatch);
+
+        hash<auto> transaction = FhirRestClient::FhirRestClientBase::makeBundle((create_entry, update_entry),
+            "transaction");
+        hash<RestClient::RestResponseInfo> response = client.submitBundle(transaction);
+        assertEq(200, response.status_code);
+        assertEq("Bundle", response.body.resourceType);
+        assertEq("transaction-response", response.body.type);
+        assertEq(TestFhirMimeTypeJson, response.body.requestContentType);
+        assertEq(2, response.body.entryCount);
+        assertEq("POST", response.body.firstMethod);
+        assertEq("Patient", response.body.firstUrl);
+        assertEq("identifier=http://example.org/mrn|123", response.body.firstIfNoneExist);
+
+        hash<auto> batch = FhirRestClient::FhirRestClientBase::makeBundle((
+            FhirRestClient::FhirRestClientBase::makeDeleteBundleEntry("Patient", "pat-1"),
+        ), "batch");
+        assertEq("batch", batch.type);
+        assertEq("DELETE", batch.entry[0].request.method);
+
+        assertThrows("FHIR-BUNDLE-ERROR", sub () {
+            FhirRestClient::FhirRestClientBase::makeBundle((), "collection");
+        });
+        assertThrows("FHIR-BUNDLE-ERROR", sub () {
+            client.submitBundle({"resourceType": "Bundle", "type": "collection", "entry": ()});
+        });
+        assertThrows("FHIR-BUNDLE-ERROR", sub () {
+            client.submitBundle({
+                "resourceType": "Bundle",
+                "type": "transaction",
+                "entry": ({"request": {"url": "Patient"}},),
+            });
+        });
+        assertThrows("FHIR-PATH-ERROR", sub () {
+            FhirRestClient::FhirRestClientBase::makeBundleEntry("GET", "https://evil.example/Patient");
+        });
+        assertThrows("FHIR-OPERATION-OUTCOME", sub () {
+            client.submitBundle({"resourceType": "Bundle", "id": "fail", "type": "transaction", "entry": ()});
+        });
     }
 
     operationOutcomeTest() {

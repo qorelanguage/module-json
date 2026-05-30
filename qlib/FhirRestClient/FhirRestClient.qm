@@ -63,8 +63,8 @@ module FhirRestClient {
     The main classes are:
     - @ref FhirRestClient::FhirRestClient "FhirRestClient": REST client helpers
       for FHIR metadata, SMART discovery, CapabilityStatement resource discovery,
-      SMART-to-OAuth2 option mapping, CRUD, conditional update, patch, paginated search, validation, and
-      OperationOutcome error mapping
+      SMART-to-OAuth2 option mapping, CRUD, transaction/batch Bundle writes, conditional update, patch,
+      paginated search, validation, and OperationOutcome error mapping
     - @ref FhirRestClient::FhirRestConnection "FhirRestConnection": connection
       object for \c fhir:// and \c fhirs:// URLs
 
@@ -152,6 +152,24 @@ hash<RestClient::RestResponseInfo> patched = client.patchResource("Patient", cre
 },), "application/json-patch+json", updated.headers.etag);
     @endcode
 
+    @subsection fhirrestclientexamplebundle Transaction Bundle Write
+
+    Transaction and batch \c Bundle resources are submitted to the FHIR service
+    base. Helper methods build common write entries with the correct
+    \c Bundle.entry.request metadata.
+
+    @code{.py}
+hash<auto> patient_entry = FhirRestClient::FhirRestClientBase::makeConditionalCreateBundleEntry(
+    "Patient", {
+        "resourceType": "Patient",
+        "name": ({"family": "Jones", "given": ("Ann",)},),
+    }, "identifier=http://hospital.example/mrn|12345");
+
+hash<auto> transaction = FhirRestClient::FhirRestClientBase::makeBundle((patient_entry,), "transaction");
+hash<RestClient::RestResponseInfo> transaction_response = client.submitBundle(transaction);
+printf("Transaction status: %d\n", transaction_response.status_code);
+    @endcode
+
     @subsection fhirrestclientexampleconnection Connection Provider Use
 
     The module registers \c fhir and \c fhirs connection schemes. These schemes
@@ -195,8 +213,8 @@ try {
     - \c CapabilityStatement and SMART configuration discovery helpers
     - SMART OAuth2 endpoint mapping to \c RestClient OAuth2 options
     - CapabilityStatement resource type discovery and content-type FHIR version helpers
-    - basic read, create, update, conditional update, patch, delete, search, paginated search,
-      and validation helpers
+    - basic read, create, transaction/batch Bundle submit, update, conditional update, patch, delete, search,
+      paginated search, and validation helpers
     - OperationOutcome summary and exception mapping for helper methods
 */
 
