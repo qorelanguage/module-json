@@ -1083,7 +1083,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         bool needs_map;
         if (input) {
             input_desc = getTypeDescriptionIntern("input", input, prov);
-            info("Creating tool %y (%y) input: %y (%s: %y) -> %y", name, desc, input ? input.getName() : "n/a",
+            debug("Creating tool %y (%y) input: %y (%s: %y) -> %y", name, desc, input ? input.getName() : "n/a",
                 input ? input.className() : "n/a", keys (input ? input.getFields() : NOTHING), input_desc);
             if (input_desc.type.val() && input_desc.type != "object") {
                 needs_map = True;
