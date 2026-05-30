@@ -75,6 +75,16 @@ public class FhirRestClientBase {
             "POST": True,
             "PUT": True,
         };
+
+        #! OAuth2 client assertion type for JWT bearer client authentication
+        const JwtBearerClientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+
+        #! RSA JWT signing algorithms supported for SMART Backend Services client assertions
+        const SmartBackendJwtAlgorithms = {
+            "RS256": True,
+            "RS384": True,
+            "RS512": True,
+        };
     }
 
     #! Returns normalized constructor options for FHIR REST clients
@@ -475,6 +485,26 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
         return makeSmartOAuth2ClientOptions(getSmartConfiguration(), opts);
     }
 
+    #! Returns RestClientIo OAuth2 options for SMART Backend Services authentication
+    /** @param opts backend-service options; required keys are \c client_id and \c private_key
+        @return options hash using @ref RestClientIo::RestClientIo OAuth2 option names
+
+        @throw FHIR-SMART-CONFIGURATION-ERROR if SMART discovery metadata or backend options are invalid
+
+        @par Example
+        Create OAuth2 options for a system client that writes device observations.
+        @code{.py}
+hash<auto> oauth2_options = client.getSmartBackendOAuth2ClientOptions({
+    "client_id": ENV.FHIR_CLIENT_ID,
+    "private_key": ENV.FHIR_PRIVATE_KEY_PEM,
+    "scopes": ("system/Observation.write",),
+});
+        @endcode
+    */
+    hash<auto> getSmartBackendOAuth2ClientOptions(hash<auto> opts) {
+        return makeSmartBackendOAuth2ClientOptions(getSmartConfiguration(), opts);
+    }
+
     #! Builds RestClient OAuth2 options from SMART on FHIR discovery metadata
     /** @param smart_configuration SMART on FHIR discovery metadata
         @param opts caller-supplied OAuth2 options to merge with SMART discovery URLs
@@ -491,6 +521,157 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
         rv.oauth2_token_url = smart_configuration.token_endpoint;
         if (smart_configuration.authorization_endpoint.typeCode() == NT_STRING) {
             rv.oauth2_auth_url = smart_configuration.authorization_endpoint;
+        }
+        return rv;
+    }
+
+    #! Builds a SMART Backend Services JWT client assertion
+    /** @param opts assertion options
+        - \c client_id: required OAuth2 client identifier
+        - \c private_key: required RSA private key in PEM format
+        - \c token_endpoint: required token endpoint URL used as the JWT audience
+        - \c key_id: optional JWT \c kid header value
+        - \c jwt_alg: optional RSA JWT algorithm; defaults to \c "RS256"
+        - \c issued_at: optional UNIX epoch seconds value; defaults to the current time
+        - \c lifetime_seconds: optional assertion lifetime; defaults to \c 300 and must be 1..300
+        - \c jti: optional JWT ID; defaults to a random 128-bit hex string
+
+        @return signed JWT client assertion
+
+        @throw FHIR-SMART-CONFIGURATION-ERROR if options are invalid or JWT signing fails
+
+        @par Example
+        Generate a signed assertion for a backend service token request.
+        @code{.py}
+string assertion = FhirRestClient::FhirRestClient::makeSmartBackendClientAssertion({
+    "client_id": ENV.FHIR_CLIENT_ID,
+    "private_key": ENV.FHIR_PRIVATE_KEY_PEM,
+    "token_endpoint": "https://auth.example.org/token",
+    "key_id": ENV.FHIR_KEY_ID,
+});
+        @endcode
+    */
+    static string makeSmartBackendClientAssertion(hash<auto> opts) {
+        string client_id = requireSmartStringOption(opts, "client_id");
+        string private_key = requireSmartStringOption(opts, "private_key");
+        string token_endpoint = requireSmartStringOption(opts, "token_endpoint");
+        if (exists opts.jwt_alg && opts.jwt_alg.typeCode() != NT_STRING) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR",
+                "SMART Backend Services option \"jwt_alg\" must be a string";
+        }
+        string alg = opts.jwt_alg ?? "RS256";
+        if (!SmartBackendJwtAlgorithms{alg}) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR",
+                sprintf("unsupported SMART Backend Services JWT algorithm: %y", alg);
+        }
+
+        if (exists opts.issued_at && !opts.issued_at.intp()) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR",
+                "SMART Backend Services option \"issued_at\" must be an integer";
+        }
+        if (exists opts.lifetime_seconds && !opts.lifetime_seconds.intp()) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR",
+                "SMART Backend Services option \"lifetime_seconds\" must be an integer";
+        }
+        int issued_at = opts.issued_at ?? now_us().getEpochSeconds();
+        int lifetime = opts.lifetime_seconds ?? 300;
+        if (lifetime < 1 || lifetime > 300) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR",
+                sprintf("SMART Backend Services JWT lifetime must be in the range 1..300 seconds; got %d",
+                    lifetime);
+        }
+        if (exists opts.jti && (opts.jti.typeCode() != NT_STRING || !opts.jti)) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR",
+                "SMART Backend Services option \"jti\" must be a non-empty string";
+        }
+        string jti = opts.jti ?? get_random_bytes(16).toHex();
+
+        hash<JwtClaims> claims = cast<hash<JwtClaims>>({
+            "iss": client_id,
+            "sub": client_id,
+            "aud": token_endpoint,
+            "iat": issued_at,
+            "exp": issued_at + lifetime,
+            "jti": jti,
+        });
+        hash<JwtHeader> header = cast<hash<JwtHeader>>({
+            "typ": "JWT",
+        });
+        if (exists opts.key_id) {
+            if (opts.key_id.typeCode() != NT_STRING) {
+                throw "FHIR-SMART-CONFIGURATION-ERROR",
+                    "SMART Backend Services option \"key_id\" must be a string";
+            }
+            if (opts.key_id) {
+                header.kid = opts.key_id;
+            }
+        }
+
+        try {
+            return jwt_encode(claims, private_key, alg, header);
+        } catch (hash<ExceptionInfo> ex) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR",
+                sprintf("failed to create SMART Backend Services JWT client assertion: %s: %s",
+                    ex.err, ex.desc), ex;
+        }
+    }
+
+    #! Builds RestClientIo OAuth2 options for SMART Backend Services authentication
+    /** @param smart_configuration SMART on FHIR discovery metadata
+        @param opts backend-service options; required keys are \c client_id and \c private_key.
+        \c scope or \c scopes can be provided to set \c oauth2_scopes.
+        @return options hash using @ref RestClientIo::RestClientIo OAuth2 option names
+
+        @throw FHIR-SMART-CONFIGURATION-ERROR if SMART discovery metadata or backend options are invalid
+
+        @par Example
+        Build @ref RestClientIo::RestClientIo options from SMART discovery metadata.
+        @code{.py}
+hash<auto> oauth2_options = FhirRestClient::FhirRestClient::makeSmartBackendOAuth2ClientOptions(
+    smart_configuration, {
+        "client_id": ENV.FHIR_CLIENT_ID,
+        "private_key": ENV.FHIR_PRIVATE_KEY_PEM,
+        "scopes": ("system/Patient.read",),
+    });
+        @endcode
+    */
+    static hash<auto> makeSmartBackendOAuth2ClientOptions(hash<auto> smart_configuration, hash<auto> opts) {
+        if (smart_configuration.token_endpoint.typeCode() != NT_STRING) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR", "SMART configuration token_endpoint is missing or invalid";
+        }
+        string client_id = requireSmartStringOption(opts, "client_id");
+        requireSmartStringOption(opts, "private_key");
+
+        string token_endpoint = smart_configuration.token_endpoint;
+        hash<auto> assertion_opts = opts + {"token_endpoint": token_endpoint};
+        hash<auto!> rv = opts - ("private_key", "key_id", "jwt_alg", "issued_at", "lifetime_seconds", "jti",
+            "scope", "scopes", "token_endpoint");
+        rv.oauth2_grant_type = "client_credentials";
+        rv.oauth2_client_id = client_id;
+        rv.oauth2_token_url = token_endpoint;
+        rv.oauth2_client_assertion_type = JwtBearerClientAssertionType;
+        rv.oauth2_client_assertion_provider = string sub () {
+            return makeSmartBackendClientAssertion(assertion_opts);
+        };
+
+        if (exists opts.scopes) {
+            if (opts.scopes.typeCode() != NT_LIST) {
+                throw "FHIR-SMART-CONFIGURATION-ERROR",
+                    "SMART Backend Services option \"scopes\" must be a list of strings";
+            }
+            foreach auto scope in (opts.scopes) {
+                if (scope.typeCode() != NT_STRING || !scope) {
+                    throw "FHIR-SMART-CONFIGURATION-ERROR",
+                        "SMART Backend Services option \"scopes\" must be a list of non-empty strings";
+                }
+            }
+            rv.oauth2_scopes = opts.scopes;
+        } else if (exists opts.scope) {
+            if (opts.scope.typeCode() != NT_STRING || !opts.scope) {
+                throw "FHIR-SMART-CONFIGURATION-ERROR",
+                    "SMART Backend Services option \"scope\" must be a non-empty string";
+            }
+            rv.oauth2_scopes = opts.scope.split(" ");
         }
         return rv;
     }
@@ -875,6 +1056,14 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
                 return 443;
         }
         return 0;
+    }
+
+    private static string requireSmartStringOption(hash<auto> opts, string key) {
+        if (opts{key}.typeCode() != NT_STRING || !opts{key}) {
+            throw "FHIR-SMART-CONFIGURATION-ERROR",
+                sprintf("SMART Backend Services option %y is required and must be a non-empty string", key);
+        }
+        return opts{key};
     }
 
     private static assertSubmittableBundle(hash<auto> bundle) {

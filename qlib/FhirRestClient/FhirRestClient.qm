@@ -63,7 +63,8 @@ module FhirRestClient {
     The main classes are:
     - @ref FhirRestClient::FhirRestClient "FhirRestClient": REST client helpers
       for FHIR metadata, SMART discovery, CapabilityStatement resource discovery,
-      SMART-to-OAuth2 option mapping, CRUD, transaction/batch Bundle writes, conditional update, patch,
+      SMART-to-OAuth2 option mapping, SMART Backend Services JWT client assertions,
+      CRUD, transaction/batch Bundle writes, conditional update, patch,
       paginated search, terminology operations, common FHIR resource builders, validation,
       and OperationOutcome error mapping
     - @ref FhirRestClient::FhirRestConnection "FhirRestConnection": connection
@@ -93,6 +94,29 @@ hash<auto> oauth2_options = client.getSmartOAuth2ClientOptions({
 
 hash<auto> patient = client.readResource("Patient", "example");
 printf("Patient: %y\n", patient);
+    @endcode
+
+    @subsection fhirrestclientexamplesmartbackend SMART Backend Services Authentication
+
+    SMART Backend Services client assertions can be generated directly or
+    mapped to @ref RestClientIo::RestClientIo OAuth2 options. The returned
+    options use a client assertion provider so each token request can receive a
+    fresh JWT assertion.
+
+    @code{.py}
+hash<auto> backend_oauth2_options = client.getSmartBackendOAuth2ClientOptions({
+    "client_id": ENV.FHIR_CLIENT_ID,
+    "private_key": ENV.FHIR_PRIVATE_KEY_PEM,
+    "key_id": ENV.FHIR_KEY_ID,
+    "scopes": ("system/Patient.read", "system/Observation.write"),
+});
+
+string assertion = FhirRestClient::FhirRestClient::makeSmartBackendClientAssertion({
+    "client_id": ENV.FHIR_CLIENT_ID,
+    "private_key": ENV.FHIR_PRIVATE_KEY_PEM,
+    "token_endpoint": client.getSmartConfiguration().token_endpoint,
+    "key_id": ENV.FHIR_KEY_ID,
+});
     @endcode
 
     @subsection fhirrestclientexamplesearch Search with Repeated Parameters
@@ -238,6 +262,8 @@ try {
     - initial FHIR JSON REST client and \c fhir / \c fhirs connection schemes
     - \c CapabilityStatement and SMART configuration discovery helpers
     - SMART OAuth2 endpoint mapping to \c RestClient OAuth2 options
+    - SMART Backend Services JWT client assertion generation and mapping to
+      \c RestClientIo OAuth2 options
     - CapabilityStatement resource type discovery and content-type FHIR version helpers
     - basic read, create, transaction/batch Bundle submit, update, conditional update, patch, delete, search,
       paginated search, and validation helpers
