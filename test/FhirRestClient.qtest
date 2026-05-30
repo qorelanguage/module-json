@@ -296,6 +296,7 @@ class FhirRestClientTest inherits QUnit::Test {
         addTestCase("discovery test", \discoveryTest());
         addTestCase("resource operations test", \resourceOperationsTest());
         addTestCase("bundle operation test", \bundleOperationTest());
+        addTestCase("resource builder test", \resourceBuilderTest());
         addTestCase("operation outcome test", \operationOutcomeTest());
         addTestCase("connection scheme test", \connectionSchemeTest());
         addTestCase("validation test", \validationTest());
@@ -500,6 +501,93 @@ class FhirRestClientTest inherits QUnit::Test {
         });
         assertThrows("FHIR-OPERATION-OUTCOME", sub () {
             client.submitBundle({"resourceType": "Bundle", "id": "fail", "type": "transaction", "entry": ()});
+        });
+    }
+
+    resourceBuilderTest() {
+        hash<auto> coding = FhirRestClient::fhir_make_coding(FhirRestClient::FhirSystemLoinc, "8867-4",
+            "Heart rate");
+        assertEq("http://loinc.org", coding.system);
+        assertEq("8867-4", coding.code);
+        assertEq("Heart rate", coding.display);
+
+        hash<auto> concept = FhirRestClient::fhir_make_codeable_concept((coding,), "Heart rate");
+        assertEq("8867-4", concept.coding[0].code);
+        assertEq("Heart rate", concept.text);
+
+        hash<auto> unit = FhirRestClient::fhir_normalize_ucum_unit("mmHg");
+        assertEq("http://unitsofmeasure.org", unit.system);
+        assertEq("mm[Hg]", unit.code);
+        assertEq("mmHg", unit.unit);
+
+        hash<auto> quantity = FhirRestClient::fhir_make_ucum_quantity(72, "bpm");
+        assertEq(72, quantity.value);
+        assertEq("/min", quantity.code);
+        assertEq("/min", quantity.unit);
+
+        hash<auto> observation = FhirRestClient::fhir_make_observation({
+            "id": "obs-1",
+            "identifier": {"system": "http://example.org/observations", "value": "obs-1"},
+            "code_system": FhirRestClient::FhirSystemLoinc,
+            "code_code": "8867-4",
+            "code_display": "Heart rate",
+            "subject": "Patient/pat-1",
+            "device": {"reference": "Device/dev-1"},
+            "effectiveDateTime": "2026-05-30T10:15:00Z",
+            "value": 72,
+            "unit_code": "bpm",
+        });
+        assertEq("Observation", observation.resourceType);
+        assertEq("final", observation.status);
+        assertEq("obs-1", observation.id);
+        assertEq("Patient/pat-1", observation.subject.reference);
+        assertEq("Device/dev-1", observation.device.reference);
+        assertEq("8867-4", observation.code.coding[0].code);
+        assertEq("/min", observation.valueQuantity.code);
+        assertEq("obs-1", observation.identifier[0].value);
+
+        hash<auto> audit = FhirRestClient::fhir_make_audit_event({
+            "type": FhirRestClient::fhir_make_codeable_concept((
+                FhirRestClient::fhir_make_coding("http://terminology.hl7.org/CodeSystem/audit-event-type",
+                    "rest", "RESTful operation"),
+            )),
+            "action": "C",
+            "recorded": "2026-05-30T10:15:01Z",
+            "agent": ({"who": FhirRestClient::fhir_make_reference("Device/gateway")},),
+            "source": {"observer": FhirRestClient::fhir_make_reference("Device/gateway")},
+            "entity": ({"what": FhirRestClient::fhir_make_reference("Observation/obs-1")},),
+        });
+        assertEq("AuditEvent", audit.resourceType);
+        assertEq("C", audit.action);
+        assertEq("Device/gateway", audit.agent[0].who.reference);
+        assertEq("Observation/obs-1", audit.entity[0].what.reference);
+
+        hash<auto> provenance = FhirRestClient::fhir_make_provenance({
+            "target": "Observation/obs-1",
+            "recorded": "2026-05-30T10:15:01Z",
+            "agent": ({"who": FhirRestClient::fhir_make_reference("Device/gateway")},),
+        });
+        assertEq("Provenance", provenance.resourceType);
+        assertEq("Observation/obs-1", provenance.target[0].reference);
+
+        assertThrows("FHIR-UCUM-ERROR", sub () {
+            FhirRestClient::fhir_normalize_ucum_unit("../bad");
+        });
+        assertThrows("FHIR-RESOURCE-BUILDER-ERROR", sub () {
+            FhirRestClient::fhir_make_ucum_quantity("72", "bpm");
+        });
+        assertThrows("FHIR-RESOURCE-BUILDER-ERROR", sub () {
+            FhirRestClient::fhir_make_observation({
+                "code_system": FhirRestClient::FhirSystemLoinc,
+                "code_code": "8867-4",
+                "value": 72,
+            });
+        });
+        assertThrows("FHIR-RESOURCE-BUILDER-ERROR", sub () {
+            FhirRestClient::fhir_make_provenance({
+                "target": "Observation/obs-1",
+                "recorded": "2026-05-30T10:15:01Z",
+            });
         });
     }
 

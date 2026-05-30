@@ -64,7 +64,8 @@ module FhirRestClient {
     - @ref FhirRestClient::FhirRestClient "FhirRestClient": REST client helpers
       for FHIR metadata, SMART discovery, CapabilityStatement resource discovery,
       SMART-to-OAuth2 option mapping, CRUD, transaction/batch Bundle writes, conditional update, patch,
-      paginated search, terminology operations, validation, and OperationOutcome error mapping
+      paginated search, terminology operations, common FHIR resource builders, validation,
+      and OperationOutcome error mapping
     - @ref FhirRestClient::FhirRestConnection "FhirRestConnection": connection
       object for \c fhir:// and \c fhirs:// URLs
 
@@ -170,6 +171,31 @@ hash<RestClient::RestResponseInfo> transaction_response = client.submitBundle(tr
 printf("Transaction status: %d\n", transaction_response.status_code);
     @endcode
 
+    @subsection fhirrestclientexampleobservation Observation Builder
+
+    The module includes small FHIR JSON builders for common coded resources and
+    elements. UCUM helpers normalize common unit aliases but do not embed a
+    licensed terminology corpus.
+
+    @code{.py}
+hash<auto> observation = FhirRestClient::fhir_make_observation({
+    "status": "final",
+    "code_system": FhirRestClient::FhirSystemLoinc,
+    "code_code": "8867-4",
+    "code_display": "Heart rate",
+    "subject": "Patient/example",
+    "effectiveDateTime": "2026-05-30T10:15:00Z",
+    "value": 72,
+    "unit_code": "/min",
+});
+
+hash<auto> provenance = FhirRestClient::fhir_make_provenance({
+    "target": "Observation/example",
+    "recorded": "2026-05-30T10:15:01Z",
+    "agent": ({"who": FhirRestClient::fhir_make_reference("Device/gateway")},),
+});
+    @endcode
+
     @subsection fhirrestclientexampleconnection Connection Provider Use
 
     The module registers \c fhir and \c fhirs connection schemes. These schemes
@@ -216,6 +242,8 @@ try {
     - basic read, create, transaction/batch Bundle submit, update, conditional update, patch, delete, search,
       paginated search, and validation helpers
     - terminology \c $validate-code, \c $lookup, \c $translate, and \c $expand helpers
+    - FHIR JSON builders for Coding, CodeableConcept, Reference, UCUM Quantity,
+      Observation, AuditEvent, and Provenance
     - OperationOutcome summary and exception mapping for helper methods
 */
 
