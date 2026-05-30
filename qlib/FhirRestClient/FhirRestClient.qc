@@ -700,6 +700,30 @@ public class FhirRestClient inherits RestClient::RestClient, FhirRestClientBase 
         return doFhirRequest("GET", getPathWithParams(code_system_path + "/$validate-code", params)).body;
     }
 
+    #! Calls a CodeSystem $lookup operation
+    /** @param code_system_path relative path to a CodeSystem endpoint
+        @param params FHIR operation query parameters
+        @return FHIR Parameters or OperationOutcome response from the terminology operation
+        @throw FHIR-PATH-ERROR if the path is empty, absolute, or contains path traversal
+        @throw FHIR-OPERATION-OUTCOME if the server returns a FHIR OperationOutcome error response
+        @throw FHIR-REST-ERROR if the server returns another non-successful HTTP response
+    */
+    hash<auto> lookupCode(string code_system_path, hash<auto> params) {
+        return doFhirRequest("GET", getPathWithParams(code_system_path + "/$lookup", params)).body;
+    }
+
+    #! Calls a ConceptMap $translate operation
+    /** @param concept_map_path relative path to a ConceptMap endpoint
+        @param params FHIR operation query parameters
+        @return FHIR Parameters or OperationOutcome response from the terminology operation
+        @throw FHIR-PATH-ERROR if the path is empty, absolute, or contains path traversal
+        @throw FHIR-OPERATION-OUTCOME if the server returns a FHIR OperationOutcome error response
+        @throw FHIR-REST-ERROR if the server returns another non-successful HTTP response
+    */
+    hash<auto> translateCode(string concept_map_path, hash<auto> params) {
+        return doFhirRequest("GET", getPathWithParams(concept_map_path + "/$translate", params)).body;
+    }
+
     #! Calls a ValueSet $expand operation
     /** @param value_set_path relative path to a ValueSet endpoint
         @param params optional FHIR operation query parameters

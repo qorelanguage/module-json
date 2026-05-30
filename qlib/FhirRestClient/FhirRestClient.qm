@@ -64,7 +64,7 @@ module FhirRestClient {
     - @ref FhirRestClient::FhirRestClient "FhirRestClient": REST client helpers
       for FHIR metadata, SMART discovery, CapabilityStatement resource discovery,
       SMART-to-OAuth2 option mapping, CRUD, transaction/batch Bundle writes, conditional update, patch,
-      paginated search, validation, and OperationOutcome error mapping
+      paginated search, terminology operations, validation, and OperationOutcome error mapping
     - @ref FhirRestClient::FhirRestConnection "FhirRestConnection": connection
       object for \c fhir:// and \c fhirs:// URLs
 
@@ -215,6 +215,7 @@ try {
     - CapabilityStatement resource type discovery and content-type FHIR version helpers
     - basic read, create, transaction/batch Bundle submit, update, conditional update, patch, delete, search,
       paginated search, and validation helpers
+    - terminology \c $validate-code, \c $lookup, \c $translate, and \c $expand helpers
     - OperationOutcome summary and exception mapping for helper methods
 */
 

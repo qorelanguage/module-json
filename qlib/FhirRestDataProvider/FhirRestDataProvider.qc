@@ -215,7 +215,7 @@ public class FhirTerminologyDataProvider inherits FhirRestDataProviderBase {
 
     #! Returns child data provider names
     private *list<string> getChildProviderNamesImpl() {
-        return ("validate-code", "expand-value-set");
+        return ("validate-code", "lookup-code", "translate-code", "expand-value-set");
     }
 
     #! Returns the given child provider or \c NOTHING if the given child is unknown
@@ -223,6 +223,10 @@ public class FhirTerminologyDataProvider inherits FhirRestDataProviderBase {
         switch (name) {
             case "validate-code":
                 return new FhirValidateCodeDataProvider(fhir);
+            case "lookup-code":
+                return new FhirLookupCodeDataProvider(fhir);
+            case "translate-code":
+                return new FhirTranslateCodeDataProvider(fhir);
             case "expand-value-set":
                 return new FhirExpandValueSetDataProvider(fhir);
         }

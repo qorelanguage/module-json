@@ -223,6 +223,35 @@ class TestFhirHandler inherits AbstractHttpRequestHandler {
             });
         }
 
+        if (hdr.method == "GET" && path == "CodeSystem/example/$lookup") {
+            return fhirResponse(200, {
+                "resourceType": "Parameters",
+                "parameter": ({
+                    "name": "name",
+                    "valueString": "Example CodeSystem",
+                }, {
+                    "name": "display",
+                    "valueString": parsed.params.code + " display",
+                },),
+            });
+        }
+
+        if (hdr.method == "GET" && path == "ConceptMap/example/$translate") {
+            return fhirResponse(200, {
+                "resourceType": "Parameters",
+                "parameter": ({
+                    "name": "result",
+                    "valueBoolean": True,
+                }, {
+                    "name": "match",
+                    "part": ({
+                        "name": "code",
+                        "valueCode": parsed.params.code + "-target",
+                    },),
+                },),
+            });
+        }
+
         if (hdr.method == "GET" && path == "ValueSet/example/$expand") {
             return fhirResponse(200, {
                 "resourceType": "ValueSet",
@@ -556,6 +585,22 @@ class FhirRestClientTest inherits QUnit::Test {
         assertEq("Parameters", result.resourceType);
         assertTrue(result.parameter[0].valueBoolean);
         assertEq("abc", result.parameter[1].valueCode);
+
+        hash<auto> lookup = client.lookupCode("CodeSystem/example", {
+            "system": "http://example.org/system",
+            "code": "abc",
+        });
+        assertEq("Parameters", lookup.resourceType);
+        assertEq("Example CodeSystem", lookup.parameter[0].valueString);
+        assertEq("abc display", lookup.parameter[1].valueString);
+
+        hash<auto> translation = client.translateCode("ConceptMap/example", {
+            "system": "http://example.org/local",
+            "code": "abc",
+        });
+        assertEq("Parameters", translation.resourceType);
+        assertTrue(translation.parameter[0].valueBoolean);
+        assertEq("abc-target", translation.parameter[1].part[0].valueCode);
 
         hash<auto> expansion = client.expandValueSet("ValueSet/example", {
             "filter": "smi",
