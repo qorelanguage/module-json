@@ -73,7 +73,7 @@ public namespace FhirRestClient {
         fhir_assert_nonempty("Coding.system", system);
         fhir_assert_nonempty("Coding.code", code);
 
-        hash<auto> rv = cast<hash<auto>>({
+        hash<auto> rv = ({
             "system": system,
             "code": code,
         });
@@ -97,7 +97,7 @@ public namespace FhirRestClient {
         if (!coding && !text.val()) {
             throw "FHIR-RESOURCE-BUILDER-ERROR", "CodeableConcept requires `coding` or `text`";
         }
-        hash<auto> rv = cast<hash<auto>>({});
+        hash<auto!> rv = ({});
         if (coding) {
             rv.coding = coding;
         }
@@ -115,7 +115,7 @@ public namespace FhirRestClient {
     */
     public hash<auto> sub fhir_make_reference(string reference, *string display = NOTHING) {
         fhir_assert_nonempty("Reference.reference", reference);
-        hash<auto> rv = cast<hash<auto>>({"reference": reference});
+        hash<auto> rv = ({"reference": reference});
         if (display.val()) {
             rv.display = display;
         }
@@ -141,7 +141,7 @@ public namespace FhirRestClient {
             alias = FhirUcumUnitAliases{code.lwr()};
         }
         if (alias) {
-            return cast<hash<auto>>({
+            return ({
                 "system": FhirSystemUcum,
                 "code": alias.code,
                 "unit": alias.unit,
@@ -151,7 +151,7 @@ public namespace FhirRestClient {
         if (code !~ /^[A-Za-z0-9%][A-Za-z0-9%_'.{}\[\]\/\*\+\-\(\)]*$/) {
             throw "FHIR-UCUM-ERROR", sprintf("invalid UCUM unit code: %y", code);
         }
-        return cast<hash<auto>>({
+        return ({
             "system": FhirSystemUcum,
             "code": code,
             "unit": code,
@@ -173,7 +173,7 @@ public namespace FhirRestClient {
             throw "FHIR-RESOURCE-BUILDER-ERROR", "Quantity.value must be numeric";
         }
         hash<auto> unit = fhir_normalize_ucum_unit(unit_code);
-        hash<auto> rv = cast<hash<auto>>({
+        hash<auto!> rv = ({
             "value": value,
             "unit": unit.unit,
             "system": unit.system,
@@ -199,7 +199,7 @@ public namespace FhirRestClient {
         string status = opts.status ?? "final";
         fhir_assert_nonempty("Observation.status", status);
 
-        hash<auto> observation = cast<hash<auto>>({
+        hash<auto!> observation = ({
             "resourceType": "Observation",
             "status": status,
             "code": fhir_get_codeable_concept(opts, "Observation.code", "code"),
@@ -251,7 +251,7 @@ public namespace FhirRestClient {
         fhir_require_key(opts, "agent", "AuditEvent.agent");
         fhir_require_key(opts, "source", "AuditEvent.source");
 
-        hash<auto> rv = cast<hash<auto>>({
+        hash<auto!> rv = ({
             "resourceType": "AuditEvent",
             "type": opts.type,
             "action": opts.action,
@@ -279,7 +279,7 @@ public namespace FhirRestClient {
         fhir_require_key(opts, "recorded", "Provenance.recorded");
         fhir_require_key(opts, "agent", "Provenance.agent");
 
-        hash<auto> rv = cast<hash<auto>>({
+        hash<auto!> rv = ({
             "resourceType": "Provenance",
             "target": fhir_as_reference_list(opts.target),
             "recorded": opts.recorded,

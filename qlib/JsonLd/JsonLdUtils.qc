@@ -403,7 +403,7 @@ public string sub removeDotSegments(string uri) {
 */
 public bool sub isValueObject(auto v) {
     # Use hasKey() to detect {"@value": null} — exists returns False for null in Qore
-    return v.typeCode() == NT_HASH && (cast<hash<auto>>(v)).hasKey("@value");
+    return v.typeCode() == NT_HASH && v.hasKey("@value");
 }
 
 #! Returns True if the value is a JSON-LD list object (contains \@list)
@@ -413,7 +413,7 @@ public bool sub isValueObject(auto v) {
     @since json 1.12
 */
 public bool sub isListObject(auto v) {
-    return v.typeCode() == NT_HASH && (cast<hash<auto>>(v)).hasKey("@list");
+    return v.typeCode() == NT_HASH && v.hasKey("@list");
 }
 
 #! Returns True if the value is a JSON-LD graph object (contains \@graph)
@@ -426,7 +426,7 @@ public bool sub isGraphObject(auto v) {
     if (v.typeCode() != NT_HASH) {
         return False;
     }
-    hash<auto> h = cast<hash<auto>>(v);
+    hash<auto> h = v;
     return exists h."@graph";
 }
 
@@ -440,7 +440,7 @@ public bool sub isSimpleGraphObject(auto v) {
     if (!isGraphObject(v)) {
         return False;
     }
-    hash<auto> h = cast<hash<auto>>(v);
+    hash<auto> h = v;
     foreach string key in (keys h) {
         if (key != "@graph" && key != "@id" && key != "@index") {
             return False;
@@ -460,7 +460,7 @@ public bool sub isNodeObject(auto v) {
     if (v.typeCode() != NT_HASH) {
         return False;
     }
-    hash<auto> h = cast<hash<auto>>(v);
+    hash<auto> h = v;
     return !exists h."@value" && !exists h."@list" && !exists h."@set";
 }
 

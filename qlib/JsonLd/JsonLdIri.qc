@@ -188,7 +188,7 @@ public class JsonLdIri {
             string type_lang_value = "@null";
 
             # Step 4.5: If value has @index (and not graph object)
-            if (value.typeCode() == NT_HASH && exists (cast<hash<auto>>(value))."@index"
+            if (value.typeCode() == NT_HASH && exists value."@index"
                     && !isGraphObject(value)) {
                 push containers, "@index";
                 push containers, "@index@set";
@@ -203,11 +203,11 @@ public class JsonLdIri {
             # Step 4.7: If value is a list object
             else if (value.typeCode() == NT_HASH && isListObject(value)) {
                 # Step 4.7.1
-                if (!(value.typeCode() == NT_HASH && exists (cast<hash<auto>>(value))."@index")) {
+                if (!(value.typeCode() == NT_HASH && exists value."@index")) {
                     push containers, "@list";
                 }
                 # Step 4.7.2-8: Analyze list items for common type/language
-                list<auto> lst = (cast<hash<auto>>(value))."@list";
+                list<auto> lst = value."@list";
                 *string common_lang;
                 *string common_type;
                 if (lst.empty()) {
@@ -216,7 +216,7 @@ public class JsonLdIri {
                 foreach auto item in (lst) {
                     string item_lang = "@none";
                     string item_type = "@none";
-                    if (item.typeCode() == NT_HASH && (cast<hash<auto>>(item)).hasKey("@value")) {
+                    if (item.typeCode() == NT_HASH && item.hasKey("@value")) {
                         hash<auto> ih = item;
                         if (exists ih."@direction") {
                             item_lang = (ih."@language" ?? "").lwr() + "_" + ih."@direction";
@@ -234,7 +234,7 @@ public class JsonLdIri {
                     if (!exists common_lang) {
                         common_lang = item_lang;
                     } else if (item_lang != common_lang && item.typeCode() == NT_HASH
-                            && (cast<hash<auto>>(item)).hasKey("@value")) {
+                            && item.hasKey("@value")) {
                         common_lang = "@none";
                     }
                     if (!exists common_type) {
@@ -284,7 +284,7 @@ public class JsonLdIri {
             }
             # Step 4.9: Otherwise
             else {
-                if (value.typeCode() == NT_HASH && (cast<hash<auto>>(value)).hasKey("@value")) {
+                if (value.typeCode() == NT_HASH && value.hasKey("@value")) {
                     hash<auto> vh = value;
                     # Step 4.9.1.1: direction + no index
                     if (exists vh."@direction" && !exists vh."@index") {
@@ -327,7 +327,7 @@ public class JsonLdIri {
 
             # Step 4.11: If not 1.0 and no @index in value
             if (value.typeCode() != NT_HASH
-                    || !(cast<hash<auto>>(value)).hasKey("@index")) {
+                    || !value.hasKey("@index")) {
                 push containers, "@index";
                 push containers, "@index@set";
             }
@@ -352,8 +352,8 @@ public class JsonLdIri {
             # Step 4.16: If @id or @reverse and value has @id
             if ((type_lang_value == "@id" || type_lang_value == "@reverse")
                     && value.typeCode() == NT_HASH
-                    && exists (cast<hash<auto>>(value))."@id") {
-                string val_id = (cast<hash<auto>>(value))."@id";
+                    && exists value."@id") {
+                string val_id = value."@id";
                 string compacted_id = compactIri(active_context, val_id, NOTHING, True);
                 if (exists active_context.termDefinitions{compacted_id}
                         && active_context.termDefinitions{compacted_id}.iriMapping == val_id) {
@@ -382,7 +382,7 @@ public class JsonLdIri {
 
                 # Handle empty list case
                 if (value.typeCode() == NT_HASH && isListObject(value)) {
-                    list<auto> lst = (cast<hash<auto>>(value))."@list";
+                    list<auto> lst = value."@list";
                     if (lst.empty()) {
                         type_lang = "@any";
                         # For empty lists, any type/language matches

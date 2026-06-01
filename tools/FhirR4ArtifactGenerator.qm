@@ -775,7 +775,7 @@ public class FhirR4ArtifactGenerator {
                 return rv + FhirR4ArtifactGenerator::spaces(indent) + ")";
             }
             case NT_HASH: {
-                hash<auto> h = cast<hash<auto>>(value);
+                hash<auto> h = value;
                 if (h.empty()) {
                     return "{}";
                 }

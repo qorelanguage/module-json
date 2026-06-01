@@ -114,8 +114,8 @@ public class JsonLdProcessor {
         if (exists options.expandContext) {
             auto expand_ctx = options.expandContext;
             # If expandContext is a document with @context, extract the @context value
-            if (expand_ctx.typeCode() == NT_HASH && exists (cast<hash<auto>>(expand_ctx))."@context") {
-                expand_ctx = (cast<hash<auto>>(expand_ctx))."@context";
+            if (expand_ctx.typeCode() == NT_HASH && exists expand_ctx."@context") {
+                expand_ctx = expand_ctx."@context";
             }
             active_context = ctx_proc.processContext(active_context,
                 expand_ctx, options.base);
@@ -133,8 +133,8 @@ public class JsonLdProcessor {
             # W3C 4.3.1 step 19: unwrap graph objects with ONLY @graph key at top level
             # Named graphs (with @id) should NOT be unwrapped
             if (result.typeCode() == NT_HASH && isGraphObject(result)
-                    && (cast<hash<auto>>(result)).size() == 1) {
-                auto graph = (cast<hash<auto>>(result))."@graph";
+                    && result.size() == 1) {
+                auto graph = result."@graph";
                 if (!exists graph) {
                     return ();
                 }
@@ -171,8 +171,8 @@ public class JsonLdProcessor {
 
         # Build compaction context — extract @context value if ctx is a document
         auto ctx_value = ctx;
-        if (ctx_value.typeCode() == NT_HASH && (cast<hash<auto>>(ctx_value)).hasKey("@context")) {
-            ctx_value = (cast<hash<auto>>(ctx_value))."@context";
+        if (ctx_value.typeCode() == NT_HASH && ctx_value.hasKey("@context")) {
+            ctx_value = ctx_value."@context";
         }
 
         hash<JsonLdActiveContext> active_context = JsonLdContext::newActiveContext(options.base);
@@ -190,7 +190,7 @@ public class JsonLdProcessor {
         if (exists ctx_value) {
             # Only include @context if it has content
             bool include_ctx = True;
-            if (ctx_value.typeCode() == NT_HASH && (cast<hash<auto>>(ctx_value)).empty()) {
+            if (ctx_value.typeCode() == NT_HASH && ctx_value.empty()) {
                 include_ctx = False;
             }
             if (include_ctx) {

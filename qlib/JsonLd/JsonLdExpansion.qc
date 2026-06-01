@@ -237,12 +237,12 @@ public class JsonLdExpansion {
                     bool propagate = False;
                     auto lc = type_td.localContext;
                     if (lc.typeCode() == NT_HASH
-                            && (cast<hash<auto>>(lc))."@propagate" == True) {
+                            && lc."@propagate" == True) {
                         propagate = True;
                     } else if (lc.typeCode() == NT_LIST) {
                         foreach auto lci in (lc) {
                             if (lci.typeCode() == NT_HASH
-                                    && (cast<hash<auto>>(lci))."@propagate" == True) {
+                                    && lci."@propagate" == True) {
                                 propagate = True;
                                 break;
                             }
@@ -873,8 +873,8 @@ public class JsonLdExpansion {
                             sprintf("@nest array items must be objects; got %s",
                                 nest_obj.type()));
                     }
-                    if ((cast<hash<auto>>(nest_obj)).hasKey("@value")
-                            || (cast<hash<auto>>(nest_obj)).hasKey("@list")) {
+                    if (nest_obj.hasKey("@value")
+                            || nest_obj.hasKey("@list")) {
                         throwJsonLdError(JSONLD_ERR_INVALID_NEST_VALUE,
                             "@nest value must not be a value object or list object");
                     }
@@ -969,7 +969,7 @@ public class JsonLdExpansion {
                 foreach auto ei in (expanded_items) {
                     hash<auto!> graph_obj;
                     if (ei.typeCode() == NT_HASH && isGraphObject(ei)) {
-                        graph_obj = cast<hash<auto>>(ei);
+                        graph_obj = ei;
                     } else {
                         graph_obj = {"@graph": (ei,)};
                     }
@@ -1003,7 +1003,7 @@ public class JsonLdExpansion {
                         continue;
                     }
                     if (item.typeCode() == NT_HASH && !idx_is_none2) {
-                        hash<auto!> item_hash = cast<hash<auto>>(item);
+                        hash<auto!> item_hash = item;
                         if (exists index_prop) {
                             # Property-valued index: can't add property to value objects
                             if (isValueObject(item_hash)) {
@@ -1058,7 +1058,7 @@ public class JsonLdExpansion {
                 foreach auto ei in (expanded_items) {
                     hash<auto!> graph_obj;
                     if (ei.typeCode() == NT_HASH && isGraphObject(ei)) {
-                        graph_obj = cast<hash<auto>>(ei);
+                        graph_obj = ei;
                     } else {
                         graph_obj = {"@graph": (ei,)};
                     }
@@ -1140,7 +1140,7 @@ public class JsonLdExpansion {
                 if (!exists item || item.typeCode() != NT_HASH) {
                     continue;
                 }
-                hash<auto!> item_hash = cast<hash<auto>>(item);
+                hash<auto!> item_hash = item;
                 # @none type means no @type should be added
                 if (exists expanded_type && expanded_type != "@none") {
                     if (exists item_hash."@type") {

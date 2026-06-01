@@ -664,11 +664,11 @@ class JsonLdContextTest inherits QUnit::Test {
         assertEq(file_path, doc.documentUrl);
         assertEq(MimeTypeJsonLd, doc.contentType);
         assertTrue(doc.document.typeCode() == NT_HASH);
-        assertTrue(exists (cast<hash<auto>>(doc.document))."@context");
+        assertTrue(exists ((doc.document))."@context");
 
         # Test with file:// URL
         hash<JsonLdRemoteDocument> doc2 = loader.loadDocument("file://" + file_path);
-        assertTrue(exists (cast<hash<auto>>(doc2.document))."@context");
+        assertTrue(exists ((doc2.document))."@context");
 
         # Test non-existent file
         try {
@@ -701,7 +701,7 @@ class JsonLdContextTest inherits QUnit::Test {
 
         # First load - cache miss
         hash<JsonLdRemoteDocument> doc1 = caching_loader.loadDocument(file_path);
-        assertTrue(exists (cast<hash<auto>>(doc1.document))."@context");
+        assertTrue(exists ((doc1.document))."@context");
 
         # Second load - cache hit
         hash<JsonLdRemoteDocument> doc2 = caching_loader.loadDocument(file_path);

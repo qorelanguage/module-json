@@ -355,7 +355,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
         @throw A2A-CONFLICT if the state transition is invalid
     */
     hash<auto> updateTaskState(string task_id, string new_state, *hash<auto> message) {
-        hash<auto> status_update;
+        hash<auto!> status_update;
         hash<auto> response;
         Qore::Thread::Condition task_cond;
         Qore::Thread::Mutex task_lck;
@@ -392,7 +392,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             }
             task_map{task_id}.lastUpdatedAt = now;
 
-            status_update = cast<hash<auto>>({
+            status_update = ({
                 "state": new_state,
                 "timestamp": ts,
             });
@@ -1117,7 +1117,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             *string version) {
         string ts = format_date("YYYY-MM-DDTHH:mm:SS.xxZ", task.lastUpdatedAt);
 
-        hash<auto> status = cast<hash<auto>>({
+        hash<auto!> status = ({
             "state": task.state,
             "timestamp": ts,
         });
@@ -1125,7 +1125,7 @@ public class A2aServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             status.message = parse_json(task.statusMessage);
         }
 
-        hash<auto> response = cast<hash<auto>>({
+        hash<auto!> response = ({
             "id": task.id,
             "status": status,
         });
