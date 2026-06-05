@@ -246,7 +246,7 @@ public class JsonLdFlattening {
                             # has properties matching the val's expanded form
                             foreach string nid in (sort(keys graph)) {
                                 if (isBlankNodeIdentifier(nid) && graph{nid}.typeCode() == NT_HASH
-                                        && (cast<hash<auto>>(graph{nid})).size() > 1) {
+                                        && ((graph{nid})).size() > 1) {
                                     # Check if this node has properties from val_hash
                                     bool matches = True;
                                     foreach string vk in (keys val_hash) {

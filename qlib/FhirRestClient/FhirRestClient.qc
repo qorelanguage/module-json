@@ -194,7 +194,7 @@ public class FhirRestClientBase {
     */
     static hash<auto> makeBundle(list<hash<auto>> entries, string type = "transaction") {
         validateWritableBundleType(type);
-        return cast<hash<auto>>({
+        return ({
             "resourceType": "Bundle",
             "type": type,
             "entry": entries,
@@ -218,7 +218,7 @@ public class FhirRestClientBase {
         request.method = normalizeBundleRequestMethod(method);
         request.url = url;
 
-        hash<auto> rv = cast<hash<auto>>({"request": request});
+        hash<auto!> rv = ({"request": request});
         if (resource.val()) {
             rv.resource = resource;
         }
@@ -254,7 +254,7 @@ public class FhirRestClientBase {
     */
     static hash<auto> makeUpdateBundleEntry(string resource_type, string id, hash<auto> resource,
             *string etag = NOTHING, *string full_url = NOTHING) {
-        hash<auto> request_options = cast<hash<auto>>({});
+        hash<auto> request_options = ({});
         if (etag.val()) {
             request_options.ifMatch = etag;
         }
@@ -282,7 +282,7 @@ public class FhirRestClientBase {
     */
     static hash<auto> makeDeleteBundleEntry(string resource_type, string id, *string etag = NOTHING,
             *string full_url = NOTHING) {
-        hash<auto> request_options = cast<hash<auto>>({});
+        hash<auto> request_options = ({});
         if (etag.val()) {
             request_options.ifMatch = etag;
         }

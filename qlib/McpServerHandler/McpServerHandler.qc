@@ -1900,7 +1900,7 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
             if (params.task.typeCode() != NT_HASH) {
                 throw "MCP-TASK-ERROR", "tools/call task parameter must be an object";
             }
-            return cast<hash<auto>>(params.task);
+            return params.task;
         }
         # Backwards compatibility for older Qore clients.  The current MCP
         # Tasks spec uses params.task; _meta.task is accepted only so older

@@ -237,12 +237,12 @@ public class JsonLdCompaction {
                         bool propagate = False;
                         auto lc = type_td.localContext;
                         if (lc.typeCode() == NT_HASH
-                                && (cast<hash<auto>>(lc))."@propagate" == True) {
+                                && lc."@propagate" == True) {
                             propagate = True;
                         } else if (lc.typeCode() == NT_LIST) {
                             foreach auto lci in (lc) {
                                 if (lci.typeCode() == NT_HASH
-                                        && (cast<hash<auto>>(lci))."@propagate" == True) {
+                                        && lci."@propagate" == True) {
                                     propagate = True;
                                     break;
                                 }
@@ -593,7 +593,7 @@ public class JsonLdCompaction {
                 # (per-value term selection may choose a different term)
                 list<auto> non_map_values = ();
                 foreach auto item in (expanded_value) {
-                    if (item.typeCode() == NT_HASH && (cast<hash<auto>>(item)).hasKey("@value")) {
+                    if (item.typeCode() == NT_HASH && item.hasKey("@value")) {
                         # Check if this specific value should use a different term
                         string item_alias = JsonLdIri::compactIri(active_context,
                             expanded_property, item, True);
@@ -820,7 +820,7 @@ public class JsonLdCompaction {
                 if (can_use_graph_map && has_index && !has_id) {
                     # @graph+@index cannot represent items with @id
                     foreach auto item in (expanded_value) {
-                        if (item.typeCode() == NT_HASH && exists (cast<hash<auto>>(item))."@id") {
+                        if (item.typeCode() == NT_HASH && exists item."@id") {
                             can_use_graph_map = False;
                             break;
                         }
@@ -1118,7 +1118,7 @@ public class JsonLdCompaction {
                         bool lang_has_set = inlist("@set", grp_td_chk.containerMapping);
                         foreach auto item in (expanded_value) {
                             if (item.typeCode() != NT_HASH
-                                    || !(cast<hash<auto>>(item)).hasKey("@value")) {
+                                    || !item.hasKey("@value")) {
                                 continue;
                             }
                             # Verify this item selects this term
@@ -1202,7 +1202,7 @@ public class JsonLdCompaction {
                     final_result{nest_key} = {};
                 }
                 if (final_result{nest_key}.typeCode() == NT_HASH) {
-                    (cast<hash<auto>>(final_result{nest_key})){rk} = result{rk};
+                    ((final_result{nest_key})){rk} = result{rk};
                 }
             } else {
                 final_result{rk} = result{rk};

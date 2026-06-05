@@ -39,11 +39,37 @@ tabular arrays. Source: `src/ql_toon.qpp`, `src/ql_toon.h`.
 
 5. **Benchmarks**: out of scope for this module. Serializer/parser correctness
    lives here (QUnit, valgrind); LLM-effectiveness benchmarking belongs to
-   downstream consumers (Qorus/qonsole).
+   downstream consumers.
 
 6. **`max_inline_string_length` option**: omitted. TOON quoting is fully
    deterministic (§7.2); there are no equivalent alternative string forms to
    control.
+
+## DataFrame / SQL / DataProvider integration
+
+TOON is useful for row-oriented interchange with Qore data APIs because its
+tabular-array form compactly represents `list<hash<auto>>` values. This covers
+the common shape returned by SQL row APIs, generic DataProvider row blocks, and
+`DataFrame::toRecords()`.
+
+The integration boundary is deliberately the row-list data model:
+
+- `make_toon()` accepts row lists such as `df.toRecords()` or SQL/DataProvider
+  `list<hash<auto>>` results.
+- `parse_toon()` returns plain Qore data; parsed tabular arrays can be passed to
+  APIs that accept row lists, including the `DataFrame` constructor.
+- `make_toon()` does not serialize `DataFrame` objects directly. This preserves
+  parity with `make_json()`, keeps the json module independent of dataframe,
+  SQL, and DataProvider modules, and keeps object serialization errors
+  predictable.
+- TOON is a readable text interchange format, not a dense or zero-copy
+  transport. Dense DataFrame buffers, Arrow, Parquet, and DBI/BulkSqlUtil packed
+  paths remain the right mechanisms for high-volume in-process or binary data
+  movement.
+
+`test/json.qtest` includes an optional dataframe interop case guarded by
+`%try-module dataframe`; it verifies the supported conversion path without
+making dataframe a required dependency of this module.
 
 ## Options
 
@@ -108,6 +134,6 @@ cancel).
 ## Tests
 
 `test/json.qtest` (QUnit): scalar/hash/list round trips, tabular arrays,
-determinism, options, data-model normalization, error handling, upstream-spec
-example fixtures, full round-trip fixtures, and sandbox depth/interrupt parity
-with the JSON functions.
+optional DataFrame row-list interchange, determinism, options, data-model
+normalization, error handling, upstream-spec example fixtures, full round-trip
+fixtures, and sandbox depth/interrupt parity with the JSON functions.

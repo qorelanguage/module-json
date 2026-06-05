@@ -120,9 +120,9 @@ public class JsonLdRdf {
                         auto vals = graph_map{gn}{nid}{prop};
                         if (vals.typeCode() == NT_LIST) {
                             foreach auto v in (vals) {
-                                if (v.typeCode() == NT_HASH && exists (cast<hash<auto>>(v))."@id"
-                                        && isBlankNodeIdentifier((cast<hash<auto>>(v))."@id")) {
-                                    string ref_id = (cast<hash<auto>>(v))."@id";
+                                if (v.typeCode() == NT_HASH && exists v."@id"
+                                        && isBlankNodeIdentifier(v."@id")) {
+                                    string ref_id = v."@id";
                                     if (!exists bn_graphs{ref_id}) {
                                         bn_graphs{ref_id} = {};
                                     }
@@ -160,7 +160,8 @@ public class JsonLdRdf {
                 continue;
             }
             if (!exists graph_map."@default"{gn}) {
-                graph_map."@default"{gn} = cast<hash<auto>>({"@id": gn});
+                hash<auto!> graph_node = {"@id": gn};
+                graph_map."@default"{gn} = graph_node;
             }
         }
 
@@ -215,8 +216,8 @@ public class JsonLdRdf {
                 list<auto> rest_vals = nh{RDF_REST}.typeCode() == NT_LIST
                     ? nh{RDF_REST} : (nh{RDF_REST},);
                 foreach auto rv in (rest_vals) {
-                    if (rv.typeCode() == NT_HASH && exists (cast<hash<auto>>(rv))."@id") {
-                        string rest_id = (cast<hash<auto>>(rv))."@id";
+                    if (rv.typeCode() == NT_HASH && exists rv."@id") {
+                        string rest_id = rv."@id";
                         if (rest_id != RDF_NIL) {
                             referenced_as_rest{rest_id} = True;
                         }
@@ -302,8 +303,8 @@ public class JsonLdRdf {
                 if (exists cnh{RDF_REST} && cnh{RDF_REST}.typeCode() == NT_LIST
                         && cnh{RDF_REST}.size() > 0) {
                     auto rv = cnh{RDF_REST}[0];
-                    if (rv.typeCode() == NT_HASH && exists (cast<hash<auto>>(rv))."@id") {
-                        cur = (cast<hash<auto>>(rv))."@id";
+                    if (rv.typeCode() == NT_HASH && exists rv."@id") {
+                        cur = rv."@id";
                         if (cur == RDF_NIL) {
                             ends_at_nil = True;
                         }
@@ -343,8 +344,8 @@ public class JsonLdRdf {
                 list<auto> new_values = ();
                 bool modified = False;
                 foreach auto val in (nh{prop}) {
-                    if (val.typeCode() == NT_HASH && exists (cast<hash<auto>>(val))."@id") {
-                        string ref_id = (cast<hash<auto>>(val))."@id";
+                    if (val.typeCode() == NT_HASH && exists val."@id") {
+                        string ref_id = val."@id";
                         if (list_nodes{ref_id}) {
                             # This references a list node — extract the list
                             list<auto> list_items = extractListItems(graph_hash, ref_id);
@@ -366,8 +367,8 @@ public class JsonLdRdf {
                                 if (exists cn{RDF_REST} && cn{RDF_REST}.typeCode() == NT_LIST
                                         && cn{RDF_REST}.size() > 0) {
                                     auto rv = cn{RDF_REST}[0];
-                                    if (rv.typeCode() == NT_HASH && exists (cast<hash<auto>>(rv))."@id") {
-                                        cur = (cast<hash<auto>>(rv))."@id";
+                                    if (rv.typeCode() == NT_HASH && exists rv."@id") {
+                                        cur = rv."@id";
                                     } else {
                                         break;
                                     }
@@ -411,7 +412,7 @@ public class JsonLdRdf {
                 list<auto> new_values = ();
                 bool modified = False;
                 foreach auto val in (nh{prop}) {
-                    if (val.typeCode() == NT_HASH && (cast<hash<auto>>(val))."@id" == RDF_NIL) {
+                    if (val.typeCode() == NT_HASH && val."@id" == RDF_NIL) {
                         push new_values, {"@list": ()};
                         modified = True;
                     } else {
@@ -481,8 +482,8 @@ public class JsonLdRdf {
                 list<auto> new_values = ();
                 bool modified = False;
                 foreach auto val in (nh{prop}) {
-                    if (val.typeCode() == NT_HASH && exists (cast<hash<auto>>(val))."@id") {
-                        string ref_id = (cast<hash<auto>>(val))."@id";
+                    if (val.typeCode() == NT_HASH && exists val."@id") {
+                        string ref_id = val."@id";
                         if (cl_nodes{ref_id}) {
                             # Build value object from compound literal
                             hash<auto> cl = graph_hash{ref_id};
@@ -558,18 +559,18 @@ public class JsonLdRdf {
                     auto first_item = first_vals[0];
                     # Check if first value is rdf:nil → empty nested @list
                     if (first_item.typeCode() == NT_HASH
-                            && (cast<hash<auto>>(first_item))."@id" == RDF_NIL) {
+                            && first_item."@id" == RDF_NIL) {
                         push items, {"@list": ()};
                     }
                     # Check if first value references another list node → nested @list
                     else if (first_item.typeCode() == NT_HASH
-                            && exists (cast<hash<auto>>(first_item))."@id"
-                            && isBlankNodeIdentifier((cast<hash<auto>>(first_item))."@id")
-                            && exists graph{(cast<hash<auto>>(first_item))."@id"}
-                            && graph{(cast<hash<auto>>(first_item))."@id"}.typeCode() == NT_HASH
-                            && exists (cast<hash<auto>>(graph{(cast<hash<auto>>(first_item))."@id"})){RDF_FIRST}
-                            && exists (cast<hash<auto>>(graph{(cast<hash<auto>>(first_item))."@id"})){RDF_REST}) {
-                        string inner_id = (cast<hash<auto>>(first_item))."@id";
+                            && exists first_item."@id"
+                            && isBlankNodeIdentifier(first_item."@id")
+                            && exists graph{first_item."@id"}
+                            && graph{first_item."@id"}.typeCode() == NT_HASH
+                            && exists ((graph{first_item."@id"})){RDF_FIRST}
+                            && exists ((graph{first_item."@id"})){RDF_REST}) {
+                        string inner_id = first_item."@id";
                         list<auto> inner_items = extractListItems(graph, inner_id);
                         push items, {"@list": inner_items};
                     } else {
@@ -581,8 +582,8 @@ public class JsonLdRdf {
             if (exists nh{RDF_REST} && nh{RDF_REST}.typeCode() == NT_LIST
                     && nh{RDF_REST}.size() > 0) {
                 auto rest = nh{RDF_REST}[0];
-                if (rest.typeCode() == NT_HASH && exists (cast<hash<auto>>(rest))."@id") {
-                    cur = (cast<hash<auto>>(rest))."@id";
+                if (rest.typeCode() == NT_HASH && exists rest."@id") {
+                    cur = rest."@id";
                 } else {
                     break;
                 }
@@ -727,10 +728,10 @@ public class JsonLdRdf {
                         list<auto> rev_values = rev{rev_prop}.typeCode() == NT_LIST
                             ? rev{rev_prop} : (rev{rev_prop},);
                         foreach auto rv in (rev_values) {
-                            if (rv.typeCode() == NT_HASH && exists (cast<hash<auto>>(rv))."@id") {
+                            if (rv.typeCode() == NT_HASH && exists rv."@id") {
                                 # Swap: the referenced node is the SUBJECT, current node is OBJECT
                                 hash<RdfTerm> rev_subject = makeTermFromId(
-                                    (cast<hash<auto>>(rv))."@id");
+                                    rv."@id");
                                 addQuad(\dataset, rev_subject, rev_predicate, subject,
                                     graph_name);
                             }
@@ -1062,8 +1063,8 @@ public class JsonLdRdf {
             string subject_id = quad.subject.value;
 
             if (!exists graph_map{graph_name}{subject_id}) {
-                # Use cast to prevent type narrowing
-                graph_map{graph_name}{subject_id} = cast<hash<auto>>({"@id": subject_id});
+                hash<auto!> subject_node = {"@id": subject_id};
+                graph_map{graph_name}{subject_id} = subject_node;
             }
 
             # Reference the node hash via a local variable for cleaner access

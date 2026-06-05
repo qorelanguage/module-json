@@ -597,7 +597,7 @@ namespace Qore::Json;
 
     @since json 1.11
 */
-binary make_cbor(auto data) [flags=RET_VALUE_ONLY] {
+binary make_cbor(auto data) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     std::vector<uint8_t> buf;
     bytes_sink<std::vector<uint8_t>> sink(buf);
     basic_cbor_encoder<bytes_sink<std::vector<uint8_t>>> encoder(std::move(sink));
@@ -638,7 +638,7 @@ binary make_cbor(auto data) [flags=RET_VALUE_ONLY] {
 
     @since json 1.11
 */
-auto parse_cbor(binary cbor_data) [flags=RET_VALUE_ONLY] {
+auto parse_cbor(binary cbor_data) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     QoreSandboxManagerHelper smh;
     CborToQoreVisitor visitor(xsink, smh.get());
 

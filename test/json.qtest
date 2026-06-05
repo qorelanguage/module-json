@@ -15,6 +15,10 @@
 
 %requires QUnit
 
+%try-module dataframe
+%define NoDataFrame
+%endtry
+
 %exec-class JsonTest
 
 class JsonTest inherits QUnit::Test {
@@ -51,6 +55,7 @@ class JsonTest inherits QUnit::Test {
         addTestCase("parse_json UTF-8/Unicode BOM skipping test", \parseJsonBom());
         addTestCase("issue 2655", \issue2655());
         addTestCase("JSON Pointer test", \jsonPointerTest());
+        addTestCase("named arguments for codecs", \namedArgumentCodecs());
         addTestCase("deeply nested structures", \testDeeplyNested());
         addTestCase("sandbox depth limit parse_json", \testSandboxDepthLimitParse());
         addTestCase("sandbox depth limit make_json", \testSandboxDepthLimitMake());
@@ -60,6 +65,7 @@ class JsonTest inherits QUnit::Test {
         addTestCase("TOON hash round trips", \toonHashes());
         addTestCase("TOON list round trips", \toonLists());
         addTestCase("TOON tabular arrays", \toonTabular());
+        addTestCase("TOON DataFrame row interchange", \toonDataFrameInterop());
         addTestCase("TOON determinism", \toonDeterminism());
         addTestCase("TOON options", \toonOptions());
         addTestCase("TOON data-model normalization", \toonDataModel());
@@ -87,6 +93,26 @@ class JsonTest inherits QUnit::Test {
         string json = make_json(h, JGF_ADD_FORMATTING);
         assertEq(expected, json);
         assertEq(h, parse_json(json));
+    }
+
+    namedArgumentCodecs() {
+        hash<auto> data = {"a": 1, "items": (1, 2)};
+        string json = make_json(data: data);
+        assertEq(data, parse_json(json_str: json));
+
+        binary cbor = make_cbor(data: data);
+        assertEq(data, parse_cbor(cbor_data: cbor));
+
+        string toon = make_toon(data: data, options: {"sort_keys": True});
+        assertEq(data, parse_toon(toon_str: toon, options: {"strict": True}));
+
+        assertEq(2, json_pointer_get(data: data, pointer: "/items/1"));
+        assertEq(True, json_pointer_exists(data: data, pointer: "/items"));
+        assertEq("a~1b~0c", json_pointer_escape(token: "a/b~c"));
+
+        string token = jwt_encode(claims: {"sub": "123"}, key: "secret", algorithm: "HS256");
+        hash<auto> decoded = jwt_decode(token: token, key: "secret", verify_signature: True);
+        assertEq("123", decoded.claims.sub);
     }
 
     floatRoundingTest() {
@@ -717,7 +743,31 @@ string sub test(auto data) {
         assertEq(qf, parse_toon(make_toon(qf)));
     }
 
-    #! 5. determinism
+    #! 5. DataFrame row-list interchange
+    toonDataFrameInterop() {
+%ifdef NoDataFrame
+        testSkip("dataframe module not available");
+%else
+        list<hash<auto>> rows = (
+            {"id": 1, "name": "Ada", "active": True, "score": 95.5},
+            {"id": 2, "name": "Bob", "active": False, "score": 88.25},
+            {"id": 3, "name": "Cid", "active": True, "score": 91.75},
+        );
+
+        DataFrame::DataFrame df(rows);
+        string toon = make_toon(df.toRecords(), {"sort_keys": True});
+        assertEq("[3]{active,id,name,score}:\n  true,1,Ada,95.5\n  false,2,Bob,88.25\n  true,3,Cid,91.75",
+            toon);
+
+        list<hash<auto>> parsed = parse_toon(toon);
+        assertEq(rows, parsed);
+
+        DataFrame::DataFrame round_trip(parsed);
+        assertEq(rows, round_trip.toRecords());
+%endif
+    }
+
+    #! 6. determinism
     toonDeterminism() {
         # default preserves insertion order
         assertEq("b: 2\na: 1", make_toon({"b": 2, "a": 1}));

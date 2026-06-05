@@ -67,8 +67,8 @@ class JsonLdExpansionTest inherits QUnit::Test {
         if (result.typeCode() != NT_LIST) {
             # W3C 4.3.1 step 19: unwrap simple graph objects at top level
             if (result.typeCode() == NT_HASH && isGraphObject(result)
-                    && (cast<hash<auto>>(result)).size() == 1) {
-                auto graph = (cast<hash<auto>>(result))."@graph";
+                    && result.size() == 1) {
+                auto graph = result."@graph";
                 if (!exists graph) {
                     return ();
                 }

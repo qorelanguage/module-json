@@ -1337,7 +1337,7 @@ namespace Qore::Json;
 
     @since json 1.5 as a replacement for deprecated camel-case makeJSONString() and makeFormattedJSONString()
 */
-string make_json(auto data, *int format, *string encoding) [flags=RET_VALUE_ONLY] {
+string make_json(auto data, *int format, *string encoding) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
    const QoreEncoding* qe = encoding ? QEM.findCreate(encoding) : QCS_UTF8;
    QoreStringNodeHolder str(new QoreStringNode(qe));
    QoreSandboxManagerHelper smh;
@@ -1398,7 +1398,7 @@ string makeFormattedJSONString(auto data, *string encoding) [flags=RET_VALUE_ONL
 
     @since json 1.5 as a replacement for deprecated camel-case parseJSON()
  */
-auto parse_json(string json_str) [flags=RET_VALUE_ONLY] {
+auto parse_json(string json_str) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     return parse_json(json_str, xsink);
 }
 
@@ -1453,7 +1453,7 @@ namespace Qore::Json;
     - @ref jsonserialization
     - @ref JSONRPC
  */
-string make_jsonrpc_request(string method_name, auto version, auto id, auto request_msg, *int format) [flags=RET_VALUE_ONLY] {
+string make_jsonrpc_request(string method_name, auto version, auto id, auto request_msg, *int format) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     if (!version.isNullOrNothing()) {
         QoreStringValueHelper vstr(version, QCS_UTF8, xsink);
         if (*xsink)
@@ -1553,7 +1553,7 @@ string makeFormattedJSONRPCRequestString(string method_name, auto version, auto 
     - @ref jsonserialization
     - @ref JSONRPC
  */
-string make_jsonrpc_response(auto version, auto id, auto response_msg, *int format) [flags=RET_VALUE_ONLY] {
+string make_jsonrpc_response(auto version, auto id, auto response_msg, *int format) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     if (!version.isNullOrNothing()) {
         QoreStringValueHelper vstr(version, QCS_UTF8, xsink);
         if (*xsink)
@@ -1649,7 +1649,7 @@ string makeFormattedJSONRPCResponseString(auto version, auto id, auto response_m
     - @ref jsonserialization
     - @ref JSONRPC
  */
-string make_jsonrpc_error(auto version, auto id, auto error_msg, *int format) [flags=RET_VALUE_ONLY] {
+string make_jsonrpc_error(auto version, auto id, auto error_msg, *int format) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     if (!version.isNullOrNothing()) {
         QoreStringValueHelper vstr(version, QCS_UTF8, xsink);
         if (*xsink)
@@ -1820,7 +1820,7 @@ namespace Qore::Json;
 
     @since json 1.10
 */
-auto json_pointer_get(auto data, string pointer) [flags=RET_VALUE_ONLY] {
+auto json_pointer_get(auto data, string pointer) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     if (pointer->empty()) {
         return data.refSelf();
     }
@@ -1908,7 +1908,7 @@ auto json_pointer_get(auto data, string pointer) [flags=RET_VALUE_ONLY] {
 
     @since json 1.10
 */
-bool json_pointer_exists(auto data, string pointer) [flags=RET_VALUE_ONLY] {
+bool json_pointer_exists(auto data, string pointer) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     if (pointer->empty()) {
         return true;
     }
@@ -1991,7 +1991,7 @@ bool json_pointer_exists(auto data, string pointer) [flags=RET_VALUE_ONLY] {
 
     @since json 1.10
 */
-string json_pointer_escape(string token) [flags=CONSTANT] {
+string json_pointer_escape(string token) [flags=CONSTANT,NAMED_ARGS] {
     QoreStringNode* str = new QoreStringNode;
     const char* p = token->c_str();
     while (*p) {
@@ -2016,7 +2016,7 @@ namespace Qore::Json;
 //! Encodes JWT (JWS) tokens using HS* or RS* algorithms
 /** @param claims the JWT claims (use hash<JwtClaims> for type safety)
     @param key the signing key (HMAC secret or RSA private key in PEM)
-    @param alg optional algorithm (default: "HS256")
+    @param algorithm optional algorithm (default: "HS256")
     @param header optional header parameters (use hash<JwtHeader> when provided)
 
     @return the JWT token string
@@ -2044,7 +2044,7 @@ namespace Qore::Json;
 
     @since json 1.11
 */
-string jwt_encode(hash<auto> claims, string key, *string alg, *hash<auto> header) [flags=RET_VALUE_ONLY] {
+string jwt_encode(hash<auto> claims, string key, *string algorithm, *hash<auto> header) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     assert(hashdeclJwtHeader);
     assert(hashdeclJwtClaims);
 
@@ -2061,8 +2061,8 @@ string jwt_encode(hash<auto> claims, string key, *string alg, *hash<auto> header
     }
 
     QoreString alg_str(QCS_UTF8);
-    if (alg) {
-        alg_str.concat(alg->c_str());
+    if (algorithm) {
+        alg_str.concat(algorithm->c_str());
     } else {
         alg_str.concat("HS256");
     }
@@ -2148,7 +2148,7 @@ string jwt_encode(hash<auto> claims, string key, *string alg, *hash<auto> header
 
     @since json 1.11
 */
-hash<auto> jwt_decode(string token, *string key, bool verify_signature = True) [flags=RET_VALUE_ONLY] {
+hash<auto> jwt_decode(string token, *string key, bool verify_signature = True) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     assert(hashdeclJwtDecodeResult);
     assert(hashdeclJwtHeader);
     assert(hashdeclJwtClaims);

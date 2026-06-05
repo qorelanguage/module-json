@@ -161,8 +161,8 @@ public class JsonLdFraming {
                     # Unless @default is specified in frame
                     if (frame{prop}.typeCode() == NT_LIST && frame{prop}.size() > 0
                             && frame{prop}[0].typeCode() == NT_HASH
-                            && exists (cast<hash<auto>>(frame{prop}[0]))."@default") {
-                        output{prop} = (cast<hash<auto>>(frame{prop}[0]))."@default";
+                            && exists ((frame{prop}[0]))."@default") {
+                        output{prop} = ((frame{prop}[0]))."@default";
                     } else if (!omit_default) {
                         output{prop} = ({"@null": True},);
                     }

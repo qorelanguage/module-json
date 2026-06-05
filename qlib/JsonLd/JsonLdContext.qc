@@ -421,13 +421,13 @@ public class JsonLdContext {
                 "@import context must resolve to a single object context");
         }
 
-        if (exists (cast<hash<auto>>(imported))."@import") {
+        if (exists imported."@import") {
             throwJsonLdError(JSONLD_ERR_INVALID_IMPORT_VALUE,
                 "@import contexts must not themselves contain @import");
         }
 
         # Merge: imported entries are defaults, local context entries override
-        hash<auto> merged = cast<hash<auto>>(imported);
+        hash<auto> merged = imported;
         foreach string key in (keys context_hash) {
             if (key != "@import") {
                 merged{key} = context_hash{key};
