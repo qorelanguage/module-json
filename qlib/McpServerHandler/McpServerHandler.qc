@@ -724,7 +724,8 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
     #! Called while holding the write lock to register the new connection
     private registerNewConnectionIntern(string cid, ServerSentEventConnection conn) {
         ServerSentEventHandler::registerNewConnectionIntern(cid, conn);
-        smap{conn.getSession()}.ssemap{conn.uniqueHash()} = conn;
+        McpServerConnection mcp_conn = cast<McpServerConnection>(conn);
+        smap{mcp_conn.getSession()}.ssemap{mcp_conn.uniqueHash()} = mcp_conn;
     }
 
     #! Called when an SSE connection terminates
