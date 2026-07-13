@@ -1170,9 +1170,38 @@ public class McpServerHandler inherits JsonRpcHandler, ServerSentEventHandler {
 
     private *hash<auto> getTypeDescriptionIntern(string name, AbstractDataProviderType t,
             *AbstractDataProvider prov, *hash<string, bool> tmap) {
+        # "tmap" is passed by value, so it only tracks types on the current path; a type object reachable from more
+        # than one parent (i.e. any shared subtype in a type DAG) would therefore have its description rebuilt at
+        # every occurrence, which is exponential in the depth of the graph.  Memoize each type's description for
+        # the duration of the traversal instead; descriptions are shared by reference, so this bounds both the time
+        # and the memory by the number of distinct types in the graph
+        bool toplevel = !exists tmap;
+        on_exit if (toplevel) {
+            remove _mcp_tdmap;
+            remove _mcp_tdtrunc;
+        }
+        string ck = t.uniqueHash() + "-" + name;
+        if (*hash<auto!> cached = _mcp_tdmap{ck}) {
+            return cached.value;
+        }
+
+        int trunc0 = _mcp_tdtrunc ?? 0;
+        *hash<auto> rv = getTypeDescriptionImpl(name, t, prov, tmap);
+        # a description truncated by a cycle depends on the path taken to reach the type, so it cannot be memoized
+        if ((_mcp_tdtrunc ?? 0) == trunc0) {
+            _mcp_tdmap{ck} = {"set": True, "value": rv};
+        }
+        return rv;
+    }
+
+    #! Returns the JSON-schema description of the given type; cycle detection and memoization are done by the caller
+    private *hash<auto> getTypeDescriptionImpl(string name, AbstractDataProviderType t,
+            *AbstractDataProvider prov, *hash<string, bool> tmap) {
         if (*hash<string, AbstractDataField> fields = t.getFields()) {
             string uh = t.uniqueHash();
             if (tmap{uh}) {
+                # count the truncation so that every type on the cycle's path is excluded from the cache as well
+                _mcp_tdtrunc = (_mcp_tdtrunc ?? 0) + 1;
                 return {
                     "type": "object",
                 };
@@ -2663,6 +2692,15 @@ hashdecl McpSessionInfo {
 }
 
 thread_local *hash<McpToolCallContext> _mcp_call_context;
+
+#! Memoizes type descriptions for the duration of a single tool input-schema traversal
+/** Keyed by type object identity and name; without this, a type object shared by multiple parents in a type DAG has
+    its description rebuilt once per path, which is exponential in the depth of the graph
+*/
+thread_local hash<string, hash<auto!>> _mcp_tdmap;
+
+#! Counts cycle truncations during a type-description traversal, so that path-dependent results are not memoized
+thread_local int _mcp_tdtrunc;
 class McpCallContextHelper {
     private {
         *hash<McpToolCallContext> old;
