@@ -456,7 +456,8 @@ static int get_json_string_token(QoreString& str, const char*& buf, int& line_nu
             } else if (*buf == 'u') { // expect a unicode character specification (possibly a surrogate pair)
                 ++buf;
                 // check for 4 hex digits
-                if (isxdigit(*buf) && isxdigit(*(buf + 1)) && isxdigit(*(buf + 2)) && isxdigit(*(buf + 3))) {
+                if (isxdigit((unsigned char)*buf) && isxdigit((unsigned char)*(buf + 1))
+                    && isxdigit((unsigned char)*(buf + 2)) && isxdigit((unsigned char)*(buf + 3))) {
                     char unicode[5];
                     strncpy(unicode, buf, 4);
                     unicode[4] = '\0';
@@ -470,8 +471,8 @@ static int get_json_string_token(QoreString& str, const char*& buf, int& line_nu
                         // characters, so at most the NUL terminator is read, never past it (same idiom
                         // as the 4-hex-digit check above for the first \u unit)
                         if (*(buf + 1) == '\\' && *(buf + 2) == 'u'
-                            && isxdigit(*(buf + 3)) && isxdigit(*(buf + 4))
-                            && isxdigit(*(buf + 5)) && isxdigit(*(buf + 6))) {
+                            && isxdigit((unsigned char)*(buf + 3)) && isxdigit((unsigned char)*(buf + 4))
+                            && isxdigit((unsigned char)*(buf + 5)) && isxdigit((unsigned char)*(buf + 6))) {
                             char low_unicode[5];
                             strncpy(low_unicode, buf + 3, 4);
                             low_unicode[4] = '\0';
@@ -702,7 +703,7 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
     }
 
     // FIXME: implement parsing of JSON exponents
-    if (isdigit(*buf) || (*buf) == '.' || (*buf) == '-') {
+    if (isdigit((unsigned char)*buf) || (*buf) == '.' || (*buf) == '-') {
         // temporarily use a QoreString
         QoreString str;
         bool has_dot;
@@ -750,7 +751,7 @@ static QoreValue get_json_value(const char*& buf, int& line_number, const QoreEn
                     ++buf;
                 }
                 continue;
-            } else if (!isdigit(*buf)) {
+            } else if (!isdigit((unsigned char)*buf)) {
                 xsink->raiseException("JSON-PARSE-ERROR", "unexpected character '%c' in number", *buf);
                 return QoreValue();
             }
