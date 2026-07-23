@@ -453,7 +453,7 @@ static int get_json_string_token(QoreString& str, const char*& buf, int& line_nu
                 str.concat('\t');
             } else if (*buf == 'v') {
                 str.concat('\v');
-            } else if (*buf == 'u') { // expect a unicode character specification
+            } else if (*buf == 'u') { // expect a unicode character specification (possibly a surrogate pair)
                 ++buf;
                 // check for 4 hex digits
                 if (isxdigit(*buf) && isxdigit(*(buf + 1)) && isxdigit(*(buf + 2)) && isxdigit(*(buf + 3))) {
@@ -461,10 +461,38 @@ static int get_json_string_token(QoreString& str, const char*& buf, int& line_nu
                     strncpy(unicode, buf, 4);
                     unicode[4] = '\0';
                     unsigned code = strtoul(unicode, 0, 16);
+                    buf += 3;
+                    // combine a UTF-16 surrogate pair: astral-plane characters (> U+FFFF) are encoded in
+                    // JSON as a high surrogate \uD800-DBFF followed by a low surrogate \uDC00-DFFF
+                    if (code >= 0xD800 && code <= 0xDBFF) {
+                        if (*(buf + 1) == '\\' && *(buf + 2) == 'u'
+                            && isxdigit(*(buf + 3)) && isxdigit(*(buf + 4))
+                            && isxdigit(*(buf + 5)) && isxdigit(*(buf + 6))) {
+                            char low_unicode[5];
+                            strncpy(low_unicode, buf + 3, 4);
+                            low_unicode[4] = '\0';
+                            unsigned low = strtoul(low_unicode, 0, 16);
+                            if (low < 0xDC00 || low > 0xDFFF) {
+                                xsink->raiseException("JSON-PARSE-ERROR", "invalid JSON string: high surrogate "
+                                    "\\u%04X followed by \\u%04X, which is not a low surrogate, at line %d",
+                                    code, low, line_number);
+                                return -1;
+                            }
+                            code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+                            buf += 6;
+                        } else {
+                            xsink->raiseException("JSON-PARSE-ERROR", "invalid JSON string: unpaired high "
+                                "surrogate \\u%04X at line %d", code, line_number);
+                            return -1;
+                        }
+                    } else if (code >= 0xDC00 && code <= 0xDFFF) {
+                        xsink->raiseException("JSON-PARSE-ERROR", "invalid JSON string: unpaired low surrogate "
+                            "\\u%04X at line %d", code, line_number);
+                        return -1;
+                    }
                     if (str.concatUnicode(code, xsink)) {
                         break;
                     }
-                    buf += 3;
                 } else {
                     str.concat("\\u");
                 }

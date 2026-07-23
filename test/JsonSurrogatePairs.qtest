@@ -1,0 +1,79 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+# Copyright 2026 Qore Technologies, s.r.o.
+
+%modern
+
+%requires qore >= 2.0
+%requires json
+%requires QUnit
+
+%exec-class JsonSurrogatePairsTest
+
+# Regression coverage for JSON \u surrogate-pair decoding.
+#
+# Astral-plane characters (code points > U+FFFF) are encoded in JSON as a UTF-16
+# surrogate pair: a high surrogate (\uD800-\uDBFF) immediately followed by a low
+# surrogate (\uDC00-\uDFFF). parse_json() (and the streaming SAX parser) must combine
+# the pair into the single scalar code point rather than emitting two lone surrogates
+# as invalid UTF-8. Before the fix, e.g. "🧪" (U+1F9EA) decoded to 6 bytes
+# of lone-surrogate garbage instead of the correct 4-byte UTF-8 sequence.
+class JsonSurrogatePairsTest inherits QUnit::Test {
+    private {
+        # U+1F9EA TEST TUBE 🧪 as a surrogate-pair escape (what json.dumps / JSON.stringify emit)
+        const EmojiSurrogate = "{\"m\": \"a \\ud83e\\uddea b\"}";
+        # the same message with the literal UTF-8 character
+        const EmojiLiteral   = "{\"m\": \"a 🧪 b\"}";
+    }
+
+    constructor() : Test("JsonSurrogatePairsTest", "1.0", \ARGV) {
+        addTestCase("surrogate pair decodes to one code point", \testSurrogatePair());
+        addTestCase("surrogate form equals literal UTF-8", \testEqualsLiteral());
+        addTestCase("unpaired high surrogate is rejected", \testUnpairedHigh());
+        addTestCase("unpaired low surrogate is rejected", \testUnpairedLow());
+        addTestCase("high surrogate + non-low escape is rejected", \testHighThenNonLow());
+        addTestCase("BMP and ASCII escapes unaffected", \testBmpUnaffected());
+        set_return_value(main());
+    }
+
+    private string errOf(code c) {
+        try {
+            c();
+        } catch (hash<ExceptionInfo> ex) {
+            return ex.err;
+        }
+        return "<no-exception>";
+    }
+
+    testSurrogatePair() {
+        hash<auto> h = parse_json(EmojiSurrogate);
+        # "a " (2) + U+1F9EA (4 bytes UTF-8) + " b" (2) = 8 bytes, 5 characters
+        assertEq(8, h.m.size());
+        assertEq(5, h.m.length());
+        assertEq(parse_json(EmojiLiteral).m, h.m);
+    }
+
+    testEqualsLiteral() {
+        assertEq(parse_json(EmojiLiteral), parse_json(EmojiSurrogate));
+    }
+
+    testUnpairedHigh() {
+        assertEq("JSON-PARSE-ERROR", errOf(sub () { parse_json("{\"m\": \"\\ud83e\"}"); }));
+        assertEq("JSON-PARSE-ERROR", errOf(sub () { parse_json("{\"m\": \"\\ud83e X\"}"); }));
+    }
+
+    testUnpairedLow() {
+        assertEq("JSON-PARSE-ERROR", errOf(sub () { parse_json("{\"m\": \"\\uddea\"}"); }));
+    }
+
+    testHighThenNonLow() {
+        # a high surrogate followed by a valid-but-non-low-surrogate \u escape (U+0041 'A')
+        assertEq("JSON-PARSE-ERROR", errOf(sub () { parse_json("{\"m\": \"\\ud83e\\u0041\"}"); }));
+    }
+
+    testBmpUnaffected() {
+        # BMP escapes (<= U+FFFF): em-dash U+2014, e-acute U+00E9, copyright U+00A9
+        assertEq("a — é ©", parse_json("{\"m\": \"a \\u2014 \\u00e9 \\u00a9\"}").m);
+        assertEq("plain ascii", parse_json("{\"m\": \"plain ascii\"}").m);
+    }
+}
