@@ -465,6 +465,10 @@ static int get_json_string_token(QoreString& str, const char*& buf, int& line_nu
                     // combine a UTF-16 surrogate pair: astral-plane characters (> U+FFFF) are encoded in
                     // JSON as a high surrogate \uD800-DBFF followed by a low surrogate \uDC00-DFFF
                     if (code >= 0xD800 && code <= 0xDBFF) {
+                        // the fixed-offset reads below are bounded by && short-circuit evaluation:
+                        // *(buf + N) is only dereferenced when buf+1..buf+(N-1) all matched non-NUL
+                        // characters, so at most the NUL terminator is read, never past it (same idiom
+                        // as the 4-hex-digit check above for the first \u unit)
                         if (*(buf + 1) == '\\' && *(buf + 2) == 'u'
                             && isxdigit(*(buf + 3)) && isxdigit(*(buf + 4))
                             && isxdigit(*(buf + 5)) && isxdigit(*(buf + 6))) {
