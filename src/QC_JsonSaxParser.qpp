@@ -301,22 +301,60 @@ QoreStringNode* JsonSaxParser::parseString(ParseState& state) {
                     str->concat('\t');
                     break;
                 case 'u': {
-                    char unicode[5];
-                    for (int i = 0; i < 4; ++i) {
-                        int hx = get(state);
+                    // read a single \uXXXX unit (4 hex digits); on error sets xsink and returns (unsigned)-1
+                    auto read_hex4 = [&]() -> unsigned {
+                        char unicode[5];
+                        for (int i = 0; i < 4; ++i) {
+                            int hx = get(state);
+                            if (*state.xsink) {
+                                return (unsigned)-1;
+                            }
+                            if (hx == -1 || !isxdigit((unsigned char)hx)) {
+                                state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                                    "invalid unicode escape at line %d, column %d",
+                                    state.line_number, state.column);
+                                return (unsigned)-1;
+                            }
+                            unicode[i] = (char)hx;
+                        }
+                        unicode[4] = '\0';
+                        return (unsigned)strtoul(unicode, 0, 16);
+                    };
+                    unsigned code = read_hex4();
+                    if (*state.xsink) {
+                        return nullptr;
+                    }
+                    // combine a UTF-16 surrogate pair: astral-plane characters (> U+FFFF) are encoded as a
+                    // high surrogate \uD800-DBFF followed by a low surrogate \uDC00-DFFF
+                    if (code >= 0xD800 && code <= 0xDBFF) {
+                        int c1 = get(state);
+                        int c2 = (*state.xsink) ? 0 : get(state);
                         if (*state.xsink) {
                             return nullptr;
                         }
-                        if (hx == -1 || !isxdigit((unsigned char)hx)) {
+                        if (c1 != '\\' || c2 != 'u') {
                             state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
-                                "invalid unicode escape at line %d, column %d",
-                                state.line_number, state.column);
+                                "invalid JSON string: unpaired high surrogate \\u%04X at line %d, column %d",
+                                code, state.line_number, state.column);
                             return nullptr;
                         }
-                        unicode[i] = (char)hx;
+                        unsigned low = read_hex4();
+                        if (*state.xsink) {
+                            return nullptr;
+                        }
+                        if (low < 0xDC00 || low > 0xDFFF) {
+                            state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                                "invalid JSON string: high surrogate \\u%04X followed by \\u%04X, which is not "
+                                "a low surrogate, at line %d, column %d", code, low, state.line_number, state.column);
+                            return nullptr;
+                        }
+                        code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+                    } else if (code >= 0xDC00 && code <= 0xDFFF) {
+                        state.xsink->raiseException("JSON-SAX-PARSE-ERROR",
+                            "invalid JSON string: unpaired low surrogate \\u%04X at line %d, column %d",
+                            code, state.line_number, state.column);
+                        return nullptr;
                     }
-                    unicode[4] = '\0';
-                    unsigned code = strtoul(unicode, 0, 16);
                     if (str->concatUnicode(code, state.xsink)) {
                         return nullptr;
                     }
