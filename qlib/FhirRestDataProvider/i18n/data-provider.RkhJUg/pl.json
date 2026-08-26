@@ -908,8 +908,8 @@
           "message": "Liczba"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.Y291bnQ.short_desc": {
-          "source": "FHIR `_count` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_count`"
+          "source": "FHIR _count search parameter",
+          "message": "Parametr wyszukiwania FHIR _count"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.Y29udGVudA.desc": {
           "source": "Convenience field mapped to the FHIR `_content` full-content search parameter",
@@ -920,8 +920,8 @@
           "message": "Zawartość"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.Y29udGVudA.short_desc": {
-          "source": "FHIR `_content` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_content`"
+          "source": "FHIR _content search parameter",
+          "message": "Parametr wyszukiwania FHIR _content"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_include` search parameter; use a list for repeated include values",
@@ -932,8 +932,8 @@
           "message": "Include"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_include` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_include`"
+          "source": "FHIR _include search parameter",
+          "message": "Parametr wyszukiwania FHIR _include"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.aWQ.desc": {
           "source": "Convenience field mapped to the FHIR `_id` search parameter",
@@ -944,8 +944,8 @@
           "message": "Wyszukiwanie według ID"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.aWQ.short_desc": {
-          "source": "FHIR `_id` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_id`"
+          "source": "FHIR _id search parameter",
+          "message": "Parametr wyszukiwania FHIR _id"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.bGFzdF91cGRhdGVk.desc": {
           "source": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
@@ -956,8 +956,8 @@
           "message": "Ostatnia aktualizacja"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.bGFzdF91cGRhdGVk.short_desc": {
-          "source": "FHIR `_lastUpdated` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_lastUpdated`"
+          "source": "FHIR _lastUpdated search parameter",
+          "message": "Parametr wyszukiwania FHIR _lastUpdated"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.c29ydA.desc": {
           "source": "Convenience field mapped to the FHIR `_sort` search parameter",
@@ -968,8 +968,8 @@
           "message": "Sortowanie"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.c29ydA.short_desc": {
-          "source": "FHIR `_sort` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_sort`"
+          "source": "FHIR _sort search parameter",
+          "message": "Parametr wyszukiwania FHIR _sort"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.c2VjdXJpdHk.desc": {
           "source": "Convenience field mapped to the FHIR `_security` search parameter",
@@ -980,8 +980,8 @@
           "message": "Bezpieczeństwo"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.c2VjdXJpdHk.short_desc": {
-          "source": "FHIR `_security` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_security`"
+          "source": "FHIR _security search parameter",
+          "message": "Parametr wyszukiwania FHIR _security"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.cGFyYW1z.desc": {
           "source": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, `_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n**Example**: `{\"family\": \"Smith\"}`",
@@ -1004,8 +1004,8 @@
           "message": "Profil"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.cHJvZmlsZQ.short_desc": {
-          "source": "FHIR `_profile` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_profile`"
+          "source": "FHIR _profile search parameter",
+          "message": "Parametr wyszukiwania FHIR _profile"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.cmV2aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for repeated reverse include values",
@@ -1016,8 +1016,8 @@
           "message": "RevInclude"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.cmV2aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_revinclude` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_revinclude`"
+          "source": "FHIR _revinclude search parameter",
+          "message": "Parametr wyszukiwania FHIR _revinclude"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.dGFn.desc": {
           "source": "Convenience field mapped to the FHIR `_tag` search parameter",
@@ -1028,8 +1028,8 @@
           "message": "Tag"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.dGFn.short_desc": {
-          "source": "FHIR `_tag` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_tag`"
+          "source": "FHIR _tag search parameter",
+          "message": "Parametr wyszukiwania FHIR _tag"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.dGV4dA.desc": {
           "source": "Convenience field mapped to the FHIR `_text` full-text search parameter",
@@ -1040,8 +1040,8 @@
           "message": "Tekst"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.option.dGV4dA.short_desc": {
-          "source": "FHIR `_text` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_text`"
+          "source": "FHIR _text search parameter",
+          "message": "Parametr wyszukiwania FHIR _text"
         },
         "app.RkhJUg.action.c2VhcmNoLW9ic2VydmF0aW9u.short_desc": {
           "source": "Search FHIR Observation resources",
@@ -1064,8 +1064,8 @@
           "message": "Liczba"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.Y291bnQ.short_desc": {
-          "source": "FHIR `_count` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_count`"
+          "source": "FHIR _count search parameter",
+          "message": "Parametr wyszukiwania FHIR _count"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.Y29udGVudA.desc": {
           "source": "Convenience field mapped to the FHIR `_content` full-content search parameter",
@@ -1076,8 +1076,8 @@
           "message": "Zawartość"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.Y29udGVudA.short_desc": {
-          "source": "FHIR `_content` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_content`"
+          "source": "FHIR _content search parameter",
+          "message": "Parametr wyszukiwania FHIR _content"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_include` search parameter; use a list for repeated include values",
@@ -1088,8 +1088,8 @@
           "message": "Include"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_include` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_include`"
+          "source": "FHIR _include search parameter",
+          "message": "Parametr wyszukiwania FHIR _include"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.aWQ.desc": {
           "source": "Convenience field mapped to the FHIR `_id` search parameter",
@@ -1100,8 +1100,8 @@
           "message": "Wyszukiwanie według ID"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.aWQ.short_desc": {
-          "source": "FHIR `_id` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_id`"
+          "source": "FHIR _id search parameter",
+          "message": "Parametr wyszukiwania FHIR _id"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.bGFzdF91cGRhdGVk.desc": {
           "source": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
@@ -1112,8 +1112,8 @@
           "message": "Ostatnia aktualizacja"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.bGFzdF91cGRhdGVk.short_desc": {
-          "source": "FHIR `_lastUpdated` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_lastUpdated`"
+          "source": "FHIR _lastUpdated search parameter",
+          "message": "Parametr wyszukiwania FHIR _lastUpdated"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.bWF4X3BhZ2Vz.desc": {
           "source": "Maximum number of Bundle pages to fetch by following `next` pagination links",
@@ -1136,8 +1136,8 @@
           "message": "Sortowanie"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.c29ydA.short_desc": {
-          "source": "FHIR `_sort` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_sort`"
+          "source": "FHIR _sort search parameter",
+          "message": "Parametr wyszukiwania FHIR _sort"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.c2VjdXJpdHk.desc": {
           "source": "Convenience field mapped to the FHIR `_security` search parameter",
@@ -1148,8 +1148,8 @@
           "message": "Bezpieczeństwo"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.c2VjdXJpdHk.short_desc": {
-          "source": "FHIR `_security` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_security`"
+          "source": "FHIR _security search parameter",
+          "message": "Parametr wyszukiwania FHIR _security"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.cGFyYW1z.desc": {
           "source": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, `_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n**Example**: `{\"family\": \"Smith\"}`",
@@ -1172,8 +1172,8 @@
           "message": "Profil"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.cHJvZmlsZQ.short_desc": {
-          "source": "FHIR `_profile` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_profile`"
+          "source": "FHIR _profile search parameter",
+          "message": "Parametr wyszukiwania FHIR _profile"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.cmV2aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for repeated reverse include values",
@@ -1184,8 +1184,8 @@
           "message": "RevInclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.cmV2aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_revinclude` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_revinclude`"
+          "source": "FHIR _revinclude search parameter",
+          "message": "Parametr wyszukiwania FHIR _revinclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.dGFn.desc": {
           "source": "Convenience field mapped to the FHIR `_tag` search parameter",
@@ -1196,8 +1196,8 @@
           "message": "Tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.dGFn.short_desc": {
-          "source": "FHIR `_tag` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_tag`"
+          "source": "FHIR _tag search parameter",
+          "message": "Parametr wyszukiwania FHIR _tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.dGV4dA.desc": {
           "source": "Convenience field mapped to the FHIR `_text` full-text search parameter",
@@ -1208,8 +1208,8 @@
           "message": "Tekst"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.option.dGV4dA.short_desc": {
-          "source": "FHIR `_text` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_text`"
+          "source": "FHIR _text search parameter",
+          "message": "Parametr wyszukiwania FHIR _text"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1idW5kbGU.short_desc": {
           "source": "Search all FHIR Bundle resource pages",
@@ -1232,8 +1232,8 @@
           "message": "Liczba"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.Y291bnQ.short_desc": {
-          "source": "FHIR `_count` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_count`"
+          "source": "FHIR _count search parameter",
+          "message": "Parametr wyszukiwania FHIR _count"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.Y29udGVudA.desc": {
           "source": "Convenience field mapped to the FHIR `_content` full-content search parameter",
@@ -1244,8 +1244,8 @@
           "message": "Zawartość"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.Y29udGVudA.short_desc": {
-          "source": "FHIR `_content` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_content`"
+          "source": "FHIR _content search parameter",
+          "message": "Parametr wyszukiwania FHIR _content"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_include` search parameter; use a list for repeated include values",
@@ -1256,8 +1256,8 @@
           "message": "Include"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_include` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_include`"
+          "source": "FHIR _include search parameter",
+          "message": "Parametr wyszukiwania FHIR _include"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.aWQ.desc": {
           "source": "Convenience field mapped to the FHIR `_id` search parameter",
@@ -1268,8 +1268,8 @@
           "message": "Wyszukiwanie według ID"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.aWQ.short_desc": {
-          "source": "FHIR `_id` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_id`"
+          "source": "FHIR _id search parameter",
+          "message": "Parametr wyszukiwania FHIR _id"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.bGFzdF91cGRhdGVk.desc": {
           "source": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
@@ -1280,8 +1280,8 @@
           "message": "Ostatnia aktualizacja"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.bGFzdF91cGRhdGVk.short_desc": {
-          "source": "FHIR `_lastUpdated` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_lastUpdated`"
+          "source": "FHIR _lastUpdated search parameter",
+          "message": "Parametr wyszukiwania FHIR _lastUpdated"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.bWF4X3BhZ2Vz.desc": {
           "source": "Maximum number of Bundle pages to fetch by following `next` pagination links",
@@ -1304,8 +1304,8 @@
           "message": "Sortowanie"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.c29ydA.short_desc": {
-          "source": "FHIR `_sort` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_sort`"
+          "source": "FHIR _sort search parameter",
+          "message": "Parametr wyszukiwania FHIR _sort"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.c2VjdXJpdHk.desc": {
           "source": "Convenience field mapped to the FHIR `_security` search parameter",
@@ -1316,8 +1316,8 @@
           "message": "Bezpieczeństwo"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.c2VjdXJpdHk.short_desc": {
-          "source": "FHIR `_security` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_security`"
+          "source": "FHIR _security search parameter",
+          "message": "Parametr wyszukiwania FHIR _security"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.cGFyYW1z.desc": {
           "source": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, `_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n**Example**: `{\"family\": \"Smith\"}`",
@@ -1340,8 +1340,8 @@
           "message": "Profil"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.cHJvZmlsZQ.short_desc": {
-          "source": "FHIR `_profile` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_profile`"
+          "source": "FHIR _profile search parameter",
+          "message": "Parametr wyszukiwania FHIR _profile"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.cmV2aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for repeated reverse include values",
@@ -1352,8 +1352,8 @@
           "message": "RevInclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.cmV2aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_revinclude` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_revinclude`"
+          "source": "FHIR _revinclude search parameter",
+          "message": "Parametr wyszukiwania FHIR _revinclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.dGFn.desc": {
           "source": "Convenience field mapped to the FHIR `_tag` search parameter",
@@ -1364,8 +1364,8 @@
           "message": "Tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.dGFn.short_desc": {
-          "source": "FHIR `_tag` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_tag`"
+          "source": "FHIR _tag search parameter",
+          "message": "Parametr wyszukiwania FHIR _tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.dGV4dA.desc": {
           "source": "Convenience field mapped to the FHIR `_text` full-text search parameter",
@@ -1376,8 +1376,8 @@
           "message": "Tekst"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.option.dGV4dA.short_desc": {
-          "source": "FHIR `_text` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_text`"
+          "source": "FHIR _text search parameter",
+          "message": "Parametr wyszukiwania FHIR _text"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1vYnNlcnZhdGlvbg.short_desc": {
           "source": "Search all FHIR Observation resource pages",
@@ -1400,8 +1400,8 @@
           "message": "Liczba"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.Y291bnQ.short_desc": {
-          "source": "FHIR `_count` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_count`"
+          "source": "FHIR _count search parameter",
+          "message": "Parametr wyszukiwania FHIR _count"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.Y29udGVudA.desc": {
           "source": "Convenience field mapped to the FHIR `_content` full-content search parameter",
@@ -1412,8 +1412,8 @@
           "message": "Zawartość"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.Y29udGVudA.short_desc": {
-          "source": "FHIR `_content` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_content`"
+          "source": "FHIR _content search parameter",
+          "message": "Parametr wyszukiwania FHIR _content"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_include` search parameter; use a list for repeated include values",
@@ -1424,8 +1424,8 @@
           "message": "Include"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_include` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_include`"
+          "source": "FHIR _include search parameter",
+          "message": "Parametr wyszukiwania FHIR _include"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.aWQ.desc": {
           "source": "Convenience field mapped to the FHIR `_id` search parameter",
@@ -1436,8 +1436,8 @@
           "message": "Wyszukiwanie według ID"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.aWQ.short_desc": {
-          "source": "FHIR `_id` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_id`"
+          "source": "FHIR _id search parameter",
+          "message": "Parametr wyszukiwania FHIR _id"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.bGFzdF91cGRhdGVk.desc": {
           "source": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
@@ -1448,8 +1448,8 @@
           "message": "Ostatnia aktualizacja"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.bGFzdF91cGRhdGVk.short_desc": {
-          "source": "FHIR `_lastUpdated` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_lastUpdated`"
+          "source": "FHIR _lastUpdated search parameter",
+          "message": "Parametr wyszukiwania FHIR _lastUpdated"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.bWF4X3BhZ2Vz.desc": {
           "source": "Maximum number of Bundle pages to fetch by following `next` pagination links",
@@ -1472,8 +1472,8 @@
           "message": "Sortowanie"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.c29ydA.short_desc": {
-          "source": "FHIR `_sort` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_sort`"
+          "source": "FHIR _sort search parameter",
+          "message": "Parametr wyszukiwania FHIR _sort"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.c2VjdXJpdHk.desc": {
           "source": "Convenience field mapped to the FHIR `_security` search parameter",
@@ -1484,8 +1484,8 @@
           "message": "Bezpieczeństwo"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.c2VjdXJpdHk.short_desc": {
-          "source": "FHIR `_security` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_security`"
+          "source": "FHIR _security search parameter",
+          "message": "Parametr wyszukiwania FHIR _security"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.cGFyYW1z.desc": {
           "source": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, `_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n**Example**: `{\"family\": \"Smith\"}`",
@@ -1508,8 +1508,8 @@
           "message": "Profil"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.cHJvZmlsZQ.short_desc": {
-          "source": "FHIR `_profile` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_profile`"
+          "source": "FHIR _profile search parameter",
+          "message": "Parametr wyszukiwania FHIR _profile"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.cmV2aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for repeated reverse include values",
@@ -1520,8 +1520,8 @@
           "message": "RevInclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.cmV2aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_revinclude` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_revinclude`"
+          "source": "FHIR _revinclude search parameter",
+          "message": "Parametr wyszukiwania FHIR _revinclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.dGFn.desc": {
           "source": "Convenience field mapped to the FHIR `_tag` search parameter",
@@ -1532,8 +1532,8 @@
           "message": "Tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.dGFn.short_desc": {
-          "source": "FHIR `_tag` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_tag`"
+          "source": "FHIR _tag search parameter",
+          "message": "Parametr wyszukiwania FHIR _tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.dGV4dA.desc": {
           "source": "Convenience field mapped to the FHIR `_text` full-text search parameter",
@@ -1544,8 +1544,8 @@
           "message": "Tekst"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.option.dGV4dA.short_desc": {
-          "source": "FHIR `_text` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_text`"
+          "source": "FHIR _text search parameter",
+          "message": "Parametr wyszukiwania FHIR _text"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1wYXRpZW50.short_desc": {
           "source": "Search all FHIR Patient resource pages",
@@ -1568,8 +1568,8 @@
           "message": "Liczba"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.Y291bnQ.short_desc": {
-          "source": "FHIR `_count` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_count`"
+          "source": "FHIR _count search parameter",
+          "message": "Parametr wyszukiwania FHIR _count"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.Y29udGVudA.desc": {
           "source": "Convenience field mapped to the FHIR `_content` full-content search parameter",
@@ -1580,8 +1580,8 @@
           "message": "Zawartość"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.Y29udGVudA.short_desc": {
-          "source": "FHIR `_content` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_content`"
+          "source": "FHIR _content search parameter",
+          "message": "Parametr wyszukiwania FHIR _content"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_include` search parameter; use a list for repeated include values",
@@ -1592,8 +1592,8 @@
           "message": "Include"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_include` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_include`"
+          "source": "FHIR _include search parameter",
+          "message": "Parametr wyszukiwania FHIR _include"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.aWQ.desc": {
           "source": "Convenience field mapped to the FHIR `_id` search parameter",
@@ -1604,8 +1604,8 @@
           "message": "Wyszukiwanie według ID"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.aWQ.short_desc": {
-          "source": "FHIR `_id` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_id`"
+          "source": "FHIR _id search parameter",
+          "message": "Parametr wyszukiwania FHIR _id"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.bGFzdF91cGRhdGVk.desc": {
           "source": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
@@ -1616,8 +1616,8 @@
           "message": "Ostatnia aktualizacja"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.bGFzdF91cGRhdGVk.short_desc": {
-          "source": "FHIR `_lastUpdated` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_lastUpdated`"
+          "source": "FHIR _lastUpdated search parameter",
+          "message": "Parametr wyszukiwania FHIR _lastUpdated"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.bWF4X3BhZ2Vz.desc": {
           "source": "Maximum number of Bundle pages to fetch by following `next` pagination links",
@@ -1640,8 +1640,8 @@
           "message": "Sortowanie"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.c29ydA.short_desc": {
-          "source": "FHIR `_sort` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_sort`"
+          "source": "FHIR _sort search parameter",
+          "message": "Parametr wyszukiwania FHIR _sort"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.c2VjdXJpdHk.desc": {
           "source": "Convenience field mapped to the FHIR `_security` search parameter",
@@ -1652,8 +1652,8 @@
           "message": "Bezpieczeństwo"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.c2VjdXJpdHk.short_desc": {
-          "source": "FHIR `_security` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_security`"
+          "source": "FHIR _security search parameter",
+          "message": "Parametr wyszukiwania FHIR _security"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.cGFyYW1z.desc": {
           "source": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, `_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n**Example**: `{\"family\": \"Smith\"}`",
@@ -1676,8 +1676,8 @@
           "message": "Profil"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.cHJvZmlsZQ.short_desc": {
-          "source": "FHIR `_profile` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_profile`"
+          "source": "FHIR _profile search parameter",
+          "message": "Parametr wyszukiwania FHIR _profile"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.cmV2aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for repeated reverse include values",
@@ -1688,8 +1688,8 @@
           "message": "RevInclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.cmV2aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_revinclude` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_revinclude`"
+          "source": "FHIR _revinclude search parameter",
+          "message": "Parametr wyszukiwania FHIR _revinclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.cmVzb3VyY2VfdHlwZQ.desc": {
           "source": "FHIR resource type to search",
@@ -1712,8 +1712,8 @@
           "message": "Tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.dGFn.short_desc": {
-          "source": "FHIR `_tag` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_tag`"
+          "source": "FHIR _tag search parameter",
+          "message": "Parametr wyszukiwania FHIR _tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.dGV4dA.desc": {
           "source": "Convenience field mapped to the FHIR `_text` full-text search parameter",
@@ -1724,8 +1724,8 @@
           "message": "Tekst"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.option.dGV4dA.short_desc": {
-          "source": "FHIR `_text` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_text`"
+          "source": "FHIR _text search parameter",
+          "message": "Parametr wyszukiwania FHIR _text"
         },
         "app.RkhJUg.action.c2VhcmNoLWFsbC1yZXNvdXJjZXM.short_desc": {
           "source": "Search FHIR resources and follow pagination",
@@ -1748,8 +1748,8 @@
           "message": "Liczba"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.Y291bnQ.short_desc": {
-          "source": "FHIR `_count` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_count`"
+          "source": "FHIR _count search parameter",
+          "message": "Parametr wyszukiwania FHIR _count"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.Y29udGVudA.desc": {
           "source": "Convenience field mapped to the FHIR `_content` full-content search parameter",
@@ -1760,8 +1760,8 @@
           "message": "Zawartość"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.Y29udGVudA.short_desc": {
-          "source": "FHIR `_content` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_content`"
+          "source": "FHIR _content search parameter",
+          "message": "Parametr wyszukiwania FHIR _content"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_include` search parameter; use a list for repeated include values",
@@ -1772,8 +1772,8 @@
           "message": "Include"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_include` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_include`"
+          "source": "FHIR _include search parameter",
+          "message": "Parametr wyszukiwania FHIR _include"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.aWQ.desc": {
           "source": "Convenience field mapped to the FHIR `_id` search parameter",
@@ -1784,8 +1784,8 @@
           "message": "Wyszukiwanie według ID"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.aWQ.short_desc": {
-          "source": "FHIR `_id` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_id`"
+          "source": "FHIR _id search parameter",
+          "message": "Parametr wyszukiwania FHIR _id"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.bGFzdF91cGRhdGVk.desc": {
           "source": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
@@ -1796,8 +1796,8 @@
           "message": "Ostatnia aktualizacja"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.bGFzdF91cGRhdGVk.short_desc": {
-          "source": "FHIR `_lastUpdated` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_lastUpdated`"
+          "source": "FHIR _lastUpdated search parameter",
+          "message": "Parametr wyszukiwania FHIR _lastUpdated"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.c29ydA.desc": {
           "source": "Convenience field mapped to the FHIR `_sort` search parameter",
@@ -1808,8 +1808,8 @@
           "message": "Sortowanie"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.c29ydA.short_desc": {
-          "source": "FHIR `_sort` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_sort`"
+          "source": "FHIR _sort search parameter",
+          "message": "Parametr wyszukiwania FHIR _sort"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.c2VjdXJpdHk.desc": {
           "source": "Convenience field mapped to the FHIR `_security` search parameter",
@@ -1820,8 +1820,8 @@
           "message": "Bezpieczeństwo"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.c2VjdXJpdHk.short_desc": {
-          "source": "FHIR `_security` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_security`"
+          "source": "FHIR _security search parameter",
+          "message": "Parametr wyszukiwania FHIR _security"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.cGFyYW1z.desc": {
           "source": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, `_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n**Example**: `{\"family\": \"Smith\"}`",
@@ -1844,8 +1844,8 @@
           "message": "Profil"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.cHJvZmlsZQ.short_desc": {
-          "source": "FHIR `_profile` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_profile`"
+          "source": "FHIR _profile search parameter",
+          "message": "Parametr wyszukiwania FHIR _profile"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.cmV2aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for repeated reverse include values",
@@ -1856,8 +1856,8 @@
           "message": "RevInclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.cmV2aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_revinclude` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_revinclude`"
+          "source": "FHIR _revinclude search parameter",
+          "message": "Parametr wyszukiwania FHIR _revinclude"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.dGFn.desc": {
           "source": "Convenience field mapped to the FHIR `_tag` search parameter",
@@ -1868,8 +1868,8 @@
           "message": "Tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.dGFn.short_desc": {
-          "source": "FHIR `_tag` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_tag`"
+          "source": "FHIR _tag search parameter",
+          "message": "Parametr wyszukiwania FHIR _tag"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.dGV4dA.desc": {
           "source": "Convenience field mapped to the FHIR `_text` full-text search parameter",
@@ -1880,8 +1880,8 @@
           "message": "Tekst"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.option.dGV4dA.short_desc": {
-          "source": "FHIR `_text` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_text`"
+          "source": "FHIR _text search parameter",
+          "message": "Parametr wyszukiwania FHIR _text"
         },
         "app.RkhJUg.action.c2VhcmNoLWJ1bmRsZQ.short_desc": {
           "source": "Search FHIR Bundle resources",
@@ -1904,8 +1904,8 @@
           "message": "Liczba"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.Y291bnQ.short_desc": {
-          "source": "FHIR `_count` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_count`"
+          "source": "FHIR _count search parameter",
+          "message": "Parametr wyszukiwania FHIR _count"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.Y29udGVudA.desc": {
           "source": "Convenience field mapped to the FHIR `_content` full-content search parameter",
@@ -1916,8 +1916,8 @@
           "message": "Zawartość"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.Y29udGVudA.short_desc": {
-          "source": "FHIR `_content` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_content`"
+          "source": "FHIR _content search parameter",
+          "message": "Parametr wyszukiwania FHIR _content"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_include` search parameter; use a list for repeated include values",
@@ -1928,8 +1928,8 @@
           "message": "Include"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_include` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_include`"
+          "source": "FHIR _include search parameter",
+          "message": "Parametr wyszukiwania FHIR _include"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.aWQ.desc": {
           "source": "Convenience field mapped to the FHIR `_id` search parameter",
@@ -1940,8 +1940,8 @@
           "message": "Wyszukiwanie według ID"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.aWQ.short_desc": {
-          "source": "FHIR `_id` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_id`"
+          "source": "FHIR _id search parameter",
+          "message": "Parametr wyszukiwania FHIR _id"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.bGFzdF91cGRhdGVk.desc": {
           "source": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
@@ -1952,8 +1952,8 @@
           "message": "Ostatnia aktualizacja"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.bGFzdF91cGRhdGVk.short_desc": {
-          "source": "FHIR `_lastUpdated` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_lastUpdated`"
+          "source": "FHIR _lastUpdated search parameter",
+          "message": "Parametr wyszukiwania FHIR _lastUpdated"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.c29ydA.desc": {
           "source": "Convenience field mapped to the FHIR `_sort` search parameter",
@@ -1964,8 +1964,8 @@
           "message": "Sortowanie"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.c29ydA.short_desc": {
-          "source": "FHIR `_sort` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_sort`"
+          "source": "FHIR _sort search parameter",
+          "message": "Parametr wyszukiwania FHIR _sort"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.c2VjdXJpdHk.desc": {
           "source": "Convenience field mapped to the FHIR `_security` search parameter",
@@ -1976,8 +1976,8 @@
           "message": "Bezpieczeństwo"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.c2VjdXJpdHk.short_desc": {
-          "source": "FHIR `_security` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_security`"
+          "source": "FHIR _security search parameter",
+          "message": "Parametr wyszukiwania FHIR _security"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.cGFyYW1z.desc": {
           "source": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, `_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n**Example**: `{\"family\": \"Smith\"}`",
@@ -2000,8 +2000,8 @@
           "message": "Profil"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.cHJvZmlsZQ.short_desc": {
-          "source": "FHIR `_profile` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_profile`"
+          "source": "FHIR _profile search parameter",
+          "message": "Parametr wyszukiwania FHIR _profile"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.cmV2aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for repeated reverse include values",
@@ -2012,8 +2012,8 @@
           "message": "RevInclude"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.cmV2aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_revinclude` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_revinclude`"
+          "source": "FHIR _revinclude search parameter",
+          "message": "Parametr wyszukiwania FHIR _revinclude"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.dGFn.desc": {
           "source": "Convenience field mapped to the FHIR `_tag` search parameter",
@@ -2024,8 +2024,8 @@
           "message": "Tag"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.dGFn.short_desc": {
-          "source": "FHIR `_tag` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_tag`"
+          "source": "FHIR _tag search parameter",
+          "message": "Parametr wyszukiwania FHIR _tag"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.dGV4dA.desc": {
           "source": "Convenience field mapped to the FHIR `_text` full-text search parameter",
@@ -2036,8 +2036,8 @@
           "message": "Tekst"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.option.dGV4dA.short_desc": {
-          "source": "FHIR `_text` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_text`"
+          "source": "FHIR _text search parameter",
+          "message": "Parametr wyszukiwania FHIR _text"
         },
         "app.RkhJUg.action.c2VhcmNoLXBhdGllbnQ.short_desc": {
           "source": "Search FHIR Patient resources",
@@ -2060,8 +2060,8 @@
           "message": "Liczba"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.Y291bnQ.short_desc": {
-          "source": "FHIR `_count` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_count`"
+          "source": "FHIR _count search parameter",
+          "message": "Parametr wyszukiwania FHIR _count"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.Y29udGVudA.desc": {
           "source": "Convenience field mapped to the FHIR `_content` full-content search parameter",
@@ -2072,8 +2072,8 @@
           "message": "Zawartość"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.Y29udGVudA.short_desc": {
-          "source": "FHIR `_content` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_content`"
+          "source": "FHIR _content search parameter",
+          "message": "Parametr wyszukiwania FHIR _content"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_include` search parameter; use a list for repeated include values",
@@ -2084,8 +2084,8 @@
           "message": "Include"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_include` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_include`"
+          "source": "FHIR _include search parameter",
+          "message": "Parametr wyszukiwania FHIR _include"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.aWQ.desc": {
           "source": "Convenience field mapped to the FHIR `_id` search parameter",
@@ -2096,8 +2096,8 @@
           "message": "Wyszukiwanie według ID"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.aWQ.short_desc": {
-          "source": "FHIR `_id` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_id`"
+          "source": "FHIR _id search parameter",
+          "message": "Parametr wyszukiwania FHIR _id"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.bGFzdF91cGRhdGVk.desc": {
           "source": "Convenience field mapped to the FHIR `_lastUpdated` search parameter",
@@ -2108,8 +2108,8 @@
           "message": "Ostatnia aktualizacja"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.bGFzdF91cGRhdGVk.short_desc": {
-          "source": "FHIR `_lastUpdated` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_lastUpdated`"
+          "source": "FHIR _lastUpdated search parameter",
+          "message": "Parametr wyszukiwania FHIR _lastUpdated"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.c29ydA.desc": {
           "source": "Convenience field mapped to the FHIR `_sort` search parameter",
@@ -2120,8 +2120,8 @@
           "message": "Sortowanie"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.c29ydA.short_desc": {
-          "source": "FHIR `_sort` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_sort`"
+          "source": "FHIR _sort search parameter",
+          "message": "Parametr wyszukiwania FHIR _sort"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.c2VjdXJpdHk.desc": {
           "source": "Convenience field mapped to the FHIR `_security` search parameter",
@@ -2132,8 +2132,8 @@
           "message": "Bezpieczeństwo"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.c2VjdXJpdHk.short_desc": {
-          "source": "FHIR `_security` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_security`"
+          "source": "FHIR _security search parameter",
+          "message": "Parametr wyszukiwania FHIR _security"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.cGFyYW1z.desc": {
           "source": "FHIR search parameters as a hash. Keys are FHIR parameter names such as `family`, `_include`, or `_revinclude`; list values are sent as repeated query parameters.\n\n**Example**: `{\"family\": \"Smith\"}`",
@@ -2156,8 +2156,8 @@
           "message": "Profil"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.cHJvZmlsZQ.short_desc": {
-          "source": "FHIR `_profile` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_profile`"
+          "source": "FHIR _profile search parameter",
+          "message": "Parametr wyszukiwania FHIR _profile"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.cmV2aW5jbHVkZQ.desc": {
           "source": "Convenience field mapped to the FHIR `_revinclude` search parameter; use a list for repeated reverse include values",
@@ -2168,8 +2168,8 @@
           "message": "RevInclude"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.cmV2aW5jbHVkZQ.short_desc": {
-          "source": "FHIR `_revinclude` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_revinclude`"
+          "source": "FHIR _revinclude search parameter",
+          "message": "Parametr wyszukiwania FHIR _revinclude"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.cmVzb3VyY2VfdHlwZQ.desc": {
           "source": "FHIR resource type to search",
@@ -2192,8 +2192,8 @@
           "message": "Tag"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.dGFn.short_desc": {
-          "source": "FHIR `_tag` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_tag`"
+          "source": "FHIR _tag search parameter",
+          "message": "Parametr wyszukiwania FHIR _tag"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.dGV4dA.desc": {
           "source": "Convenience field mapped to the FHIR `_text` full-text search parameter",
@@ -2204,8 +2204,8 @@
           "message": "Tekst"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.option.dGV4dA.short_desc": {
-          "source": "FHIR `_text` search parameter",
-          "message": "Parametr wyszukiwania FHIR `_text`"
+          "source": "FHIR _text search parameter",
+          "message": "Parametr wyszukiwania FHIR _text"
         },
         "app.RkhJUg.action.c2VhcmNoLXJlc291cmNlcw.short_desc": {
           "source": "Search FHIR resources with query parameters",
